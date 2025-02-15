@@ -4,11 +4,33 @@
 
 ## Overview
 
-_In this document, based on the available project outline and summary of the project pitch, to the best of your abilities, you will come up with the technical plan or goals for implementing the project such that it best meets the stakeholder requirements._
+_The AI-Assisted Grading Tool for Written Answers and Complex Assignments is a project for Boston University’s Metropolitan College Office of Education Technology and Innovation (MET ETI). The tool aims to refine and optimize AI-assisted grading capabilities for CS 581 quizzes and assignments using Azure AI Studio, GPT-4o, and Retrieval-Augmented Generation (RAG). The main challenges include grading consistency, accuracy, and alignment with instructor expectations. The AI model will need to evaluate student responses, process supplemental course material, and support file-based grading._
 
 ### A. Provide a solution in terms of human actions to confirm if the task is within the scope of automation through AI.
 
-*To assist in outlining the steps needed to achieve our final goal, outline the AI-less process that we are trying to automate with Machine Learning. Provide as much detail as possible.*
+*Current Process:*
+
+A CS 581 student submits a quiz or assignment in Blackboard.
+
+The instructor or TA manually grades the response by referencing rubrics and sample correct answers.
+
+The graded response is entered into Blackboard.
+
+A review is conducted for consistency across multiple graders.
+
+*AI-Assisted Process:*
+
+A student submits a quiz or assignment.
+
+The response is sent via API to an AI model.
+
+The AI grades the response using predefined rubrics, sample answers, and supplemental course material.
+
+The AI returns a structured response including a score and explanation.
+
+The instructor reviews and confirms the AI’s evaluation before finalizing the grade in Blackboard.
+
+AI-graded responses are logged for consistency analysis.
 
 ### B. Problem Statement:
 
