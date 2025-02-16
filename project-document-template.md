@@ -66,11 +66,12 @@ AI-graded responses are logged for consistency analysis.
 
 ### References
 
-1. 
+- MET ETI AI-Assisted Grading Requirements Document
+
+- Azure AI Studio Documentation
+
+- GPT-4o, Claude, and LLaMA API Documentation
 
 ## Weekly Meeting Updates
 
 *Keep track of ongoing meetings in the Project Description document prepared by Spark staff for your project.*
-
-
-Note: Once this markdown is finalized and merge, the contents of this should also be appended to the Project Description document.
