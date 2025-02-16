@@ -1,6 +1,6 @@
 # Technical Project Document Template
 
-## *Josh Yip, ..., 2025-February-15 vx.x.x-dev*
+## *Josh Yip, Zach Gentile..., 2025-February-15 vx.x.x-dev*
 
 ## Overview
 
@@ -40,8 +40,13 @@ AI-graded responses are logged for consistency analysis.
 
 *Provide a bulleted list to the best of your current understanding, of the concrete techinal goals and artifacts that, when complete, define the completion of the project. This checklist will likely evolve as your project progresses.*
 
-1. Deliverable 1
-2. Deliverable 2
+1. The optimal AI platform for ETI's use case, with documentation on how to access the environment we have set up using this platform, as well as how to use its API.
+
+2. The optimal AI model for ETI's use case, with documentation on how to use the model and its API.
+
+3. The optimal method of adding course material and data for ETI's use case and detailed documentation on how to do this.
+
+4. A set of clear and relevant metric summaries on how we improved performance of AI autograding on CS 581's quiz and assignment data.
 
 ### D. Outline a path to operationalization.
 
@@ -51,15 +56,22 @@ AI-graded responses are logged for consistency analysis.
 
 ### Data Sets
 
-- 
+- Student responses from CS 581 quizzes and assignments
+
+- Instructor-provided rubrics and sample answers
+
+- Supplementary course material (PDFs, slides, videos)
+
+
 
 ### References
 
-1. 
+- MET ETI AI-Assisted Grading Requirements Document
+
+- Azure AI Studio Documentation
+
+- GPT-4o, Claude, and LLaMA API Documentation
 
 ## Weekly Meeting Updates
 
 *Keep track of ongoing meetings in the Project Description document prepared by Spark staff for your project.*
-
-
-Note: Once this markdown is finalized and merge, the contents of this should also be appended to the Project Description document.
