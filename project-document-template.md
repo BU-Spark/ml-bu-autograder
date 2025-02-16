@@ -80,7 +80,7 @@ To define the **successful completion** of this project, we aim to deliver:
 
 ## D. Outline a Path to Operationalization
 
-The goal is to deliver a **production-ready API**. The final deployment strategy includes:
+The problem at hand is improving the consistency, accuracy, and reliability of AI-assisted grading for short-answer quizzes and file-based assignments. The AI model must extract a clear score and justification while referencing structured supplemental data, rubrics, and student-uploaded files. The solution should also support file processing, external links, and potential web browsing capabilities for retrieving relevant material. The goal is to deliver a **production-ready API**. The final deployment strategy includes:
 
 ### 🌐 **Integration with Blackboard & LMS systems**
 
