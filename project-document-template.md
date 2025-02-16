@@ -1,6 +1,6 @@
 # Technical Project Document Template
 
-## *Josh Yip, Zach Gentile..., 2025-February-15 vx.x.x-dev*
+## *Josh Yip, Zach Gentile, Aseef Mohammad, Fahim Uddin, 2025-February-15 vx.x.x-dev*
 
 ## Overview
 
@@ -51,6 +51,8 @@ AI-graded responses are logged for consistency analysis.
 ### D. Outline a path to operationalization.
 
 *Data Science Projects should have an operationalized end point in mind from the onset. Briefly describe how you see the tool produced by this project being used by the end user beyond a jupyter notebook or proof of concept. If possible, be specific and call out the relevant technologies that will be useful when making this available to the stakeholders as a final deliverable.*
+
+The problem at hand is improving the consistency, accuracy, and reliability of AI-assisted grading for short-answer quizzes and file-based assignments. The AI model must extract a clear score and justification while referencing structured supplemental data, rubrics, and student-uploaded files. The solution should also support file processing, external links, and potential web browsing capabilities for retrieving relevant material.
 
 ## Resources
 
