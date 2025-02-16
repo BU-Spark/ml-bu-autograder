@@ -95,7 +95,7 @@ Below is a visual representation of our current workflow for the MET BU Autograd
 
 ## 📜 License  
 
-This project is licensed under the **GNU General Public License (GPL)**. See the [LICENSE.txt](LICENSE.txt) file for more details.
+This project is licensed under the **GNU General Public License (GPL)**. See the [LICENSE](LICENSE) file for more details.
 
 ---
 
