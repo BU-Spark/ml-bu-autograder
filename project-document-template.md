@@ -51,7 +51,13 @@ AI-graded responses are logged for consistency analysis.
 
 ### Data Sets
 
-- 
+- Student responses from CS 581 quizzes and assignments
+
+- Instructor-provided rubrics and sample answers
+
+- Supplementary course material (PDFs, slides, videos)
+
+
 
 ### References
 
