@@ -4,11 +4,7 @@
 
 ## 📝 Overview
 
-The **AI-Assisted Grading Tool** for written answers and complex assignments is a project for **Boston University’s Metropolitan College Office of Education Technology and Innovation (MET ETI)**. This tool is designed to enhance grading consistency, accuracy, and alignment with instructor expectations for **CS 581 quizzes and assignments** using:
-
-✅ **Azure AI Studio**\
-✅ **GPT-4o**\
-✅ **Retrieval-Augmented Generation (RAG)**
+The **AI-Assisted Grading Tool** for written answers and complex assignments is a project for **Boston University’s Metropolitan College Office of Education Technology and Innovation (MET ETI)**. This tool is designed to enhance grading consistency, accuracy, and alignment with instructor expectations for **CS 581 quizzes and assignments**.
 
 The AI model will be capable of:
 
@@ -124,8 +120,8 @@ This diagram provides a (preliminary) step-by-step breakdown of how requests flo
 ### 📖 References
 
 - 📄 **MET ETI AI-Assisted Grading Requirements Document**.
-- 📌 **Azure AI Studio Documentation**.
-- 🤖 **GPT-4o, Claude, LLaMA API Docs**.
+- 📌 **Azure Documentation**.
+- 🤖 **GPT-4o, Claude, LLaMA, DeepSeek, Grok3 API Docs**.
 
 ---
 
