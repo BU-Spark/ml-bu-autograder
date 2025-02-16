@@ -40,8 +40,13 @@ AI-graded responses are logged for consistency analysis.
 
 *Provide a bulleted list to the best of your current understanding, of the concrete techinal goals and artifacts that, when complete, define the completion of the project. This checklist will likely evolve as your project progresses.*
 
-1. Deliverable 1
-2. Deliverable 2
+1. The optimal AI platform for ETI's use case, with documentation on how to access the environment we have set up using this platform, as well as how to use its API.
+
+2. The optimal AI model for ETI's use case, with documentation on how to use the model and its API.
+
+3. The optimal method of adding course material and data for ETI's use case and detailed documentation on how to do this.
+
+4. A set of clear and relevant metric summaries on how we improved performance of AI autograding on CS 581's quiz and assignment data.
 
 ### D. Outline a path to operationalization.
 
