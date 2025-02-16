@@ -58,17 +58,6 @@ Developed as part of a **Boston University SPARK** project for **BU MET ETI**, t
 
 ---
 
-## 👥 Team  
-
-| 👤 **First Name**  | **Last Name**  | ✉️ **Email Address**  | 🖥️ **GitHub Username**  |
-|:------------------|:--------------|:----------------------|:-----------------------|
-| Fahim            | Uddin         | fahuddin@bu.edu      | [fahimuddin/fahimuddin1](https://github.com/fahimuddin/fahimuddin1) |
-| Zach             | Gentile       | zgentile@bu.edu      | [zgentile](https://github.com/zgentile) |
-| Josh             | Yip           | joshyjip@bu.edu      | [joshyipp](https://github.com/joshyipp) |
-| Muhammad Aseef   | Imran         | aseef@bu.edu         | [Aseeef](https://github.com/Aseeef) |
-
----
-
 ## 📌 Development Roadmap  
 
 🚀 **Phase 0:** Project Vision & Goals ✅
@@ -85,13 +74,32 @@ Developed as part of a **Boston University SPARK** project for **BU MET ETI**, t
 
 ---
 
+## 📊 Workflow Diagram
+
+Below is a visual representation of our current workflow for the MET BU Autograder workflow:
+
+![proposed-workflow](proposed-workflow.png)
+
+---
+
+## 👥 Team  
+
+| 👤 **First Name**  | **Last Name**  | ✉️ **Email Address**  | 🖥️ **GitHub Username**  |
+|:------------------|:--------------|:----------------------|:-----------------------|
+| Fahim            | Uddin         | fahuddin@bu.edu      | [fahimuddin/fahimuddin1](https://github.com/fahimuddin/fahimuddin1) |
+| Zach             | Gentile       | zgentile@bu.edu      | [zgentile](https://github.com/zgentile) |
+| Josh             | Yip           | joshyjip@bu.edu      | [joshyipp](https://github.com/joshyipp) |
+| Muhammad Aseef   | Imran         | aseef@bu.edu         | [Aseeef](https://github.com/Aseeef) |
+
+---
+
 ## 📜 License  
 
 This project is licensed under the **GNU General Public License (GPL)**. See the [LICENSE.txt](LICENSE.txt) file for more details.
 
 ---
 
-> **Note**: This project is in active development. For more details on installation, usage, or contributing, please refer to the project’s documentation and issue tracker.  
+> ⚠️ **Note**: This project is in active development. For more details on installation, usage, or contributing, please refer to the project’s documentation and issue tracker.  
 
 ---
 
