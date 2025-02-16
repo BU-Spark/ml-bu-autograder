@@ -54,7 +54,7 @@ Developed as part of a **Boston University SPARK** project for **BU MET ETI**, t
 🔵 **Others**:  
    - LLM integration (multiple providers)  
    - Vector databases (for retrieval-augmented generation)  
-   - Web crawling utilities  
+   - Web crawling utilities (Selenium, requests)
 
 ---
 
