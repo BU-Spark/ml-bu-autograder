@@ -1,79 +1,135 @@
-# Technical Project Document Template
+# MET BU Autograder - Technical Project Document 🚀
 
-## *Josh Yip, Zach Gentile Aseef Mohammad, Fahim Uddin 2025-February-15 vx.x.x-dev*
+## *Josh Yip, Zach Gentile, Muhammad Aseef Imran, Fahim Uddin – 2025-February-15 vx.x.x-dev*
 
-## Overview
+## 📝 Overview
 
-_The AI-Assisted Grading Tool for Written Answers and Complex Assignments is a project for Boston University’s Metropolitan College Office of Education Technology and Innovation (MET ETI). The tool aims to refine and optimize AI-assisted grading capabilities for CS 581 quizzes and assignments using Azure AI Studio, GPT-4o, and Retrieval-Augmented Generation (RAG). The main challenges include grading consistency, accuracy, and alignment with instructor expectations. The AI model will need to evaluate student responses, process supplemental course material, and support file-based grading._
+The **AI-Assisted Grading Tool** for written answers and complex assignments is a project for **Boston University’s Metropolitan College Office of Education Technology and Innovation (MET ETI)**. This tool is designed to enhance grading consistency, accuracy, and alignment with instructor expectations for **CS 581 quizzes and assignments** using:
 
-### A. Provide a solution in terms of human actions to confirm if the task is within the scope of automation through AI.
+✅ **Azure AI Studio**\
+✅ **GPT-4o**\
+✅ **Retrieval-Augmented Generation (RAG)**
 
-*Current Process:*
+The AI model will be capable of:
 
-A CS 581 student submits a quiz or assignment in Blackboard.
+- Evaluating student responses.
+- Processing supplemental course material.
+- Supporting file-based grading.
+- Ensuring cost-efficient API usage while maintaining high accuracy.
 
-The instructor or TA manually grades the response by referencing rubrics and sample correct answers.
+---
 
-The graded response is entered into Blackboard.
+## A. Provide a solution in terms of human actions to confirm if the task is within the scope of automation through AI.
 
-A review is conducted for consistency across multiple graders.
+The task **is** within the scope of AI automation. MET ETI staff have already developed an AI model achieving **93% grading consistency**, proving its effectiveness. Our goal is to **enhance and improve this model** for better reliability and alignment with instructor expectations.
 
-*AI-Assisted Process:*
+Further confirmation can be achieved by:
 
-A student submits a quiz or assignment.
+1. **Testing LLMs** with entire prompts and rubrics to validate their ability to grade accurately.
+2. **Comparing AI-graded results** with human-graded results for benchmarking.
+3. **Running pilot testing** to assess grading stability and fairness across multiple assignments.
 
-The response is sent via API to an AI model.
+### ✅ Current Process (Manual Grading):
 
-The AI grades the response using predefined rubrics, sample answers, and supplemental course material.
+1. A CS 581 student submits a quiz or assignment in **Blackboard**.
+2. The **instructor or TA manually grades** responses using rubrics and sample correct answers.
+3. The **grade is entered** into Blackboard.
+4. A **review is conducted** for consistency across multiple graders.
 
-The AI returns a structured response including a score and explanation.
+### 🤖 AI-Assisted Process:
 
-The instructor reviews and confirms the AI’s evaluation before finalizing the grade in Blackboard.
+1. A student submits a quiz or assignment.
+2. The response is **sent via API to the AI model**.
+3. The AI **grades the response** using:
+   - Predefined **rubrics** 📜
+   - Sample answers ✅
+   - Supplemental **course material** 📂
+4. The AI **returns a structured response**, including a **score & explanation**.
+5. The **instructor reviews and confirms** the AI’s evaluation before **finalizing the grade**.
+6. AI-graded responses are **logged for consistency analysis** 📊.
 
-AI-graded responses are logged for consistency analysis.
+---
 
-### B. Problem Statement:
+## B. Problem Statement
 
-*The problem at hand is improving the consistency, accuracy, and reliability of AI-assisted grading for short-answer quizzes and file-based assignments. The AI model must extract a clear score and justification while referencing structured supplemental data, rubrics, and student-uploaded files. The solution should also support file processing, external links, and potential web browsing capabilities for retrieving relevant material.*
+The primary challenge is ensuring **consistency, accuracy, and reliability** in AI-assisted grading for **short-answer quizzes and file-based assignments**. The AI model must:
 
-### C. Checklist for project completion
+- Extract **clear scores and justifications**.
+- Reference **structured supplemental data** (e.g., rubrics, external materials, PDFs, and slides).
+- Support **various file types**.
+- Potentially **retrieve relevant external information** (e.g., web browsing and document parsing capabilities).
 
-*Provide a bulleted list to the best of your current understanding, of the concrete techinal goals and artifacts that, when complete, define the completion of the project. This checklist will likely evolve as your project progresses.*
+---
 
-1. The optimal AI platform for ETI's use case, with documentation on how to access the environment we have set up using this platform, as well as how to use its API.
+## C. Checklist for Project Completion
 
-2. The optimal AI model for ETI's use case, with documentation on how to use the model and its API.
+To define the **successful completion** of this project, we aim to deliver:
 
-3. The optimal method of adding course material and data for ETI's use case and detailed documentation on how to do this.
+### 🎯 Core Deliverables:
 
-4. A set of clear and relevant metric summaries on how we improved performance of AI autograding on CS 581's quiz and assignment data.
+- **Optimal AI platform** for MET ETI’s use case.
+  - 🔹 **Documentation**: Setup instructions, environment access, API usage.
+- **Optimal AI model** tailored for grading.
+  - 🔹 **Documentation**: API usage, fine-tuning instructions.
+- **Efficient method for adding course materials** (RAG-based document retrieval & storage).
+  - 🔹 **Guidelines** on integrating **PDFs, slides, videos**.
+- **Performance metrics & evaluation reports** 📈.
+  - 🔹 **Improvement summary** of AI auto-grading performance for CS 581.
 
-### D. Outline a path to operationalization.
+---
 
-*Data Science Projects should have an operationalized end point in mind from the onset. Briefly describe how you see the tool produced by this project being used by the end user beyond a jupyter notebook or proof of concept. If possible, be specific and call out the relevant technologies that will be useful when making this available to the stakeholders as a final deliverable.*
+## D. Outline a Path to Operationalization
 
-The problem at hand is improving the consistency, accuracy, and reliability of AI-assisted grading for short-answer quizzes and file-based assignments. The AI model must extract a clear score and justification while referencing structured supplemental data, rubrics, and student-uploaded files. The solution should also support file processing, external links, and potential web browsing capabilities for retrieving relevant material.
+The problem at hand is improving the consistency, accuracy, and reliability of AI-assisted grading for short-answer quizzes and file-based assignments. The AI model must extract a clear score and justification while referencing structured supplemental data, rubrics, and student-uploaded files. The solution should also support file processing, external links, and potential web browsing capabilities for retrieving relevant material. The goal is to deliver a **production-ready API**. The final deployment strategy includes:
 
-## Resources
+### 🌐 **Integration with Blackboard & LMS systems**
 
-### Data Sets
+- API endpoints to **automate quiz & assignment grading**.
+  - FastAPI has built in tools to create documentation for your API with low-effort which we intend to utilize.
+- (Time Permitting) Web-based dashboard for **grading logs & analytics**.
 
-- Student responses from CS 581 quizzes and assignments
+### ☁️ **Deployment Strategy**
 
-- Instructor-provided rubrics and sample answers
+- **Cloud-based API** hosted on **Azure / FastAPI backend**.
+- **Database & vector storage** for **retrieval-augmented grading**.
+  - *Note, which vector database or whether this vector database would be required even still requires more research.*
+- **API Authentication & security layers** to protect student data.
 
-- Supplementary course material (PDFs, slides, videos)
+### 🔗 **Long-Term Maintenance Plan**
 
+- Clear **documentation** for using the Grading Tool's API.
+- Pipeline for **future AI model upgrades**.
+- **Feedback loop** for improving grading accuracy.
 
+---
 
-### References
+## 📊 Workflow Diagram
 
-- MET ETI AI-Assisted Grading Requirements Document
+Below is a visual representation of the MET BU Autograder workflow:
 
-- Azure AI Studio Documentation
+![proposed-workflow](proposed-workflow.png)
 
-- GPT-4o, Claude, and LLaMA API Documentation
+This diagram provides a (preliminary) step-by-step breakdown of how requests flow through the system, from initial submission to AI-assisted grading.
 
-## Weekly Meeting Updates
+---
 
-*Keep track of ongoing meetings in the Project Description document prepared by Spark staff for your project.*
+## 📂 Resources
+
+### 📊 Data Sets
+
+- 📝 **Student responses** from CS 581 quizzes & assignments.
+- 📑 **Instructor-provided rubrics & sample answers**.
+- 📚 **Supplementary course materials** (PDFs, slides, videos).
+
+### 📖 References
+
+- 📄 **MET ETI AI-Assisted Grading Requirements Document**.
+- 📌 **Azure AI Studio Documentation**.
+- 🤖 **GPT-4o, Claude, LLaMA API Docs**.
+
+---
+
+## 🗓️ Weekly Meeting Updates
+
+Ongoing meetings and updates will be tracked in the **Project Description Document** prepared by **Spark staff** for this project.
+
