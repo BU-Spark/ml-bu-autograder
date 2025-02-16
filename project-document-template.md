@@ -1,6 +1,6 @@
 # Technical Project Document Template
 
-## *Josh Yip, ..., 2025-February-15 vx.x.x-dev*
+## *Josh Yip, Zach Gentile..., 2025-February-15 vx.x.x-dev*
 
 ## Overview
 
