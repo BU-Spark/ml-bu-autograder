@@ -4,11 +4,7 @@
 
 ## 📝 Overview
 
-The **AI-Assisted Grading Tool** for written answers and complex assignments is a project for **Boston University’s Metropolitan College Office of Education Technology and Innovation (MET ETI)**. This tool is designed to enhance grading consistency, accuracy, and alignment with instructor expectations for **CS 581 quizzes and assignments** using:
-
-✅ **Azure AI Studio**\
-✅ **GPT-4o**\
-✅ **Retrieval-Augmented Generation (RAG)**
+The **AI-Assisted Grading Tool** for written answers and complex assignments is a project for **Boston University’s Metropolitan College Office of Education Technology and Innovation (MET ETI)**. This tool is designed to enhance grading consistency, accuracy, and alignment with instructor expectations for **CS 581 quizzes and assignments**.
 
 The AI model will be capable of:
 
@@ -80,7 +76,7 @@ To define the **successful completion** of this project, we aim to deliver:
 
 ## D. Outline a Path to Operationalization
 
-The goal is to deliver a **production-ready API**. The final deployment strategy includes:
+The problem at hand is improving the consistency, accuracy, and reliability of AI-assisted grading for short-answer quizzes and file-based assignments. The AI model must extract a clear score and justification while referencing structured supplemental data, rubrics, and student-uploaded files. The solution should also support file processing, external links, and potential web browsing capabilities for retrieving relevant material. The goal is to deliver a **production-ready API**. The final deployment strategy includes:
 
 ### 🌐 **Integration with Blackboard & LMS systems**
 
@@ -124,8 +120,8 @@ This diagram provides a (preliminary) step-by-step breakdown of how requests flo
 ### 📖 References
 
 - 📄 **MET ETI AI-Assisted Grading Requirements Document**.
-- 📌 **Azure AI Studio Documentation**.
-- 🤖 **GPT-4o, Claude, LLaMA API Docs**.
+- 📌 **Azure Documentation**.
+- 🤖 **GPT-4o, Claude, LLaMA, DeepSeek, Grok3 API Docs**.
 
 ---
 
