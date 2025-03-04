@@ -24,7 +24,7 @@ dot.node('Rubric', 'Rubric', shape='box')
 dot.node('LLMAPI', 'LLM API', shape='ellipse', style='filled', fillcolor='lightpink')
 dot.node('RAG', 'RAG', shape='ellipse', style='filled', fillcolor='lightgreen')
 dot.node('GradedAssignments', 'Graded Assignments w/ Feedback', shape='box')
-dot.node('Postgres', '(Postgres)\n- Vector Store\n- State Store', shape='cylinder', style='filled', fillcolor='orange')
+dot.node('StorageEngine', '(Storage Engine)\n- Vector Store\n- State Store', shape='cylinder', style='filled', fillcolor='orange')
 dot.node('OUT', 'OUT', shape='ellipse', style='filled', fillcolor='lightblue')
 
 # Edges
@@ -64,15 +64,15 @@ dot.edge('AssignmentQuestions', 'Text', color='red')
 dot.edge('Rubric', 'Text', color='red')
 
 # Text goes into Vector Store for RAG and LLM API
-dot.edge('Text', 'Postgres', label='If is course material\nsaved structured text\nto vector store', color='blue')
-dot.edge('Postgres', 'RAG', color='red')
+dot.edge('Text', 'StorageEngine', label='If is course material\nsaved structured text\nto vector store', color='blue')
+dot.edge('StorageEngine', 'RAG', color='red')
 dot.edge('Text', 'LLMAPI', label='If student response, \ncombine w/ Rubric\n+ Assignment Prompt', color='red')
 dot.edge('RAG', 'LLMAPI', color='red')
 
 # Grading and results storage
 dot.edge('LLMAPI', 'GradedAssignments', color='red')
-dot.edge('GradedAssignments', 'Postgres', label='Results saved', color='red')
-dot.edge('Postgres', 'OUT')
+dot.edge('GradedAssignments', 'StorageEngine', label='Results saved', color='red')
+dot.edge('StorageEngine', 'OUT')
 
 # Render the graph
 graph_path = "ai_autograder_workflow_corrected"
