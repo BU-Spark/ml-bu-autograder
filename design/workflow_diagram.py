@@ -7,6 +7,7 @@ dot.attr(rankdir='TB')
 
 # Nodes
 dot.node('IN', 'IN', shape='ellipse', style='filled', fillcolor='lightblue')
+dot.node('InstructorGuidelines', 'Instructor Guidelines', shape='ellipse', style='filled', fillcolor='lightblue')
 dot.node('Router', 'Router', shape='box', style='filled', fillcolor='lightgray')
 dot.node('FeatureExtraction', 'Feature Extraction\n(Web-scraping, Doc-\nument Intelligence,\n etc...)', shape='box')
 dot.node('Powerpoint', 'Powerpoint', shape='box')
@@ -22,6 +23,7 @@ dot.node('Text', 'Text', shape='box', style='filled', fillcolor='lightgray')
 dot.node('AssignmentQuestions', 'Assignment Questions', shape='box')
 dot.node('Rubric', 'Rubric', shape='box')
 dot.node('LLMAPI', 'LLM API', shape='ellipse', style='filled', fillcolor='lightpink')
+dot.node('LLMAPI_Instr', 'LLM API', shape='ellipse', style='filled', fillcolor='lightpink')
 dot.node('RAG', 'RAG', shape='ellipse', style='filled', fillcolor='lightgreen')
 dot.node('GradedAssignments', 'Graded Assignments w/ Feedback', shape='box')
 dot.node('StorageEngine', '(Storage Engine)\n- Vector Store\n- State Store', shape='cylinder', style='filled', fillcolor='orange')
@@ -73,6 +75,12 @@ dot.edge('RAG', 'LLMAPI', color='red')
 dot.edge('LLMAPI', 'GradedAssignments', color='red')
 dot.edge('GradedAssignments', 'StorageEngine', label='Results saved', color='red')
 dot.edge('StorageEngine', 'OUT')
+
+# Additional sub-pipeline for Rubric generation
+dot.edge('InstructorGuidelines', 'LLMAPI_Instr', color='green')
+dot.edge('AssignmentQuestions', 'LLMAPI_Instr', color='green')
+dot.edge('LLMAPI_Instr', 'Rubric', color='green')
+dot.edge('Text', 'Rubric', color='green', label='Sample student responses\nmay increase rubric\nquality.')
 
 # Render the graph
 graph_path = "ai_autograder_workflow_corrected"
