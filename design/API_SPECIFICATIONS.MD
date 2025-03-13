@@ -1,137 +1,139 @@
-# BU MET Autograder API Design Specifications (V1)
+# BU MET Autograder API Design Specifications (V2.1)
 
 ## Table of Contents
 
 1. [Objects](#objects)
-   - [User (A Course Instructor)](#user)
-   - [Personal Authentication Token](#personal-authentication-token)
-   - [Access Token](#access-token)
-   - [Rubric](#rubric)
-   - [Course](#course)
-   - [Assignment](#assignment)
-   - [Course Material](#course-material)
-   - [Student](#student)
-   - [Student Response](#student-response)
-   - [Grade](#grade)
+   - [user](#user)
+   - [personal_authentication_token](#personal_authentication_token)
+   - [access_token](#access_token)
+   - [rubric](#rubric)
+   - [course](#course)
+   - [assignment](#assignment)
+   - [course_material](#course_material)
+   - [student](#student)
+   - [student_response](#student_response)
+   - [grade](#grade)
 
-2. [API Endpoints](#api-endpoints)
+2. [API Endpoints](#api_endpoints)
    - **User Authentication Endpoints**
-     - [POST /auth/token](#post-authtoken)
-     - [DELETE /auth/token](#delete-authtoken)
-     - [GET /auth/tokens](#get-authtokens)
-     - [GET /auth/google-oauth](#get-authgoogle-oauth)
+     - [POST /auth/token](#post_auth_token)
+     - [DELETE /auth/token](#delete_auth_token)
+     - [GET /auth/tokens](#get_auth_tokens)
+     - [GET /auth/google_oauth](#get_auth_google_oauth)
    - **Course Endpoints**
-     - [POST /course](#post-course)
-     - [DELETE /course](#delete-course)
-     - [PATCH /course/transfer](#patch-coursetransfer)
-     - [GET /courses](#get-courses)
-     - [POST/DELETE /course/instructor](#postdelete-courseinstructor)
-   - **Assignments Endpoints**
-     - [POST /assignment](#post-assignment)
-     - [PATCH /assignment/<action>](#patch-assignmentaction)
-     - [GET /assignment](#get-assignment)
-     - [GET /assignments](#get-assignments)
-     - [DELETE /assignment](#delete-assignment)
+     - [POST /course](#post_course)
+     - [DELETE /course](#delete_course)
+     - [PATCH /course/transfer](#patch_course_transfer)
+     - [GET /courses](#get_courses)
+     - [POST /course/instructor](#post_course_instructor)
+     - [DELETE /course/instructor](#delete_course_instructor)
+   - **Assignment Endpoints**
+     - [POST /assignment](#post_assignment)
+     - [PATCH /assignment/add_question](#patch_assignment_add_question)
+     - [PATCH /assignment/remove_question](#patch_assignment_remove_question)
+     - [PATCH /assignment/edit_question](#patch_assignment_edit_question)
+     - [PATCH /assignment/modify_order](#patch_assignment_modify_order)
+     - [GET /assignment](#get_assignment)
+     - [GET /assignments](#get_assignments)
+     - [DELETE /assignment](#delete_assignment)
    - **Student Response Endpoints**
-     - [POST /response](#post-response)
-     - [PUT /response](#put-response)
-     - [DELETE /response](#delete-response)
-     - [GET /responses](#get-responses)
-     - [POST /response/grade](#post-responsegrade)
+     - [POST /response](#post_response)
+     - [PUT /response](#put_response)
+     - [DELETE /response](#delete_response)
+     - [GET /responses](#get_responses)
+     - [POST /response/grade](#post_response_grade)
    - **Course Material Endpoints**
-     - [POST /course-material](#post-course-material)
-     - [DELETE /course-material](#delete-course-material)
-     - [PATCH /course-material](#patch-course-material)
-   - **Rubrics Endpoints**
-     - [POST /rubric](#post-rubric)
-     - [PATCH /enhance-rubric](#patch-enhance-rubric)
-     - [GET /rubric](#get-rubric)
+     - [POST /course_material](#post_course_material)
+     - [DELETE /course_material](#delete_course_material)
+     - [PATCH /course_material](#patch_course_material)
+   - **Rubric Endpoints**
+     - [POST /rubric](#post_rubric)
+     - [PUT /ai_rubric](#put_ai_rubric)
+     - [GET /rubric](#get_rubric)
 
 ---
 
 ## Objects
 
-This section describes the composition and fields of the various objects used throughout the API.
+### [user](#user)
+- **user_id** (Non-Null): Internal unique identifier.
+- **first_name** (Nullable): The user's first name.
+- **last_name** (Nullable): The user's last name.
+- **user_email** (Non-Null): The user's email address.
 
-### [User](#user)
-- **User ID (Non-Null):** Internal unique identifier of the user.
-- **First Name (Nullable):** The user’s first name.
-- **Last Name (Nullable):** The user’s last name.
-- **User Email (Non-Null):** The email address of the user.
+### [personal_authentication_token](#personal_authentication_token)
+A JSON Web Token (JWT) for interactive sessions on the official front end.
+- **user_id** (Non-Null): The identifier of the user.
+- **authentication_token** (Non-Null): The JWT string.
 
-### [Personal Authentication Token](#personal-authentication-token)
-This JSON Web Token (JWT) is intended for interactive sessions on the official front end.
-- **User ID (Non-Null):** The identifier of the user.
-- **Authentication Token (Non-Null):** The JWT string.
+### [access_token](#access_token)
+Used for programmatic API access; it cannot generate additional access tokens.
+- **user_id** (Non-Null): The token owner's identifier.
+- **token_name** (Non-Null): A friendly name for the token (must be unique per user).
+- **token_id** (Non-Null): The secret token string (displayed only once during creation).
+- **token_expiry** (Nullable): Expiration time. If omitted, the token never expires.
 
-### [Access Token](#access-token)
-This token is used to access the API programmatically. It is functionally similar to the Personal Authentication Token except that it cannot be used to generate additional access tokens.
-- **User ID (Non-Null):** The identifier of the token owner.
-- **Token Name (Non-Null):** A friendly name for the token (must be unique per user).
-- **Token ID (Non-Null):** The secret token string (displayed only once during creation).
-- **Token Expiry (Nullable):** Expiration time of the token. If not provided, the token never expires.
+### [rubric](#rubric)
+Contains grading instructions for the LLM regarding leniency, point allocations, and deductions.
+- **assignment_id** (Non-Null): The associated assignment's ID.
+- **leniency** (Non-Null, Integer 1–5): Overall leniency rating.
+  - **5:** Grade mostly on effort; minor work shown means minimal point deductions.
+  - **1:** Strict adherence to guidelines; deviations may lose points.
+- **overall_instructor_guidelines** (Nullable): General grading criteria for all questions.
+- **sub_rubrics** (Non-Null): A list of objects, each containing:
+  - **question_index** (Non-Null): The question index.
+  - **maximum_points** (Non-Null): Maximum points available.
+  - **leniency** (Non-Null, Integer 1–5, Defaults to 3): Specific leniency for the question.
+  - **instructor_guideline** (Nullable): Detailed grading criteria.
 
-### [Rubric](#rubric)
-The Rubric object contains the grading instructions for the LLM regarding leniency, point allocations, and deductions.
-- **Assignment ID (Non-Null):** The ID of the associated assignment.
-- **Leniency (Non-Null, Integer 1–5):** How lenient the grading should be.
-  - **5:** Grade based mostly on effort; points are deducted only if no work is shown or the work appears thoughtless.
-  - **1:** Strict adherence to instructor guidelines is required; any deviation (including vocabulary) may result in lost points.
-- **Overall Instructor Guidelines (Nullable):** General grading criteria applicable to all questions.
-- **List (Non-Null):** A list of sub-rubrics for individual questions:
-  - **Question Index (Non-Null):** The index of the question for this sub-rubric.
-  - **Maximum Points (Non-Null):** Maximum points available for this question.
-  - **Leniency (Non-Null, Integer 1–5, Defaults to 3):** Leniency for this specific question. If omitted, the global leniency is used.
-  - **Instructor Guideline (Nullable):** Detailed grading criteria for this question.
+### [course](#course)
+Represents a course; the combination of course_name and semester must be unique.
+- **course_id** (Non-Null): Unique identifier.
+- **course_owner_id** (Non-Null): The creator's user ID.
+- **course_name** (Non-Null): Name of the course.
+- **semester** (Non-Null): Semester during which the course is offered.
+- **instructors** (Non-Null): List of instructor emails.
 
-### [Course](#course)
-This object represents a course. The combination of Course Name and Semester must be unique.
-- **Course ID (Non-Null):** Unique identifier for the course.
-- **Course Owner ID (Non-Null):** The ID of the user who created the course.
-- **Course Name (Non-Null):** The name of the course.
-- **Semester (Non-Null):** The semester during which the course is offered.
-- **Instructors (Non-Null):** A list of email addresses of authenticated instructors for the course.
+### [assignment](#assignment)
+Contains questions and guidelines for an assignment or quiz.
+- **assignment_id** (Non-Null): Unique identifier.
+- **course_id** (Non-Null): The course to which it belongs.
+- **assignment_title** (Nullable): Title of the assignment.
+- **assignment_guidelines** (Nullable): General instructions or formatting requirements.
+- **ordered_list** (Non-Null): A list of questions, each containing:
+  - **question_text** (Non-Null): The question content.
+  - **question_graphics_figures** (Nullable): Associated images/figures.
 
-### [Assignment](#assignment)
-The Assignment object contains the questions and guidelines for an assignment or quiz.
-- **Assignment ID (Non-Null):** Unique identifier for the assignment.
-- **Course ID (Non-Null):** The course to which the assignment belongs.
-- **Assignment Title (Nullable):** The title of the assignment.
-- **Assignment Guidelines (Nullable):** Overall instructions or formatting requirements applicable to all questions.
-- **Ordered List (Non-Null):** A list of questions for the assignment:
-  - **Question Text (Non-Null):** The text of the question.
-  - **Question Graphics/Figures (Nullable):** Associated images or figures for the question.
+### [course_material](#course_material)
+Contains the course material and its modality.
+- **course_id** (Non-Null): Associated course ID.
+- **material_id** (Non-Null): Unique identifier.
+- **material_name** (Non-Null): Title or name of the material.
+- **additional_notes** (Nullable): Supplementary instructor notes.
+- **modality** (Non-Null): Type (video, audio, image, text, powerpoint, pdf, website).
+- **data** (Non-Null): Binary content or data.
 
-### [Course Material](#course-material)
-This object contains the course material and its modality.
-- **Course ID (Non-Null):** The associated course’s ID.
-- **Material ID (Non-Null):** Unique identifier for the material.
-- **Material Name (Non-Null):** The title or name of the material.
-- **Additional Notes (Nullable):** Any supplementary instructor notes for the material.
-- **Modality (Non-Null):** The type of material (Video, Audio, Image, Text, PowerPoint, PDF, Website).
-- **Data (Non-Null):** The actual content or data of the material.
+### [student](#student)
+Contains basic student information.
+- **student_identifier** (Non-Null): Unique identifier (e.g., BU email).
+- **first_name** (Nullable): Student's first name.
+- **last_name** (Nullable): Student's last name.
 
-### [Student](#student)
-This object contains basic information about a student.
-- **Student Identifier (Non-Null):** A unique identifier for the student (e.g., their BU email).
-- **First Name (Nullable):** The student’s first name.
-- **Last Name (Nullable):** The student’s last name.
+### [student_response](#student_response)
+Represents a student’s answer to a question.
+- **student_identifier** (Non-Null): Student's unique identifier.
+- **assignment_id** (Non-Null): The assignment's ID.
+- **question_index** (Non-Null): The question being answered.
+- **response_modality** (Non-Null): Format (video, audio, image, text, powerpoint, pdf, website).
+- **data** (Non-Null): Content of the response.
 
-### [Student Response](#student-response)
-This object represents a student’s response to a question.
-- **Student Identifier (Non-Null):** The unique identifier of the student.
-- **Assignment ID (Non-Null):** The ID of the assignment to which the response belongs.
-- **Question Index (Non-Null):** The index of the question being answered.
-- **Response Modality (Non-Null):** The type of response (Video, Audio, Image, Text, PowerPoint, PDF, Website).
-- **Data (Non-Null):** The content of the response.
-
-### [Grade](#grade)
-This object contains the grading results for a student’s response.
-- **Student Identifier (Non-Null):** The unique identifier of the student.
-- **Assignment ID (Non-Null):** The assignment ID for which the grade is given.
-- **Question Index (Non-Null):** The question index to which the grade applies.
-- **Grade (Non-Null):** The grade awarded to the student.
-- **Explanation (Nullable):** A detailed explanation of the grade based on the rubric.
+### [grade](#grade)
+Contains grading results for a student’s response.
+- **student_identifier** (Non-Null): Student's unique identifier.
+- **assignment_id** (Non-Null): Assignment identifier.
+- **question_index** (Non-Null): The question's index.
+- **grade** (Non-Null): Awarded grade.
+- **explanation** (Nullable): Explanation based on the rubric.
 
 ---
 
@@ -139,114 +141,111 @@ This object contains the grading results for a student’s response.
 
 **Base URL:** `https://{domain}/api/v1`
 
-Authentication can be performed either using an OAuth-obtained authorization token or an API-generated access token.
+Authentication can be performed using either an OAuth-obtained [personal_authentication_token](#personal_authentication_token) or an API-generated [access_token](#access_token).
 
 ---
 
 ### User Authentication Endpoints
 
 #### POST `/auth/token`
-**Description:** Creates a new [Access Token](#access-token) for programmatic API access.
+**Description:** Creates a new [access_token](#access_token) for programmatic API access.
 
 - **Parameters:**
-  - **Token Name (Optional):** A friendly name for the token.  
-    *Default:* "Token 1", "Token 2", etc.
+  - **token_name** (Optional): Friendly name for the token.  
+    *Default:* "token_1", "token_2", etc.
 
 - **Returns:**  
-  An [Access Token](#access-token) object containing:
-  - Token ID
-  - Token Name
-  - Access Token Secret
+  - An [access_token](#access_token) object
 
-- **Errors:**  
-  - **400 Bad Request:** If parameters are invalid.  
-  - **401 Unauthorized:** If the requester is not authenticated.
-  - **403 Forbidden:** If the request is authenticated but access is not allowed.
+- **Errors:**
+  - **400 Bad Request:** Invalid parameters.
+  - **401 Unauthorized:** Requester is not authenticated.
+  - **403 Forbidden:** Authenticated but access is not allowed.
 
 ---
 
 #### DELETE `/auth/token`
-**Description:** Deletes an existing access token.
+**Description:** Deletes an existing [access_token](#access_token).
 
 - **Parameters:**
-  - **Token ID (Required):** The unique identifier of the access token to be deleted.
+  - **token_id** (Required): Unique identifier of the access token to delete.
 
 - **Returns:**  
-  A success message.
+  - A success message.
 
-- **Errors:**  
-  - **400 Bad Request:** If the token ID is missing or invalid.  
-  - **404 Not Found:** If the token does not exist.
-  - **403 Forbidden:** If the request is authenticated but access is not allowed.
+- **Errors:**
+  - **400 Bad Request:** token_id is missing or invalid.
+  - **404 Not Found:** Token not found.
+  - **403 Forbidden:** Authenticated but access is not allowed.
 
 ---
 
 #### GET `/auth/tokens`
-**Description:** Retrieves a list of all active access tokens for the authenticated user.
+**Description:** Retrieves a list of active [access_token](#access_token) objects for the authenticated user.
 
 - **Returns:**  
-  - A list of [Access Token](#access-token) objects
+  - A list of [access_token](#access_token) objects.
 
-- **Errors:**  
-  - **401 Unauthorized:** If the requester is not authenticated.
-  - **403 Forbidden:** If the request is authenticated but access is not allowed.
+- **Errors:**
+  - **401 Unauthorized:** Requester is not authenticated.
+  - **403 Forbidden:** Authenticated but access is not allowed.
 
 ---
 
-#### GET `/auth/google-oauth`
-**Description:** Callback endpoint for processing Google OAuth. When a user authorizes Google OAuth, they are redirected here so that the server can extract their authentication token.
+#### GET `/auth/google_oauth`
+**Description:** Callback endpoint for processing Google OAuth. When a user authorizes via Google, they are redirected here to extract their authentication token.
 
 - **Parameters:**
-  - **access_token (Required)**
-  - **expires_in (Required)**
-  - **refresh_token (Required)**
-  - **scope (Required)**
-  - **token_type (Required)**
-  - **id_token (Required)**
+  - **access_token** (Required)
+  - **expires_in** (Required)
+  - **refresh_token** (Required)
+  - **scope** (Required)
+  - **token_type** (Required)
+  - **id_token** (Required)
 
 - **Returns:**  
-  A [Personal Authentication Token](#personal-authentication-token) object required to access most endpoints.
+  - A [personal_authentication_token](#personal_authentication_token) object required to access most endpoints.
 
-- **Errors:**  
-  - **400 Bad Request:** If required OAuth parameters are missing.
-  - **401 Unauthorized:** If the OAuth parameters are invalid/not authorized to access Google's authentication endpoints.
+- **Errors:**
+  - **400 Bad Request:** Missing required OAuth parameters.
+  - **401 Unauthorized:** Invalid OAuth parameters or unauthorized access to Google authentication endpoints.
 
 ---
 
 ### Course Endpoints
 
 #### POST `/course`
-**Description:** Creates a new [Course](#course).
+**Description:** Creates a new [course](#course).
 
 - **Parameters:**
-  - **Course Name (Required):** The name of the course.
-  - **Course ID (Required):** The unique course identifier (e.g., "CS 132").
-  - **Semester (Required):** The semester during which the course is offered.
-  - **Instructors (Required):** A list of emails for authenticated instructors.
+  - **course_name** (Required): Name of the course.
+  - **course_id** (Required): Unique course identifier (e.g., "cs_132").
+  - **semester** (Required): Semester during which the course is offered.
+  - **instructors** (Required): List of instructor emails.
 
 - **Returns:**  
-  The created [Course](#course) object.
+  - The created [course](#course) object.
 
-- **Errors:**  
-  - **400 Bad Request:** If required parameters are missing or invalid.
-  - **409 Conflict:** If a course with the same name and semester already exists.
+- **Errors:**
+  - **400 Bad Request:** Missing or invalid parameters.
+  - **409 Conflict:** A course with the same name and semester already exists.
 
 ---
 
 #### DELETE `/course`
-**Description:** Deletes an existing course.
+**Description:** Deletes an existing [course](#course).
 
 - **Parameters:**
-  - **Course ID (Required):** The unique identifier of the course.
-  - **Semester (Required):** The semester of the course.
+  - **course_id** (Required): Unique identifier.
+  - **semester** (Required): Course semester.
 
 - **Returns:**  
-  A success message.
+  - A success message.
 
-- **Errors:**  
-  - **404 Not Found:** If the course does not exist.
-  - **401 Unauthorized:** If the requester is not authenticated.
-  - **403 Forbidden:** If the request is authenticated but access is not allowed.
+- **Errors:**
+  - **404 Not Found:** Course does not exist.
+  - **401 Unauthorized:** Requester is not authenticated.
+  - **403 Forbidden:** Authenticated but access is not allowed.
 
 ---
 
@@ -254,410 +253,452 @@ Authentication can be performed either using an OAuth-obtained authorization tok
 **Description:** Transfers course materials and rubric data from a previous semester to a new one.
 
 - **Parameters:**
-  - **Current Course ID (Required):** The ID of the course being updated.
-  - **Current Semester (Required):** The current semester of the course.
-  - **Copy From Course ID (Required):** The ID of the course from which to transfer data.
-  - **Copy From Course Semester (Required):** The semester of the course to copy from.
+  - **current_course_id** (Required): ID of the course being updated.
+  - **current_semester** (Required): Current semester.
+  - **copy_from_course_id** (Required): ID of the course to copy from.
+  - **copy_from_course_semester** (Required): Semester of the source course.
 
 - **Returns:**  
-  A success message and/or the updated [Course](#course) object.
+  - A success message and/or the updated [course](#course) object.
 
-- **Errors:**  
-  - **404 Not Found:** If the source or destination course cannot be found.
-  - **400 Bad Request:** If parameters are invalid.
-  - **401 Unauthorized:** If the requester is not authenticated.
-  - **403 Forbidden:** If the request is authenticated but access is not allowed.
+- **Errors:**
+  - **404 Not Found:** Source or destination course not found.
+  - **400 Bad Request:** Invalid parameters.
+  - **401 Unauthorized:** Requester is not authenticated.
+  - **403 Forbidden:** Authenticated but access is not allowed.
 
 ---
 
 #### GET `/courses`
-**Description:** Retrieves a list of all courses to which the authenticated user has access.
+**Description:** Retrieves all [course](#course) objects accessible by the authenticated user.
 
 - **Returns:**  
-  - A list of [Course](#course) objects.
+  - A list of [course](#course) objects.
 
-- **Errors:**  
-  - **401 Unauthorized:** If the requester is not authenticated.
+- **Errors:**
+  - **401 Unauthorized:** Requester is not authenticated.
 
 ---
 
-### **POST `/course/instructor`**
-**Description:**  
-Adds an instructor to a course.
+#### POST `/course/instructor`
+**Description:** Adds an instructor to a [course](#course).
 
 - **Parameters:**
-  - **Course ID (Required):** The unique identifier of the course.
-  - **Semester (Required):** The semester of the course.
-  - **Instructor (Required):** The email of the instructor to add.
+  - **course_id** (Required)
+  - **semester** (Required)
+  - **instructor** (Required): Email of the instructor to add.
 
 - **Returns:**  
   - A success message.
 
-- **Errors:**  
-  - **400 Bad Request:** If parameters are missing or invalid.
-  - **404 Not Found:** If the course is not found.
-  - **401 Unauthorized:** If the requester is not authenticated.
-  - **403 Forbidden:** If the request is authenticated but access is not allowed.
-  - **409 Conflict:** If the instructor is already assigned to the course.
+- **Errors:**
+  - **400 Bad Request:** Missing or invalid parameters.
+  - **404 Not Found:** Course not found.
+  - **401 Unauthorized:** Requester is not authenticated.
+  - **403 Forbidden:** Authenticated but access is not allowed.
+  - **409 Conflict:** Instructor is already assigned to the course.
 
 ---
 
-### **DELETE `/course/instructor`**
-**Description:**  
-Removes an instructor from a course.
+#### DELETE `/course/instructor`
+**Description:** Removes an instructor from a [course](#course).
 
 - **Parameters:**
-  - **Course ID (Required):** The unique identifier of the course.
-  - **Semester (Required):** The semester of the course.
-  - **Instructor (Required):** The email of the instructor to remove.
+  - **course_id** (Required)
+  - **semester** (Required)
+  - **instructor** (Required): Email of the instructor to remove.
 
 - **Returns:**  
   - A success message.
 
-- **Errors:**  
-  - **400 Bad Request:** If parameters are missing or invalid.
-  - **404 Not Found:** If the course is not found or the instructor is not assigned to the course.
-  - **401 Unauthorized:** If the requester is not authenticated.
-  - **403 Forbidden:** If the request is authenticated but access is not allowed.
+- **Errors:**
+  - **400 Bad Request:** Missing or invalid parameters.
+  - **404 Not Found:** Course or instructor assignment not found.
+  - **401 Unauthorized:** Requester is not authenticated.
+  - **403 Forbidden:** Authenticated but access is not allowed.
 
 ---
 
-### Assignments Endpoints
+### Assignment Endpoints
 
 #### POST `/assignment`
-**Description:** Creates a new [Assignment](#assignment) with the provided questions and guidelines.
+**Description:** Creates a new [assignment](#assignment) with questions and guidelines.
 
 - **Parameters:**
-  - **Course ID (Required):** The course identifier.
-  - **Semester (Required):** The semester of the course.
-  - **Assignment Guidelines (Required):** General instructions or formatting requirements for the assignment.
-  - **Ordered List (Required):** A list of questions, where each item includes:
-    - **Question Text (Required)**
-    - **Question Graphics/Figures (Optional)**
+  - **course_id** (Required)
+  - **semester** (Required)
+  - **assignment_guidelines** (Required): General instructions.
+  - **ordered_list** (Required): List of questions. Each item includes:
+    - **question_text** (Required)
+    - **question_graphics_figures** (Optional)
 
 - **Returns:**  
-  - The created [Assignment](#assignment) object (including the Assignment ID).
+  - The created [assignment](#assignment) object (including assignment_id).
 
-- **Errors:**  
-  - **400 Bad Request:** If parameters are missing or invalid.
-  - **404 Not Found:** If the associated course does not exist.
-  - **401 Unauthorized:** If the requester is not authenticated.
-  - **403 Forbidden:** If the request is authenticated but access is not allowed.
+- **Errors:**
+  - **400 Bad Request:** Missing or invalid parameters.
+  - **404 Not Found:** Associated course not found.
+  - **401 Unauthorized:** Requester is not authenticated.
+  - **403 Forbidden:** Authenticated but access is not allowed.
 
 ---
 
-#### PATCH `/assignment/<action>`
-**Description:** Modifies an existing assignment. The `<action>` parameter specifies the type of update.
+#### PATCH `/assignment/add_question`
+**Description:** Adds a new question to an [assignment](#assignment).
 
-- **Actions and Parameters:**
-  - **add-question:** Adds a new question to the assignment.
-    - **Parameters:**
-      - **Question Text (Required)**
-      - **Question Graphics/Figures (Optional)**
-    - **Returns:**  
-      The new Question Index.
-  - **remove-question:** Removes a question from the assignment.
-    - **Parameters:**
-      - **Question Index (Required):** The index of the question to remove.
-  - **edit-question:** Edits a question.
-    - **Parameters:**
-      - **Question Index (Required)**
-      - **New Question Text (Required)**
-      - **New Question Graphics/Figures (Optional)**
-  - **modify-order:** Modifies the order of the questions.
-    - **Parameters:**
-      - **List of Question Indexes (Required):** The new order for the questions.
+- **Parameters:**
+  - **assignment_id** (Required)
+  - **question_text** (Required)
+  - **question_graphics_figures** (Optional)
 
 - **Returns:**  
-  - The updated [Assignment](#assignment) object.
+  - The new question_index.
 
-- **Errors:**  
-  - **400 Bad Request:** If the action or parameters are invalid.
-  - **404 Not Found:** If the assignment or question does not exist.
-  - **401 Unauthorized:** If the requester is not authenticated.
-  - **403 Forbidden:** If the request is authenticated but access is not allowed.
+- **Errors:**
+  - **400 Bad Request:** Missing or invalid parameters.
+  - **404 Not Found:** Assignment not found.
+  - **401 Unauthorized:** Requester is not authenticated.
+  - **403 Forbidden:** Authenticated but access is not allowed.
+
+---
+
+#### PATCH `/assignment/remove_question`
+**Description:** Removes a question from an [assignment](#assignment).
+
+- **Parameters:**
+  - **assignment_id** (Required)
+  - **question_index** (Required)
+
+- **Returns:**  
+  - A success message.
+
+- **Errors:**
+  - **400 Bad Request:** Missing or invalid parameters.
+  - **404 Not Found:** Assignment or question not found.
+  - **401 Unauthorized:** Requester is not authenticated.
+  - **403 Forbidden:** Authenticated but access is not allowed.
+
+---
+
+#### PATCH `/assignment/edit_question`
+**Description:** Edits an existing question in an [assignment](#assignment).
+
+- **Parameters:**
+  - **assignment_id** (Required)
+  - **question_index** (Required)
+  - **new_question_text** (Required)
+  - **new_question_graphics_figures** (Optional)
+
+- **Returns:**  
+  - A success message.
+
+- **Errors:**
+  - **400 Bad Request:** Missing or invalid parameters.
+  - **404 Not Found:** Assignment or question not found.
+  - **401 Unauthorized:** Requester is not authenticated.
+  - **403 Forbidden:** Authenticated but access is not allowed.
+
+---
+
+#### PATCH `/assignment/modify_order`
+**Description:** Modifies the order of questions in an [assignment](#assignment).
+
+- **Parameters:**
+  - **assignment_id** (Required)
+  - **list_of_question_indexes** (Required): The new order for questions.
+
+- **Returns:**  
+  - The updated [assignment](#assignment) object.
+
+- **Errors:**
+  - **400 Bad Request:** Missing or invalid parameters.
+  - **404 Not Found:** Assignment not found.
+  - **401 Unauthorized:** Requester is not authenticated.
+  - **403 Forbidden:** Authenticated but access is not allowed.
 
 ---
 
 #### GET `/assignment`
-**Description:** Retrieves a specific assignment.
+**Description:** Retrieves a specific [assignment](#assignment).
 
 - **Parameters:**
-  - **Course ID (Required):** The course identifier this assignment belongs to.
-  - **Assignment ID (Required):** The identifier of the assignment.
+  - **course_id** (Required)
+  - **assignment_id** (Required)
 
 - **Returns:**  
-  - The corresponding [Assignment](#assignment) object.
+  - The corresponding [assignment](#assignment) object.
 
-- **Errors:**  
-  - **404 Not Found:** If the assignment is not found.
-  - **401 Unauthorized:** If the requester is not authenticated.
-  - **403 Forbidden:** If the request is authenticated but access is not allowed.
+- **Errors:**
+  - **404 Not Found:** Assignment not found.
+  - **401 Unauthorized:** Requester is not authenticated.
+  - **403 Forbidden:** Authenticated but access is not allowed.
 
 ---
 
 #### GET `/assignments`
-**Description:** Retrieves all assignments associated with the provided course.
+**Description:** Retrieves all [assignment](#assignment) objects associated with a course.
 
 - **Parameters:**
-  - **Course ID (Required):** The course identifier this assignment belongs to.
+  - **course_id** (Required)
 
 - **Returns:**  
-  - A list of [Assignment](#assignment) objects.
+  - A list of [assignment](#assignment) objects.
 
-- **Errors:**  
-  - **401 Unauthorized:** If the requester is not authenticated.
-  - **403 Forbidden:** If the request is authenticated but access is not allowed.
+- **Errors:**
+  - **401 Unauthorized:** Requester is not authenticated.
+  - **403 Forbidden:** Authenticated but access is not allowed.
 
 ---
 
 #### DELETE `/assignment`
-**Description:** Deletes a specified assignment.
+**Description:** Deletes a specified [assignment](#assignment).
 
 - **Parameters:**
-  - **Assignment ID (Required):** The identifier of the assignment to delete.
+  - **assignment_id** (Required)
 
 - **Returns:**  
   - A success message.
 
-- **Errors:**  
-  - **404 Not Found:** If the assignment does not exist.
-  - **401 Unauthorized:** If the requester is not authenticated.
-  - **403 Forbidden:** If the request is authenticated but access is not allowed.
+- **Errors:**
+  - **404 Not Found:** Assignment not found.
+  - **401 Unauthorized:** Requester is not authenticated.
+  - **403 Forbidden:** Authenticated but access is not allowed.
 
 ---
 
 ### Student Response Endpoints
 
 #### POST `/response`
-**Description:** Uploads a student response to a specific assignment question.
+**Description:** Uploads a [student_response](#student_response) to a specific assignment question.
 
 - **Parameters:**
-  - **Student Identifier (Required):** Unique identifier for the student.
-  - **Assignment ID (Required):** The assignment identifier.
-  - **Question Index (Required):** The index of the question being answered.
-  - **Response Modality (Required):** The format of the response (Video, Audio, Image, Text, PowerPoint, PDF, Website).
-  - **Data (Required):** The binary content of the student’s response.
+  - **student_identifier** (Required)
+  - **assignment_id** (Required)
+  - **question_index** (Required)
+  - **response_modality** (Required): (video, audio, image, text, powerpoint, pdf, website)
+  - **data** (Required): Binary content.
 
 - **Returns:**  
   - A success message.
 
-- **Errors:**  
-  - **400 Bad Request:** If required parameters are missing or invalid.
-  - **404 Not Found:** If the assignment or question is not found.
-  - **401 Unauthorized:** If the requester is not authenticated.
-  - **403 Forbidden:** If the request is authenticated but access is not allowed.
+- **Errors:**
+  - **400 Bad Request:** Missing or invalid parameters.
+  - **404 Not Found:** Assignment or question not found.
+  - **401 Unauthorized:** Requester is not authenticated.
+  - **403 Forbidden:** Authenticated but access is not allowed.
 
 ---
 
 #### PUT `/response`
-**Description:** Replaces an existing student response with an updated one.
+**Description:** Replaces an existing [student_response](#student_response).
 
 - **Parameters:**
-  - **Student Identifier (Required):** Unique identifier for the student.
-  - **Assignment ID (Required):** The assignment identifier.
-  - **Question Index (Required):** The index of the question being answered.
-  - **Response Modality (Required):** The format of the response (Video, Audio, Image, Text, PowerPoint, PDF, Website).
-  - **Data (Required):** The binary content of the student’s response.
+  - **student_identifier** (Required)
+  - **assignment_id** (Required)
+  - **question_index** (Required)
+  - **response_modality** (Required)
+  - **data** (Required): Updated binary content.
 
 - **Returns:**  
   - A success message.
 
-- **Errors:**  
-  - **400 Bad Request:** If parameters are missing or invalid.
-  - **404 Not Found:** If the existing response is not found.
-  - **401 Unauthorized:** If the requester is not authenticated.
-  - **403 Forbidden:** If the request is authenticated but access is not allowed.
+- **Errors:**
+  - **400 Bad Request:** Missing or invalid parameters.
+  - **404 Not Found:** Existing response not found.
+  - **401 Unauthorized:** Requester is not authenticated.
+  - **403 Forbidden:** Authenticated but access is not allowed.
 
 ---
 
 #### DELETE `/response`
-**Description:** Deletes a submitted student response. If no Question Index is provided, all responses for the specified assignment and student are deleted.
+**Description:** Deletes a [student_response](#student_response). If question_index is omitted, all responses for that assignment and student are deleted.
 
 - **Parameters:**
-  - **Student Identifier (Required)**
-  - **Assignment ID (Required)**
-  - **Question Index (Optional)**
+  - **student_identifier** (Required)
+  - **assignment_id** (Required)
+  - **question_index** (Optional)
 
 - **Returns:**  
   - A success message.
 
-- **Errors:**  
-  - **400 Bad Request:** If required parameters are missing.
-  - **404 Not Found:** If the specified response is not found.
-  - **401 Unauthorized:** If the requester is not authenticated.
-  - **403 Forbidden:** If the request is authenticated but access is not allowed.
+- **Errors:**
+  - **400 Bad Request:** Missing required parameters.
+  - **404 Not Found:** Specified response not found.
+  - **401 Unauthorized:** Requester is not authenticated.
+  - **403 Forbidden:** Authenticated but access is not allowed.
 
 ---
 
 #### GET `/responses`
-**Description:** Retrieves student responses (with optional grade information) based on provided criteria.
+**Description:** Retrieves [student_response](#student_response) objects (optionally including [grade](#grade) information) based on criteria.
 
 - **Parameters:**
-  - **Assignment ID (Required):** The assignment identifier.
-  - **Question Index (Optional):** Specific question index.
-  - **Student Identifier (Optional):** The unique identifier of a student.
+  - **assignment_id** (Required)
+  - **question_index** (Optional)
+  - **student_identifier** (Optional)
 
 - **Returns:**  
-  - Combined [Student Response](#student-response) and [Grade](#grade) objects (if the assignment is graded).
+  - Combined [student_response](#student_response) and [grade](#grade) objects (if graded).
 
-- **Errors:**  
-  - **400 Bad Request:** If the assignment ID is missing.
-  - **404 Not Found:** If no matching responses are found.
-  - **401 Unauthorized:** If the requester is not authenticated.
-  - **403 Forbidden:** If the request is authenticated but access is not allowed.
+- **Errors:**
+  - **400 Bad Request:** Missing assignment_id.
+  - **404 Not Found:** No matching responses found.
+  - **401 Unauthorized:** Requester is not authenticated.
+  - **403 Forbidden:** Authenticated but access is not allowed.
 
 ---
 
 #### POST `/response/grade`
-**Description:** Requests grading for student responses. Supports single or batch grading modes.
+**Description:** Requests grading for [student_response](#student_response) objects. Supports multiple modes.
 
-- **Parameters (depending on grading mode):**
+- **Parameters (Depending on Mode):**
   - **For Specific or Batch Grading:**
-    - **Type (Required):** `SPECIFIC`
-    - **Student Identifier(s) (Required):** A list of student identifiers whose responses should be graded or regraded.
-    - **Assignment ID (Required)**
-    - **Question Index (Optional):** If omitted, grades all questions.
+    - **type** (Required): `specific`
+    - **student_identifiers** (Required): List of student identifiers.
+    - **assignment_id** (Required)
+    - **question_index** (Optional): Grades all questions if omitted.
   - **For Grading Ungraded Work:**
-    - **Type (Required):** `UNGRADED`
-    - **Assignment ID (Required)**
-    - **Question Index (Optional)**
+    - **type** (Required): `ungraded`
+    - **assignment_id** (Required)
+    - **question_index** (Optional)
   - **For Grading/Regrading All Work:**
-    - **Type (Required):** `ALL`
-    - **Assignment ID (Required)**
-    - **Question Index (Optional)**
+    - **type** (Required): `all`
+    - **assignment_id** (Required)
+    - **question_index** (Optional)
 
 - **Returns:**  
-  - A list of [Grade](#grade) objects.
+  - A list of [grade](#grade) objects.
 
-- **Errors:**  
-  - **400 Bad Request:** If parameters are missing or invalid.
-  - **502 Internal Server Error:** External API call to the LLM Failed (ran out of credits? down?).
-  - **401 Unauthorized:** If the requester is not authenticated.
-  - **403 Forbidden:** If the request is authenticated but access is not allowed.
+- **Errors:**
+  - **400 Bad Request:** Missing or invalid parameters.
+  - **502 Internal Server Error:** External LLM API call failure.
+  - **401 Unauthorized:** Requester is not authenticated.
+  - **403 Forbidden:** Authenticated but access is not allowed.
 
 ---
 
 ### Course Material Endpoints
 
-#### POST `/course-material`
-**Description:** Uploads new course material.
+#### POST `/course_material`
+**Description:** Uploads new [course_material](#course_material).
 
 - **Parameters:**
-  - **Course ID (Required)**
-  - **Semester (Required)**
-  - **Material Name (Required):** The title of the material.
-  - **Modality (Required):** The type of material (Video, Audio, Image, Text, PowerPoint, PDF, Website).
-  - **Additional Notes (Optional):** Supplementary information about the material.
-  - **Data (Required):** The actual binary content of the material.
+  - **course_id** (Required)
+  - **semester** (Required)
+  - **material_name** (Required)
+  - **modality** (Required): (video, audio, image, text, powerpoint, pdf, website)
+  - **additional_notes** (Optional)
+  - **data** (Required): Binary content.
 
 - **Returns:**  
-  - The created [Course Material](#course-material) object.
+  - The created [course_material](#course_material) object.
 
-- **Errors:**  
-  - **400 Bad Request:** If required parameters are missing or invalid.
-  - **409 Conflict:** If a material with the same identifier already exists.
-  - **401 Unauthorized:** If the requester is not authenticated.
-  - **403 Forbidden:** If the request is authenticated but access is not allowed.
+- **Errors:**
+  - **400 Bad Request:** Missing or invalid parameters.
+  - **409 Conflict:** Material with the same identifier already exists.
+  - **401 Unauthorized:** Requester is not authenticated.
+  - **403 Forbidden:** Authenticated but access is not allowed.
 
 ---
 
-#### DELETE `/course-material`
-**Description:** Deletes specified course material.
+#### DELETE `/course_material`
+**Description:** Deletes specified [course_material](#course_material).
 
 - **Parameters:**
-  - **Course ID (Required)**
-  - **Semester (Required)**
-  - **Material ID (Required):** The unique identifier of the material.
+  - **course_id** (Required)
+  - **semester** (Required)
+  - **material_id** (Required)
 
 - **Returns:**  
-  A success message.
+  - A success message.
 
-- **Errors:**  
-  - **404 Not Found:** If the material is not found.
-  - **401 Unauthorized:** If the requester is not authenticated.
-  - **403 Forbidden:** If the request is authenticated but access is not allowed.
+- **Errors:**
+  - **404 Not Found:** Material not found.
+  - **401 Unauthorized:** Requester is not authenticated.
+  - **403 Forbidden:** Authenticated but access is not allowed.
 
 ---
 
-#### PATCH `/course-material`
-**Description:** Updates existing course material.
+#### PATCH `/course_material`
+**Description:** Updates existing [course_material](#course_material).
 
 - **Parameters:**
-  - **Course ID (Required)**
-  - **Semester (Required)**
-  - **Material ID (Required)**
-  - **Material Name (Optional):** Updated title.
-  - **Additional Notes (Optional):** Updated supplementary information.
-  - **Modality (Optional):** Updated material type.
-  - **Data (Optional):** Updated binary content.
+  - **course_id** (Required)
+  - **semester** (Required)
+  - **material_id** (Required)
+  - **material_name** (Optional)
+  - **additional_notes** (Optional)
+  - **modality** (Optional)
+  - **data** (Optional)
 
 - **Returns:**  
-  - The updated [Course Material](#course-material) object.
+  - The updated [course_material](#course_material) object.
 
-- **Errors:**  
-  - **400 Bad Request:** If parameters are missing or invalid.
-  - **404 Not Found:** If the material to update cannot be found.
-  - **401 Unauthorized:** If the requester is not authenticated.
-  - **403 Forbidden:** If the request is authenticated but access is not allowed.
+- **Errors:**
+  - **400 Bad Request:** Missing or invalid parameters.
+  - **404 Not Found:** Material to update not found.
+  - **401 Unauthorized:** Requester is not authenticated.
+  - **403 Forbidden:** Authenticated but access is not allowed.
 
 ---
 
-### Rubrics Endpoints
+### Rubric Endpoints
 
-#### POST `/rubric`
-**Description:** Manually creates a new [Rubric](#rubric) for an assignment.
+#### PUT `/rubric`
+**Description:** Manually creates a new [rubric](#rubric) for an assignment.
 
 - **Parameters:**
-  - **Assignment ID (Required)**
-  - **Max Points (Required):** The total maximum points for the assignment (must be equal to or greater than the sum of individual question points).
-  - **Overall Instructor Guidelines (Optional):** Grading criteria that apply to all questions.
-  - **List (Required):** A list of sub-rubric objects, each including:
-    - **Question Index (Required)**
-    - **Maximum Points (Required)**
-    - **Instructor Guideline (Required):** Detailed grading criteria for the question.
+  - **assignment_id** (Required)
+  - **max_points** (Required): Total maximum points (must be ≥ sum of individual question points).
+  - **overall_instructor_guidelines** (Optional)
+  - **sub_rubrics** (Required): A list of sub-rubric objects, each including:
+    - **question_index** (Required)
+    - **maximum_points** (Required)
+    - **instructor_guideline** (Required)
 
 - **Returns:**  
-  - The created [Rubric](#rubric) object.
+  - The created [rubric](#rubric) object.
 
-- **Errors:**  
-  - **400 Bad Request:** If required parameters are missing or invalid.
-  - **404 Not Found:** If the specified assignment is not found.
-  - **401 Unauthorized:** If the requester is not authenticated.
-  - **403 Forbidden:** If the request is authenticated but access is not allowed.
+- **Errors:**
+  - **400 Bad Request:** Missing or invalid parameters.
+  - **404 Not Found:** Assignment not found.
+  - **401 Unauthorized:** Requester is not authenticated.
+  - **403 Forbidden:** Authenticated but access is not allowed.
 
 ---
 
-#### PUT `/ai-rubric`
-**Description:** Enhances an existing rubric using AI-based improvements. If a rubric doesn't already exist, it generates a brand-new rubric coming up with its own guidelines.
+#### GET `/ai_rubric`
+**Description:** Enhances an existing [rubric](#rubric) using AI-based improvements.  
+If a [rubric](#rubric) does not exist for the given assignment, a new one is generated with its own guidelines.  
+*Note: This only proposes a new rubric and does not modify or create an existing rubric.*
 
 - **Parameters:**
-  - **Assignment ID (Required):** The assignment id for which to enhance the rubric for.
-  - **Instructions (Optional):** Specific instructions on which aspects of the rubric to improve. A default set of instructions is applied if not provided.
+  - **assignment_id** (Required)
+  - **instructions** (Optional): Specific improvement instructions. If omitted, default instructions are applied.
 
 - **Returns:**  
-  - The improved [Rubric](#rubric) object.
+  - The improved [rubric](#rubric) object.
 
-- **Errors:**  
-  - **502 Internal Server Error:** External API call to the LLM Failed (ran out of credits? down?).
-  - **401 Unauthorized:** If the requester is not authenticated.
-  - **403 Forbidden:** If the request is authenticated but access is not allowed.
+- **Errors:**
+  - **502 Internal Server Error:** External LLM API call failure.
+  - **401 Unauthorized:** Requester is not authenticated.
+  - **403 Forbidden:** Authenticated but access is not allowed.
 
 ---
 
 #### GET `/rubric`
-**Description:** Retrieves the rubric for a specified assignment (optionally for a specific question).
+**Description:** Retrieves the [rubric](#rubric) for a specified assignment (or for a specific question).
 
 - **Parameters:**
-  - **Assignment ID (Required):** The identifier of the assignment.
-  - **Question Index (Optional):** Retrieve the rubric for a specific question; if omitted, returns the full rubric.
+  - **assignment_id** (Required)
+  - **question_index** (Optional): If omitted, returns the full [rubric](#rubric).
 
 - **Returns:**  
-  - The [Rubric](#rubric) object
+  - The [rubric](#rubric) object.
 
-- **Errors:**  
-  - **404 Not Found:** If the rubric or specified question is not found.
-  - **401 Unauthorized:** If the requester is not authenticated.
-  - **403 Forbidden:** If the request is authenticated but access is not allowed.
+- **Errors:**
+  - **404 Not Found:** [Rubric](#rubric) or specified question not found.
+  - **401 Unauthorized:** Requester is not authenticated.
+  - **403 Forbidden:** Authenticated but access is not allowed.
 
 ---
