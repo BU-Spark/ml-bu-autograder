@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Query
 from typing import List
 from app.models.course import Course
 
@@ -19,8 +19,10 @@ dummy_courses = [
         409: {"description": "A course with the same name and semester already exists."}
     }
 )
-async def create_course(course: Course):
-    # Dummy check for conflict could be added here.
+async def create_course(
+    course: Course,
+    semester: str = Query(..., description="Semester during which the course is offered.")
+):
     dummy_courses.append(course)
     return course
 
@@ -34,7 +36,10 @@ async def create_course(course: Course):
         403: {"description": "Authenticated but access is not allowed."}
     }
 )
-async def delete_course(course_id: str, semester: str):
+async def delete_course(
+    course_id: str = Query(..., description="Unique identifier of the course to delete."),
+    semester: str = Query(..., description="Semester of the course to delete.")
+):
     for course in dummy_courses:
         if course.course_id == course_id and course.semester == semester:
             dummy_courses.remove(course)
@@ -52,7 +57,12 @@ async def delete_course(course_id: str, semester: str):
         403: {"description": "Authenticated but access is not allowed."}
     }
 )
-async def transfer_course(current_course_id: str, current_semester: str, copy_from_course_id: str, copy_from_course_semester: str):
+async def transfer_course(
+    current_course_id: str = Query(..., description="ID of the course being updated."),
+    current_semester: str = Query(..., description="Current semester of the course."),
+    copy_from_course_id: str = Query(..., description="ID of the course to copy from."),
+    copy_from_course_semester: str = Query(..., description="Semester of the source course.")
+):
     updated_course = {"course_id": current_course_id, "course_name": "Transferred Course", "semester": current_semester, "instructors": ["instructor@example.com"]}
     return {"message": "Course transfer successful.", "updated_course": updated_course}
 
@@ -80,7 +90,11 @@ async def list_courses():
         409: {"description": "Instructor is already assigned to the course."}
     }
 )
-async def add_course_instructor(course_id: str, semester: str, instructor: str):
+async def add_course_instructor(
+    course_id: str = Query(..., description="Unique identifier of the course."),
+    semester: str = Query(..., description="Semester of the course."),
+    instructor: str = Query(..., description="Email of the instructor to add.")
+):
     for course in dummy_courses:
         if course.course_id == course_id and course.semester == semester:
             if instructor in course.instructors:
@@ -100,7 +114,11 @@ async def add_course_instructor(course_id: str, semester: str, instructor: str):
         403: {"description": "Authenticated but access is not allowed."}
     }
 )
-async def remove_course_instructor(course_id: str, semester: str, instructor: str):
+async def remove_course_instructor(
+    course_id: str = Query(..., description="Unique identifier of the course."),
+    semester: str = Query(..., description="Semester of the course."),
+    instructor: str = Query(..., description="Email of the instructor to remove.")
+):
     for course in dummy_courses:
         if course.course_id == course_id and course.semester == semester:
             if instructor not in course.instructors:

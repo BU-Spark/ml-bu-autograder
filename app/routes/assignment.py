@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Query, Body
 from typing import List
 from app.models.assignment import Assignment, Question
 
@@ -27,7 +27,10 @@ dummy_assignments = [
         403: {"description": "Authenticated but access is not allowed."}
     }
 )
-async def create_assignment(assignment: Assignment, semester: str):
+async def create_assignment(
+    assignment: Assignment = Body(..., description="Assignment object containing questions and guidelines."),
+    semester: str = Query(..., description="Semester when the assignment is being created.")
+):
     dummy_assignments.append(assignment)
     return assignment
 
@@ -42,7 +45,11 @@ async def create_assignment(assignment: Assignment, semester: str):
         403: {"description": "Authenticated but access is not allowed."}
     }
 )
-async def add_question(assignment_id: str, question_text: str, question_graphics_figures: str = None):
+async def add_question(
+    assignment_id: str = Query(..., description="Identifier of the assignment to update."),
+    question_text: str = Query(..., description="Text of the new question."),
+    question_graphics_figures: str = Query(None, description="Optional graphics/figures associated with the question.")
+):
     for assignment in dummy_assignments:
         if assignment.assignment_id == assignment_id:
             new_question = Question(question_text=question_text, question_graphics_figures=question_graphics_figures)
@@ -61,7 +68,10 @@ async def add_question(assignment_id: str, question_text: str, question_graphics
         403: {"description": "Authenticated but access is not allowed."}
     }
 )
-async def remove_question(assignment_id: str, question_index: int):
+async def remove_question(
+    assignment_id: str = Query(..., description="Identifier of the assignment."),
+    question_index: int = Query(..., description="Index of the question to remove.")
+):
     for assignment in dummy_assignments:
         if assignment.assignment_id == assignment_id:
             try:
@@ -82,7 +92,12 @@ async def remove_question(assignment_id: str, question_index: int):
         403: {"description": "Authenticated but access is not allowed."}
     }
 )
-async def edit_question(assignment_id: str, question_index: int, new_question_text: str, new_question_graphics_figures: str = None):
+async def edit_question(
+    assignment_id: str = Query(..., description="Identifier of the assignment."),
+    question_index: int = Query(..., description="Index of the question to edit."),
+    new_question_text: str = Query(..., description="New text for the question."),
+    new_question_graphics_figures: str = Query(None, description="Optional new graphics/figures for the question.")
+):
     for assignment in dummy_assignments:
         if assignment.assignment_id == assignment_id:
             try:
@@ -104,7 +119,10 @@ async def edit_question(assignment_id: str, question_index: int, new_question_te
         403: {"description": "Authenticated but access is not allowed."}
     }
 )
-async def modify_order(assignment_id: str, list_of_question_indexes: List[int]):
+async def modify_order(
+    assignment_id: str = Query(..., description="Identifier of the assignment."),
+    list_of_question_indexes: List[int] = Query(..., description="New order for question indexes.")
+):
     for assignment in dummy_assignments:
         if assignment.assignment_id == assignment_id:
             if sorted(list_of_question_indexes) != list(range(len(assignment.ordered_list))):
@@ -124,7 +142,10 @@ async def modify_order(assignment_id: str, list_of_question_indexes: List[int]):
         403: {"description": "Authenticated but access is not allowed."}
     }
 )
-async def get_assignment(course_id: str, assignment_id: str):
+async def get_assignment(
+    course_id: str = Query(..., description="Identifier of the course."),
+    assignment_id: str = Query(..., description="Identifier of the assignment.")
+):
     for assignment in dummy_assignments:
         if assignment.assignment_id == assignment_id and assignment.course_id == course_id:
             return assignment
@@ -140,7 +161,9 @@ async def get_assignment(course_id: str, assignment_id: str):
         403: {"description": "Authenticated but access is not allowed."}
     }
 )
-async def list_assignments(course_id: str):
+async def list_assignments(
+    course_id: str = Query(..., description="Identifier of the course.")
+):
     assignments = [a for a in dummy_assignments if a.course_id == course_id]
     if assignments:
         return assignments
@@ -156,7 +179,9 @@ async def list_assignments(course_id: str):
         403: {"description": "Authenticated but access is not allowed."}
     }
 )
-async def delete_assignment(assignment_id: str):
+async def delete_assignment(
+    assignment_id: str = Query(..., description="Identifier of the assignment to delete.")
+):
     for assignment in dummy_assignments:
         if assignment.assignment_id == assignment_id:
             dummy_assignments.remove(assignment)

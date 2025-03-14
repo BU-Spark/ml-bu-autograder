@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Query, Body
 from typing import List
 from app.models.course_material import CourseMaterial
 
@@ -19,7 +19,10 @@ dummy_materials: List[CourseMaterial] = []
         403: {"description": "Authenticated but access is not allowed."}
     }
 )
-async def upload_course_material(material: CourseMaterial, semester: str):
+async def upload_course_material(
+    material: CourseMaterial = Body(..., description="Course material object containing details and file data."),
+    semester: str = Query(..., description="Semester during which the course material is being uploaded.")
+):
     dummy_materials.append(material)
     return material
 
@@ -33,7 +36,11 @@ async def upload_course_material(material: CourseMaterial, semester: str):
         403: {"description": "Authenticated but access is not allowed."}
     }
 )
-async def delete_course_material(course_id: str, semester: str, material_id: str):
+async def delete_course_material(
+    course_id: str = Query(..., description="Identifier of the course."),
+    semester: str = Query(..., description="Semester of the course material."),
+    material_id: str = Query(..., description="Unique identifier of the material to delete.")
+):
     for material in dummy_materials:
         if material.course_id == course_id and material.material_id == material_id:
             dummy_materials.remove(material)
@@ -52,7 +59,10 @@ async def delete_course_material(course_id: str, semester: str, material_id: str
         403: {"description": "Authenticated but access is not allowed."}
     }
 )
-async def update_course_material(material: CourseMaterial, semester: str):
+async def update_course_material(
+    material: CourseMaterial = Body(..., description="Course material object with updated data."),
+    semester: str = Query(..., description="Semester of the course material being updated.")
+):
     for idx, existing in enumerate(dummy_materials):
         if existing.course_id == material.course_id and existing.material_id == material.material_id:
             dummy_materials[idx] = material

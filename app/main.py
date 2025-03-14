@@ -1,5 +1,11 @@
 from fastapi import FastAPI
+from dotenv import load_dotenv
 from app.routes import auth, course, assignment, student_response, grading, course_material, rubric
+
+# Load environment variables
+load_dotenv()
+
+# TODO: later we can access these environment variables to grab access tokens and such.
 
 app = FastAPI(
     title="BU MET Autograder API",

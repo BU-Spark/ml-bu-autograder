@@ -21,7 +21,9 @@ dummy_access_tokens = [
         403: {"description": "Authenticated but access is not allowed."}
     }
 )
-async def create_access_token(token_name: str = "token_1"):
+async def create_access_token(
+    token_name: str = Query("token_1", description="Friendly name for the token. Defaults to 'token_1'.")
+):
     new_token = AccessToken(user_id="user123", token_name=token_name, token_id="newtoken123", token_expiry=None)
     dummy_access_tokens.append(new_token)
     return new_token
@@ -36,7 +38,9 @@ async def create_access_token(token_name: str = "token_1"):
         403: {"description": "Authenticated but access is not allowed."}
     }
 )
-async def delete_access_token(token_id: str):
+async def delete_access_token(
+    token_id: str = Query(..., description="Unique identifier of the access token to delete.")
+):
     for token in dummy_access_tokens:
         if token.token_id == token_id:
             dummy_access_tokens.remove(token)
@@ -66,12 +70,12 @@ async def list_access_tokens():
     }
 )
 async def google_oauth(
-    access_token: str = Query(..., description="Access token from Google"),
-    expires_in: int = Query(..., description="Token expiry time"),
-    refresh_token: str = Query(..., description="Refresh token"),
-    scope: str = Query(..., description="Scope of the token"),
-    token_type: str = Query(..., description="Type of the token"),
-    id_token: str = Query(..., description="ID token from Google")
+    access_token: str = Query(..., description="Access token provided by Google."),
+    expires_in: int = Query(..., description="Token expiry time in seconds."),
+    refresh_token: str = Query(..., description="Refresh token provided by Google."),
+    scope: str = Query(..., description="Scope of the access token."),
+    token_type: str = Query(..., description="Type of the token, usually 'Bearer'."),
+    id_token: str = Query(..., description="ID token provided by Google.")
 ):
     dummy_user = User(user_id="user123", first_name="John", last_name="Doe", user_email="john.doe@example.com")
     dummy_pat = PersonalAuthenticationToken(user_id="user123", authentication_token="dummy_jwt_token")
