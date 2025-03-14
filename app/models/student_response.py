@@ -1,19 +1,6 @@
 from pydantic import BaseModel
-from typing import Optional
 
-from app.models import UploadedFile
-
-
-class ResponseData(BaseModel):
-    """
-    Data structure for student response content.
-    - **data_type**: Type of the data (e.g., .png, .pdf, .doc, URL).
-    - **metadata**: Optional metadata for the file.
-    - **content**: Binary content encoded in Base64.
-    """
-    data_type: str
-    metadata: Optional[str] = None
-    content: str
+from app.models.uploaded_file import UploadedFile
 
 
 class StudentResponse(BaseModel):
