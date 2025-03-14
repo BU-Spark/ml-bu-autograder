@@ -1,14 +1,19 @@
+Below is the **updated Frontend Design Document**, incorporating best practices for responsiveness, minimizing empty pages, maintaining modularity, and optionally integrating additional UI libraries with Material UI.
+
+---
+
 # Frontend Design Document for BU MET Autograder (Next.js)
 
 ## 1. Overview
 
-This design document describes a consolidated and scalable **Next.js** frontend for the **BU MET Autograder API**. The application is:
+This document describes a consolidated and scalable **Next.js** frontend for the **BU MET Autograder API**. The application is:
 
 - **Modern & Modular**: Organized by features (courses, assignments, rubrics, etc.)
-- **Responsive & Beautiful**: Uses **Material UI** for a consistent, accessible design
+- **Responsive & Beautiful**: Uses **Material UI** (MUI) for a consistent, accessible design
 - **Dark/Light Theming**: Toggle via React Context & MUI’s `ThemeProvider`
 - **Role-Based (optional)**: Primarily for instructors, but can accommodate student flows if needed
-- **All-in-One Course Page**: Each course can have sub-routes for materials, rubrics, and grading
+- **All-in-One Course Page**: Each course can have sub-routes for materials, rubrics, grading, and instructor management
+- **Note on Student Submissions**: Student uploads of responses (`POST/PUT/DELETE /response`) are **handled by a separate application** (using an access token). This frontend focuses on instructor features but can display student submissions for grading.
 
 ## 2. High-Level User Flow
 
@@ -19,7 +24,6 @@ This design document describes a consolidated and scalable **Next.js** frontend 
 ### 2.2. Course List Page (`/courses`)
 - Displays all courses for the authenticated user (instructor)
 - "Create New Course" + "Delete Course" actions
-- **Instructor Management** (Add/Remove instructors for each course)
 - Clicking a course navigates to its detail page (`/course/[id]`)
 - **Top App Bar** includes:
   - User greeting
@@ -27,38 +31,41 @@ This design document describes a consolidated and scalable **Next.js** frontend 
   - Link to **Account Settings** (`/settings`)
 
 ### 2.3. Course Detail Sub-Routes
-Rather than a single giant page, we structure each feature as a sub-route for clarity:
 
-- **`/course/[id]/index.js`**: Overview
+Each course contains several feature-based sub-routes. They can be organized with MUI `Tabs` or a side navigation to avoid having each page feel sparse:
+
+- **`/course/[id]/index.js`**: Overview  
   - Show basic info about the course (e.g., name, semester)
   - "Transfer Course" button to copy data from a previous semester
-  - Links/tabs to Assignments, Materials, Rubrics, Grading
+  - Links/tabs to Assignments, Materials, Rubrics, Grading, Instructors
 
 - **`/course/[id]/assignments.js`**
   - List all assignments
   - Create a new assignment (title, guidelines, etc.)
   - Add/remove/edit/reorder assignment questions
-  - Possibly show partial data for student submissions or link to the grading page
+  - Consider using MUI’s [Skeleton](https://mui.com/material-ui/react-skeleton/) for loading states and “No assignments yet” placeholders if empty
 
 - **`/course/[id]/materials.js`**
   - Upload course materials (docs, images, etc.)
   - Edit or replace materials
   - Delete materials
-  - Drag-and-drop UI recommended
-  - Error states for file size or format issues
+  - Handle empty or loading states gracefully with placeholders or illustrations
 
 - **`/course/[id]/rubrics.js`**
-  - Manage rubric(s) for this course’s assignments
-  - Create or edit rubrics (sub-rubrics, flags, leniency)
+  - Manage rubrics for this course’s assignments
   - AI-based enhancements (`GET /ai_rubric`)
-  - If question indexing is relevant, show how to retrieve or update only a specific question’s rubric
 
 - **`/course/[id]/grading.js`**
-  - View all student responses for the course or a specific assignment
-  - Trigger grading (bulk or per-question) using AI or manual scoring
-  - Show success/failure statuses and final grades/explanations
+  - View all student responses (which are uploaded by a separate student-facing app)
+  - Trigger grading using AI or manual scoring
+  - Show partial or fully graded data
+  - Use tabular views or card layouts to avoid an empty look
 
-This sub-route approach ensures each feature is well-separated yet still under the relevant course.
+- **`/course/[id]/instructors.js`**
+  - **Instructor Management (Add/Remove)**:  
+    - Fetch list of current instructors (`GET /courses`)
+    - Add an instructor (`POST /course/instructor`)
+    - Remove an instructor (`DELETE /course/instructor`, with validation to prevent self-removal)
 
 ### 2.4. Account Settings Page (`/settings`)
 - **Access Token Management**
@@ -86,80 +93,126 @@ frontend/
 │   └── ...
 └── src/
     ├── config/
-    │   └── config.js        # Contains BACKEND_URL
+    │   └── config.js         # Contains BACKEND_URL
     ├── components/
-    │   ├── Layout.js        # Shared layout w/ Header, Footer
+    │   ├── Layout.js         # Shared layout w/ Header, Footer
     │   ├── Header.js
     │   ├── Footer.js
     │   ├── ThemeToggle.js
     ├── context/
     │   └── ThemeContext.js
     ├── pages/
-    │   ├── _app.js          # Next.js root app wrapper
-    │   ├── login.js         # Main login page
-    │   ├── courses.js       # Lists user courses
+    │   ├── _app.js           # Next.js root app wrapper
+    │   ├── login.js          # Main login page
+    │   ├── courses.js        # Lists user courses
     │   ├── course/
     │   │   └── [id]/
-    │   │       ├── index.js       # Course overview + Transfer
-    │   │       ├── assignments.js # Assignments Q&A mgmt
-    │   │       ├── materials.js   # Course materials mgmt
-    │   │       ├── rubrics.js     # Rubric mgmt
-    │   │       └── grading.js     # Student responses & grading
-    │   ├── settings.js      # Account tokens, logout
+    │   │       ├── index.js        # Course overview + Transfer
+    │   │       ├── assignments.js  # Assignments mgmt
+    │   │       ├── materials.js    # Course materials mgmt
+    │   │       ├── rubrics.js      # Rubric mgmt
+    │   │       ├── grading.js      # Student responses & grading
+    │   │       └── instructors.js  # Instructor management
+    │   ├── settings.js       # Account tokens, logout
     ├── services/
-    │   └── api.js           # Encapsulated API calls
+    │   └── api.js            # Encapsulated API calls
     ├── theme/
-    │   └── theme.js         # MUI theme config for light/dark
+    │   └── theme.js          # MUI theme config for light/dark
     ├── styles/
-    │   └── globals.css      # Global CSS
+    │   └── globals.css       # Global CSS
     └── ...
 ```
 
 ## 5. Notable Features & Implementation Details
 
-1. **Instructor Management**
-   - In `/courses` or sub-page, a modal or inline form to add an instructor (`POST /course/instructor`) or remove one (`DELETE /course/instructor`).
-   - Validation for duplicate or invalid emails.
+### 5.1. Instructor Management (`/course/[id]/instructors.js`)
+- **Fetching Instructors**:
+  - `GET /courses` to retrieve instructor emails for a specific course.
+  
+- **Adding an Instructor**:
+  - `POST /course/instructor`
+  - Input validation (email format)
+  - Show errors for duplicate entries
 
-2. **Course Transfer** (Under Course Overview)
-   - "Transfer" button opens a modal to select old course/semester.
-   - Calls `PATCH /course/transfer` on confirmation.
-   - Updates local state with newly copied materials/rubrics.
+- **Removing an Instructor**:
+  - `DELETE /course/instructor`
+  - Prevents removal of the logged-in instructor
 
-3. **Assignments** (Under `/[id]/assignments.js`)
-   - Provide CRUD for assignments & questions.
-   - Show a list or table of questions; each row can be edited or reordered.
+### 5.2. Course Transfer (Under Course Overview)
+- "Transfer" button opens a modal to select old course/semester.
+- Calls `PATCH /course/transfer` on confirmation.
 
-4. **Course Materials**
-   - `/[id]/materials.js` for uploading, patching, and deleting (`POST`, `PATCH`, `DELETE /course_material`).
-   - Drag-and-drop, progress bar, error handling.
+### 5.3. Assignments (`/course/[id]/assignments.js`)
+- CRUD for assignments & questions.
+- **Empty State**: If no assignments exist, provide a “No assignments yet” message plus an “Add Assignment” button.
 
-5. **Rubrics**
-   - `/[id]/rubrics.js` for creating or editing (`PUT /rubric`).
-   - Show sub-rubrics in a table or list.
-   - Provide AI enhancement (`GET /ai_rubric`) with optional instructor guidelines.
+### 5.4. Course Materials (`/course/[id]/materials.js`)
+- Uploading, patching, and deleting course materials.
+- **Drag-and-Drop** or file upload with a progress bar for better user experience.
 
-6. **Grading**
-   - `/[id]/grading.js` for listing student responses (`GET /responses`) and triggering AI-based grading (`POST /response/grade/...`).
-   - Possibly show partial or fully graded data.
-   - Offer manual entry if AI not used.
+### 5.5. Rubrics (`/course/[id]/rubrics.js`)
+- Create or edit rubrics, including sub-rubrics and flags
+- AI-based improvement with `GET /ai_rubric`
 
-7. **Access Token Management** (`/settings`)
-   - List existing tokens, create new (`POST /auth/token`), delete (`DELETE /auth/token`).
-   - Confirm actions with a dialog.
+### 5.6. Grading (`/course/[id]/grading.js`)
+- View student responses (uploaded by a separate student portal)
+- Trigger AI grading or do manual scoring
+- **Batch** or **per-question** grading endpoints
 
-8. **Authentication Flow**
-   - Using NextAuth, store user session, handle redirects after login.
-   - Possibly map user roles (instructor/student) if needed.
+### 5.7. Access Token Management (`/settings`)
+- Create/delete API tokens
+- Confirm token removal with MUI `Dialog` or `AlertDialog`
 
-9. **Error & Loading States**
-   - Reusable loading spinners or skeletons.
-   - Use MUI `Alert` or `Snackbar` for error messages.
-   - Consistent approach across all pages.
+### 5.8. Authentication Flow
+- **NextAuth** for OAuth
+- Ensures only instructors can access course-management endpoints
 
-## 6. Conclusion
+### 5.9. Error & Loading States
+- Use MUI `Alert` or `Snackbar` for errors
+- Use [Skeleton](https://mui.com/material-ui/react-skeleton/) or custom spinners for loading
 
-By consolidating materials, rubrics, and grading into sub-routes of `/course/[id]`—and referencing them via dedicated `.js` files or a tabbed layout—the design avoids redundancy. Each feature is discoverable under its relevant course. For multi-role scenarios, we can expand similarly for students.
+## 6. Color Scheme
+You can implement a simple light/dark palette in `theme.js`:
 
-This refined design is **maintainable, intuitive, and thorough**, covering all major endpoints while providing a clear, modular user experience.
+- **Light Mode**  
+  - Primary: `#1976d2`  
+  - Secondary: `#ff6f00`  
+  - Background: `#fafafa`  
+  - Paper: `#ffffff`  
+  - Text (primary): `#212121`
 
+- **Dark Mode**  
+  - Primary: `#90caf9`  
+  - Secondary: `#ffb74d`  
+  - Background: `#121212`  
+  - Paper: `#1e1e1e`  
+  - Text (primary): `#ffffff`
+
+Tailor these to BU or departmental branding as needed.
+
+## 7. Additional Best Practices
+
+### 7.1. Responsiveness
+- **MUI Grid & Breakpoints**: Use responsive layout features (`xs`, `sm`, `md`, etc.) to ensure pages adapt to mobile, tablet, and desktop.  
+- **Responsive Typography**: Enable fluid font sizing in the MUI theme or with [responsiveFontSizes](https://mui.com/material-ui/customization/typography/#responsive-font-sizes).
+
+### 7.2. Minimizing Empty Pages
+- **Tabs or Accordions**: Consolidate small features into tabbed sections instead of separate pages.  
+- **Empty States**: Show placeholders when data is missing (“No assignments,” “No materials,” etc.) plus a clear call-to-action to create or upload.  
+- **Skeleton Loading**: Prevent blank screens by showing skeletons while data is fetched.
+
+### 7.3. Maintainability & Modularity
+- **Feature-Based File Organization**: Keep code for each feature (Courses, Assignments, Instructors, etc.) grouped logically.  
+- **Reusable Components**: Abstract repeated patterns into shared components (e.g., common forms, repetitive layouts).  
+- **API Encapsulation**: Keep data-fetching in `services/api.js`, so changes to endpoints don’t ripple through the entire UI.
+
+### 7.4. Pairing MUI with Other Libraries
+- **Consistency**: If using a second UI library (e.g., a specialized design system), unify color palettes and spacing for consistency.  
+- **Custom MUI Themes**: Often enough to achieve a unique look without mixing libraries.  
+- **Performance**: Additional libraries can add overhead, so evaluate your performance budget.
+
+---
+
+## 8. Conclusion
+
+This **Next.js + Material UI** design remains **modular**, **responsive**, and easily maintainable. It consolidates major instructor-facing features (Assignments, Rubrics, Materials, Grading, Instructor Management) into clear sub-routes or tabbed sections. We also handle empty states and loading states with MUI components to keep the app visually appealing. Student submissions remain in a **separate** application using the provided access tokens, ensuring a clear division of concerns.
