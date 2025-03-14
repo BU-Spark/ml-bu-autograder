@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Query, Body
 from typing import Optional
 from app.models.rubric import Rubric
 
@@ -19,7 +19,9 @@ dummy_rubrics = []
         403: {"description": "Authenticated but access is not allowed."}
     }
 )
-async def create_rubric(rubric: Rubric):
+async def create_rubric(
+    rubric: Rubric = Body(..., description="Rubric object containing grading instructions and sub-rubrics.")
+):
     dummy_rubrics.append(rubric)
     return rubric
 
@@ -34,7 +36,10 @@ async def create_rubric(rubric: Rubric):
         403: {"description": "Authenticated but access is not allowed."}
     }
 )
-async def get_ai_rubric(assignment_id: str, instructions: Optional[str] = None):
+async def get_ai_rubric(
+    assignment_id: str = Query(..., description="Identifier of the assignment."),
+    instructions: Optional[str] = Query(None, description="Optional specific improvement instructions for the AI.")
+):
     dummy_rubric = Rubric(
         assignment_id=assignment_id,
         grading_flags=["IGNORE_SPELLINGS", "IGNORE_GRAMMAR"],
@@ -55,7 +60,10 @@ async def get_ai_rubric(assignment_id: str, instructions: Optional[str] = None):
         403: {"description": "Authenticated but access is not allowed."}
     }
 )
-async def get_rubric(assignment_id: str, question_index: Optional[int] = None):
+async def get_rubric(
+    assignment_id: str = Query(..., description="Identifier of the assignment."),
+    question_index: Optional[int] = Query(None, description="Optional question index to retrieve a specific sub-rubric.")
+):
     for rubric in dummy_rubrics:
         if rubric.assignment_id == assignment_id:
             return rubric

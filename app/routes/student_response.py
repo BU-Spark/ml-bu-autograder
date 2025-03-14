@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Query, Body
 from typing import Optional, List
 from app.models.student_response import StudentResponse
 
@@ -18,7 +18,9 @@ dummy_responses: List[StudentResponse] = []
         403: {"description": "Authenticated but access is not allowed."}
     }
 )
-async def upload_response(response: StudentResponse):
+async def upload_response(
+    response: StudentResponse = Body(..., description="Student response object containing the answer data.")
+):
     dummy_responses.append(response)
     return {"message": "Response uploaded successfully."}
 
@@ -33,7 +35,9 @@ async def upload_response(response: StudentResponse):
         403: {"description": "Authenticated but access is not allowed."}
     }
 )
-async def replace_response(response: StudentResponse):
+async def replace_response(
+    response: StudentResponse = Body(..., description="Student response object with the updated answer data.")
+):
     for idx, existing in enumerate(dummy_responses):
         if (existing.student_identifier == response.student_identifier and
             existing.assignment_id == response.assignment_id and
@@ -53,7 +57,11 @@ async def replace_response(response: StudentResponse):
         403: {"description": "Authenticated but access is not allowed."}
     }
 )
-async def delete_response(student_identifier: str, assignment_id: str, question_index: Optional[int] = None):
+async def delete_response(
+    student_identifier: str = Query(..., description="Unique identifier for the student."),
+    assignment_id: str = Query(..., description="Identifier of the assignment."),
+    question_index: Optional[int] = Query(None, description="Optional index of the question. If omitted, all responses for the assignment are deleted.")
+):
     global dummy_responses
     if question_index is not None:
         for response in dummy_responses:
@@ -78,7 +86,11 @@ async def delete_response(student_identifier: str, assignment_id: str, question_
         403: {"description": "Authenticated but access is not allowed."}
     }
 )
-async def get_responses(assignment_id: str, question_index: Optional[int] = None, student_identifier: Optional[str] = None):
+async def get_responses(
+    assignment_id: str = Query(..., description="Identifier of the assignment."),
+    question_index: Optional[int] = Query(None, description="Optional index of the question."),
+    student_identifier: Optional[str] = Query(None, description="Optional unique identifier for the student.")
+):
     results = []
     for response in dummy_responses:
         if response.assignment_id == assignment_id:
