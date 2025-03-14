@@ -729,7 +729,6 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 
 - **JSON Body:**
   - **assignment_id** (Required)
-  - **max_points** (Required): Total maximum points (must be ≥ sum of individual question points).
   - **overall_instructor_guidelines** (Optional)
   - **grading_flags**: A list of grading flags.
     - IGNORE_SPELLINGS: Don't penalize for minor spelling mistakes.
