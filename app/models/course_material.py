@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional
 
-from app.models import UploadedFile
+from app.models.uploaded_file import UploadedFile
 
 
 class CourseMaterial(BaseModel):

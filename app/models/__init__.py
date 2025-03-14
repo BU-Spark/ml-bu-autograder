@@ -1,10 +1,9 @@
-from .uploaded_file import UploadedFile
 from .user import User, PersonalAuthenticationToken
 from .token import AccessToken
 from .course import Course
 from .assignment import Assignment, Question
 from .course_material import CourseMaterial
 from .student import Student
-from .student_response import StudentResponse, ResponseData
+from .student_response import StudentResponse
 from .grade import Grade
 from .rubric import Rubric, SubRubric
