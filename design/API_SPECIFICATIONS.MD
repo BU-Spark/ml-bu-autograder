@@ -21,7 +21,8 @@
      - [GET /auth/tokens](#get-auth-tokens)
      - [GET /auth/google_oauth](#get-auth-google-oauth)
    - **User Settings Endpoints**
-     - [PATCH /user/preferences](#patch-user-preferences)
+     - [GET /user](#get-user)
+     - [PATCH /user](#patch-user)
    - **Course Endpoints**
      - [POST /course](#post-course)
      - [DELETE /course](#delete-course)
@@ -63,10 +64,10 @@
 ### [user](#user)
 The user object (i.e. the instructor) who is signed in.
 - **user_id** (Non-Null): Internal unique identifier.
+- **user_email** (Non-Null): The user's email address.
 - **first_name** (Nullable): The user's first name.
 - **last_name** (Nullable): The user's last name.
 - **dark_mode** (Non-Null): Does the user prefer dark-mode on the website? (defaults to false)
-- **user_email** (Non-Null): The user's email address.
 
 ### [personal_authentication_token](#personal_authentication_token)
 A JSON Web Token (JWT) for interactive sessions on the official front end.
@@ -237,8 +238,20 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 
 ### User Settings Endpoints
 
-<a id="patch-user-preferences"></a>
-#### PATCH `/user/preferences`
+<a id="get-user"></a>
+### **GET `/user`**
+**Description:** Retrieves the authenticated user's profile information.
+
+- **Returns:**  
+  A [user](#user) object containing profile details.
+
+- **Errors:**  
+  - **401 Unauthorized:** Requester is not authenticated.
+
+---
+
+<a id="patch-user"></a>
+#### PATCH `/user
 **Description:** Updates the authenticated user's profile preferences. This endpoint allows users to modify their first name, last name, and dark mode setting.
 
 - **JSON Body:**
