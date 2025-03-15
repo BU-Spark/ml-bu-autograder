@@ -49,6 +49,8 @@
      - [POST /response/grade/ungraded](#post-response-grade-ungraded)
      - [POST /response/grade/all](#post-response-grade-all)
    - **Course Material Endpoints**
+     - [GET /course_materials](#get-course-materials)
+     - [GET /course_material](#get-course-material)
      - [POST /course_material](#post-course-material)
      - [DELETE /course_material](#delete-course-material)
      - [PATCH /course_material](#patch-course-material)
@@ -686,11 +688,44 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 
 ### Course Material Endpoints
 
+<a id="get-course-materials"></a>
+### **GET `/course_materials`**
+**Description:** Retrieves all course materials for the specified course.
+
+- **Query Parameters:**
+  - **course_id** (Required) – Identifier of the course.
+  - **semester** (Required) – Semester of the course material.
+
+- **Returns:**  
+  - A **single** [course_material](#course-material).
+
+- **Errors:**  
+  - **404 Not Found:** No matching course found.  
+  - **401 Unauthorized:** Requester is not authenticated.  
+  - **403 Forbidden:** Authenticated but access is not allowed.  
+
+<a id="get-course-material"></a>
+### **GET `/course_material`**
+**Description:** Retrieves a specific course material for the specified course.
+
+- **Query Parameters:**
+  - **course_id** (Required) – Identifier of the course.
+  - **semester** (Required) – Semester of the course material.
+  - **material_id** (Required) – Unique identifier of the specific material.
+
+- **Returns:**  
+  - A **single** [course_material](#course-material-object).
+
+- **Errors:**  
+  - **404 Not Found:** No matching course or course material found.  
+  - **401 Unauthorized:** Requester is not authenticated.  
+  - **403 Forbidden:** Authenticated but access is not allowed.  
+
 <a id="post-course-material"></a>
 #### POST `/course_material`
 **Description:** Uploads new [course_material](#course_material). The size of the data must be below a certain threshold or this endpoint will result in an error 400.
 
-- **Parameters:**
+- **JSON Body:**
   - **course_id** (Required)
   - **semester** (Required)
   - **material_name** (Optional): The friendly string name of the material.
