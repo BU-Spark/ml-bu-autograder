@@ -1,5 +1,7 @@
-from fastapi import APIRouter, HTTPException, status, Query
 from typing import List
+
+from fastapi import APIRouter, HTTPException, status, Query
+
 from app.models.token import AccessToken
 from app.models.user import User, PersonalAuthenticationToken
 
@@ -9,6 +11,7 @@ router = APIRouter()
 dummy_access_tokens = [
     AccessToken(user_id="user123", token_name="token_1", token_id="abc123", token_expiry=None)
 ]
+
 
 @router.post(
     "/token",
@@ -22,11 +25,12 @@ dummy_access_tokens = [
     }
 )
 async def create_access_token(
-    token_name: str = Query("token_1", description="Friendly name for the token. Defaults to 'token_1'.")
+        token_name: str = Query(..., description="Friendly name for the token. Defaults to 'token_n' (where n is a number).")
 ):
     new_token = AccessToken(user_id="user123", token_name=token_name, token_id="newtoken123", token_expiry=None)
     dummy_access_tokens.append(new_token)
     return new_token
+
 
 @router.delete(
     "/token",
@@ -39,13 +43,14 @@ async def create_access_token(
     }
 )
 async def delete_access_token(
-    token_id: str = Query(..., description="Unique identifier of the access token to delete.")
+        token_id: str = Query(..., description="Unique identifier of the access token to delete.")
 ):
     for token in dummy_access_tokens:
         if token.token_id == token_id:
             dummy_access_tokens.remove(token)
             return {"message": "Token deleted successfully."}
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Token not found.")
+
 
 @router.get(
     "/tokens",
@@ -60,6 +65,7 @@ async def delete_access_token(
 async def list_access_tokens():
     return dummy_access_tokens
 
+
 @router.get(
     "/google_oauth",
     summary="Google OAuth Callback",
@@ -70,12 +76,12 @@ async def list_access_tokens():
     }
 )
 async def google_oauth(
-    access_token: str = Query(..., description="Access token provided by Google."),
-    expires_in: int = Query(..., description="Token expiry time in seconds."),
-    refresh_token: str = Query(..., description="Refresh token provided by Google."),
-    scope: str = Query(..., description="Scope of the access token."),
-    token_type: str = Query(..., description="Type of the token, usually 'Bearer'."),
-    id_token: str = Query(..., description="ID token provided by Google.")
+        access_token: str = Query(..., description="Access token provided by Google."),
+        expires_in: int = Query(..., description="Token expiry time in seconds."),
+        refresh_token: str = Query(..., description="Refresh token provided by Google."),
+        scope: str = Query(..., description="Scope of the access token."),
+        token_type: str = Query(..., description="Type of the token, usually 'Bearer'."),
+        id_token: str = Query(..., description="ID token provided by Google.")
 ):
     dummy_user = User(user_id="user123", first_name="John", last_name="Doe", user_email="john.doe@example.com")
     dummy_pat = PersonalAuthenticationToken(user_id="user123", authentication_token="dummy_jwt_token")
