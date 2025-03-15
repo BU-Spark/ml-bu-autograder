@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, status, Query, Body
 
@@ -9,6 +9,56 @@ router = APIRouter()
 # Dummy storage for course materials
 dummy_materials: List[CourseMaterial] = []
 
+@router.get(
+    "/course_materials",
+    response_model=List[CourseMaterial],
+    summary="Get All Course Materials",
+    description="Retrieves all course materials for the specified course.",
+    responses={
+        404: {"description": "No matching course found."},
+        401: {"description": "Requester is not authenticated."},
+        403: {"description": "Authenticated but access is not allowed."}
+    }
+)
+async def get_course_materials(
+    course_id: str = Query(..., description="Identifier of the course."),
+    semester: str = Query(..., description="Semester of the course material."),
+):
+    results = [material for material in dummy_materials if material.course_id == course_id]
+
+    if not results:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No matching course found."
+        )
+
+    return results
+
+
+@router.get(
+    "/course_material",
+    response_model=CourseMaterial,
+    summary="Get Specific Course Material",
+    description="Retrieves a specific course material for the specified course.",
+    responses={
+        404: {"description": "No matching course or course material found."},
+        401: {"description": "Requester is not authenticated."},
+        403: {"description": "Authenticated but access is not allowed."}
+    }
+)
+async def get_course_material(
+    course_id: str = Query(..., description="Identifier of the course."),
+    semester: str = Query(..., description="Semester of the course material."),
+    material_id: str = Query(..., description="Unique identifier of the specific material."),
+):
+    for material in dummy_materials:
+        if material.course_id == course_id and material.material_id == material_id:
+            return material
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="No matching course or course material found."
+    )
 
 @router.post(
     "/course_material",
