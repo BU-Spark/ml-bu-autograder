@@ -20,6 +20,8 @@
      - [DELETE /auth/token](#delete-auth-token)
      - [GET /auth/tokens](#get-auth-tokens)
      - [GET /auth/google_oauth](#get-auth-google-oauth)
+   - **User Settings Endpoints**
+     - [PATCH /user/preferences](#patch-user-preferences)
    - **Course Endpoints**
      - [POST /course](#post-course)
      - [DELETE /course](#delete-course)
@@ -63,6 +65,7 @@ The user object (i.e. the instructor) who is signed in.
 - **user_id** (Non-Null): Internal unique identifier.
 - **first_name** (Nullable): The user's first name.
 - **last_name** (Nullable): The user's last name.
+- **dark_mode** (Non-Null): Does the user prefer dark-mode on the website? (defaults to false)
 - **user_email** (Non-Null): The user's email address.
 
 ### [personal_authentication_token](#personal_authentication_token)
@@ -71,7 +74,7 @@ A JSON Web Token (JWT) for interactive sessions on the official front end.
 - **authentication_token** (Non-Null): The JWT string.
 
 ### [access_token](#access_token)
-Used for programmatic API access; it cannot generate additional access tokens.
+Used for programmatic API access; it cannot generate additional access tokens or edit user settings.
 - **user_id** (Non-Null): The token owner's identifier.
 - **token_name** (Non-Null): A friendly name for the token (must be unique per user).
 - **token_id** (Non-Null): The secret token string (displayed only once during creation).
@@ -229,6 +232,26 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 - **Errors:**
   - **400 Bad Request:** Missing required OAuth parameters.
   - **401 Unauthorized:** Invalid OAuth parameters or unauthorized access to Google authentication endpoints.
+
+---
+
+### User Settings Endpoints
+
+<a id="patch-user-preferences"></a>
+#### PATCH `/user/preferences`
+**Description:** Updates the authenticated user's profile preferences. This endpoint allows users to modify their first name, last name, and dark mode setting.
+
+- **JSON Body:**
+  - **first_name** (Optional): The updated first name.
+  - **last_name** (Optional): The updated last name.
+  - **dark_mode** (Optional): Boolean value indicating the user's preference for dark mode (`true`) or light mode (`false`).
+
+- **Returns:**  
+  - The updated [user](#user) object reflecting the new preferences.
+
+- **Errors:**
+  - **400 Bad Request:** Missing or invalid parameters.
+  - **401 Unauthorized:** Requester is not authenticated.
 
 ---
 
