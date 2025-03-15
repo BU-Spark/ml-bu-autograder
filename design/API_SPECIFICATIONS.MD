@@ -27,6 +27,7 @@
      - [POST /course](#post-course)
      - [DELETE /course](#delete-course)
      - [PATCH /course/transfer](#patch-course-transfer)
+     - [GET /course](#get-course)
      - [GET /courses](#get-courses)
      - [POST /course/instructor](#post-course-instructor)
      - [DELETE /course/instructor](#delete-course-instructor)
@@ -330,6 +331,25 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 
 ---
 
+<a id="get-course"></a>
+#### GET `/course`
+**Description:** Retrieves a specific [course](#course) object.
+
+- **Query Parameters:**
+  - **course_id** (Required): Unique identifier.
+  - **semester** (Required): Course semester.
+
+- **Returns:**  
+  - A specific [course](#course) objects.
+
+- **Errors:**
+  - **404 Not Found:** Source or destination course not found.
+  - **400 Bad Request:** Invalid parameters.
+  - **401 Unauthorized:** Requester is not authenticated.
+  - **403 Forbidden:** Authenticated but access is not allowed.
+
+---
+
 <a id="get-courses"></a>
 #### GET `/courses`
 **Description:** Retrieves all [course](#course) objects accessible by the authenticated user.
@@ -610,7 +630,7 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 
 <a id="get-responses"></a>
 #### GET `/responses`
-**Description:** Retrieves [student_response](#student_response) objects (optionally including [grade](#grade) information) based on criteria.
+**Description:** Retrieves [student_response](#student_response) objects (possible including [grade](#grade) information if available) based on criteria.
 
 - **Query Parameters:**
   - **assignment_id** (Required)
@@ -618,7 +638,7 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
   - **student_identifier** (Optional)
 
 - **Returns:**  
-  - Combined [student_response](#student_response) and [grade](#grade) objects (if graded).
+  - List of combined [student_response](#student_response) and [grade](#grade) objects (if graded).
 
 - **Errors:**
   - **400 Bad Request:** Missing assignment_id.
