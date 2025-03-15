@@ -25,7 +25,7 @@ dummy_user = User(
 
 
 @router.patch(
-    "/user/preferences",
+    "/user",
     response_model=User,
     summary="Update User Preferences",
     description="Updates the authenticated user's profile preferences, including first name, last name, and dark mode settings.",
@@ -46,4 +46,17 @@ async def update_user_preferences(
     if preferences.dark_mode is not None:
         dummy_user.dark_mode = preferences.dark_mode
 
+    return dummy_user
+
+
+@router.get(
+    "/user",
+    summary="Get User Data",
+    description="Retrieves the authenticated user's profile information.",
+    response_model=User,
+    responses={
+        401: {"description": "Requester is not authenticated."},
+    }
+)
+async def get_user() -> User:
     return dummy_user

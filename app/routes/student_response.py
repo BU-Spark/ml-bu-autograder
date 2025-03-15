@@ -86,7 +86,8 @@ async def delete_response(
 @router.get(
     "/responses",
     summary="Get Student Responses",
-    description="Retrieves student responses (optionally including grade information) based on criteria.",
+    description="Retrieves student responses (possibly including grade information) based on criteria.",
+    response_model=List[StudentResponse],
     responses={
         400: {"description": "Missing assignment_id."},
         404: {"description": "No matching responses found."},

@@ -1,5 +1,7 @@
+from typing import Union
+
 from pydantic import BaseModel, Field
-from app.models.uploaded_file import UploadedFile
+from app.models.uploaded_file import UploadedFileData, UploadedFileReference
 
 class StudentResponse(BaseModel):
     """
@@ -14,6 +16,6 @@ class StudentResponse(BaseModel):
     question_index: int = Field(
         ..., description="Index of the question being answered within the assignment."
     )
-    data: UploadedFile = Field(
-        ..., description="Uploaded content of the student's response."
+    data: Union[UploadedFileData, UploadedFileReference] = Field(
+        ..., description="Either the uploaded file content or a reference to a previously stored file."
     )

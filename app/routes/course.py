@@ -74,6 +74,37 @@ async def transfer_course(
 
 
 @router.get(
+    "/course",
+    response_model=Course,
+    summary="Get Specific Course",
+    description="Retrieves a specific course object based on course_id and semester.",
+    responses={
+        404: {"description": "Course not found."},
+        400: {"description": "Invalid parameters."},
+        401: {"description": "Requester is not authenticated."},
+        403: {"description": "Authenticated but access is not allowed."}
+    }
+)
+async def get_course(
+    course_id: str = Query(..., description="Unique identifier of the course."),
+    semester: str = Query(..., description="Course semester."),
+):
+    if not course_id or not semester:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid parameters."
+        )
+
+    for course in dummy_courses:
+        if course.course_id == course_id and course.semester == semester:
+            return course
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Course not found."
+    )
+
+@router.get(
     "/courses",
     response_model=List[Course],
     summary="List Courses",

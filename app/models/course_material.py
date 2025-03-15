@@ -1,6 +1,6 @@
-from typing import Optional
+from typing import Optional, Union
 from pydantic import BaseModel, Field
-from app.models.uploaded_file import UploadedFile
+from app.models.uploaded_file import UploadedFileData, UploadedFileReference
 
 class CourseMaterial(BaseModel):
     """
@@ -12,4 +12,6 @@ class CourseMaterial(BaseModel):
     additional_notes: Optional[str] = Field(
         None, description="Optional instructor notes."
     )
-    data: UploadedFile = Field(..., description="DataContent for the file.")
+    data: Union[UploadedFileData, UploadedFileReference] = Field(
+        ..., description="Either the uploaded file content or a reference to a previously stored file."
+    )
