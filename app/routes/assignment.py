@@ -1,5 +1,7 @@
-from fastapi import APIRouter, HTTPException, status, Query, Body
 from typing import List
+
+from fastapi import APIRouter, HTTPException, status, Query, Body
+
 from app.models.assignment import Assignment, Question
 
 router = APIRouter()
@@ -15,6 +17,7 @@ dummy_assignments = [
     )
 ]
 
+
 @router.post(
     "/assignment",
     response_model=Assignment,
@@ -28,11 +31,12 @@ dummy_assignments = [
     }
 )
 async def create_assignment(
-    assignment: Assignment = Body(..., description="Assignment object containing questions and guidelines."),
-    semester: str = Query(..., description="Semester when the assignment is being created.")
+        assignment: Assignment = Body(..., description="Assignment object containing questions and guidelines."),
+        semester: str = Query(..., description="Semester when the assignment is being created.")
 ):
     dummy_assignments.append(assignment)
     return assignment
+
 
 @router.patch(
     "/assignment/add_question",
@@ -46,9 +50,10 @@ async def create_assignment(
     }
 )
 async def add_question(
-    assignment_id: str = Query(..., description="Identifier of the assignment to update."),
-    question_text: str = Query(..., description="Text of the new question."),
-    question_graphics_figures: str = Query(None, description="Optional graphics/figures associated with the question.")
+        assignment_id: str = Query(..., description="Identifier of the assignment to update."),
+        question_text: str = Query(..., description="Text of the new question."),
+        question_graphics_figures: str = Query(None,
+                                               description="Optional graphics/figures associated with the question.")
 ):
     for assignment in dummy_assignments:
         if assignment.assignment_id == assignment_id:
@@ -56,6 +61,7 @@ async def add_question(
             assignment.ordered_list.append(new_question)
             return {"new_question_index": len(assignment.ordered_list) - 1}
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found.")
+
 
 @router.patch(
     "/assignment/remove_question",
@@ -69,8 +75,8 @@ async def add_question(
     }
 )
 async def remove_question(
-    assignment_id: str = Query(..., description="Identifier of the assignment."),
-    question_index: int = Query(..., description="Index of the question to remove.")
+        assignment_id: str = Query(..., description="Identifier of the assignment."),
+        question_index: int = Query(..., description="Index of the question to remove.")
 ):
     for assignment in dummy_assignments:
         if assignment.assignment_id == assignment_id:
@@ -80,6 +86,7 @@ async def remove_question(
             except IndexError:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Question not found.")
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found.")
+
 
 @router.patch(
     "/assignment/edit_question",
@@ -93,10 +100,10 @@ async def remove_question(
     }
 )
 async def edit_question(
-    assignment_id: str = Query(..., description="Identifier of the assignment."),
-    question_index: int = Query(..., description="Index of the question to edit."),
-    new_question_text: str = Query(..., description="New text for the question."),
-    new_question_graphics_figures: str = Query(None, description="Optional new graphics/figures for the question.")
+        assignment_id: str = Query(..., description="Identifier of the assignment."),
+        question_index: int = Query(..., description="Index of the question to edit."),
+        new_question_text: str = Query(..., description="New text for the question."),
+        new_question_graphics_figures: str = Query(None, description="Optional new graphics/figures for the question.")
 ):
     for assignment in dummy_assignments:
         if assignment.assignment_id == assignment_id:
@@ -107,6 +114,7 @@ async def edit_question(
             except IndexError:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Question not found.")
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found.")
+
 
 @router.patch(
     "/assignment/modify_order",
@@ -120,16 +128,18 @@ async def edit_question(
     }
 )
 async def modify_order(
-    assignment_id: str = Query(..., description="Identifier of the assignment."),
-    list_of_question_indexes: List[int] = Query(..., description="New order for question indexes.")
+        assignment_id: str = Query(..., description="Identifier of the assignment."),
+        list_of_question_indexes: List[int] = Query(..., description="New order for question indexes.")
 ):
     for assignment in dummy_assignments:
         if assignment.assignment_id == assignment_id:
             if sorted(list_of_question_indexes) != list(range(len(assignment.ordered_list))):
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid question indexes provided.")
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                    detail="Invalid question indexes provided.")
             assignment.ordered_list = [assignment.ordered_list[i] for i in list_of_question_indexes]
             return assignment
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found.")
+
 
 @router.get(
     "/assignment",
@@ -143,13 +153,14 @@ async def modify_order(
     }
 )
 async def get_assignment(
-    course_id: str = Query(..., description="Identifier of the course."),
-    assignment_id: str = Query(..., description="Identifier of the assignment.")
+        course_id: str = Query(..., description="Identifier of the course."),
+        assignment_id: str = Query(..., description="Identifier of the assignment.")
 ):
     for assignment in dummy_assignments:
         if assignment.assignment_id == assignment_id and assignment.course_id == course_id:
             return assignment
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found.")
+
 
 @router.get(
     "/assignments",
@@ -162,12 +173,13 @@ async def get_assignment(
     }
 )
 async def list_assignments(
-    course_id: str = Query(..., description="Identifier of the course.")
+        course_id: str = Query(..., description="Identifier of the course.")
 ):
     assignments = [a for a in dummy_assignments if a.course_id == course_id]
     if assignments:
         return assignments
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No assignments found.")
+
 
 @router.delete(
     "/assignment",
@@ -180,7 +192,7 @@ async def list_assignments(
     }
 )
 async def delete_assignment(
-    assignment_id: str = Query(..., description="Identifier of the assignment to delete.")
+        assignment_id: str = Query(..., description="Identifier of the assignment to delete.")
 ):
     for assignment in dummy_assignments:
         if assignment.assignment_id == assignment_id:

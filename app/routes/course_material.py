@@ -1,11 +1,14 @@
-from fastapi import APIRouter, HTTPException, status, Query, Body
 from typing import List
+
+from fastapi import APIRouter, HTTPException, status, Query, Body
+
 from app.models.course_material import CourseMaterial
 
 router = APIRouter()
 
 # Dummy storage for course materials
 dummy_materials: List[CourseMaterial] = []
+
 
 @router.post(
     "/course_material",
@@ -20,11 +23,12 @@ dummy_materials: List[CourseMaterial] = []
     }
 )
 async def upload_course_material(
-    material: CourseMaterial = Body(..., description="Course material object containing details and file data."),
-    semester: str = Query(..., description="Semester during which the course material is being uploaded.")
+        material: CourseMaterial = Body(..., description="Course material object containing details and file data."),
+        semester: str = Query(..., description="Semester during which the course material is being uploaded.")
 ):
     dummy_materials.append(material)
     return material
+
 
 @router.delete(
     "/course_material",
@@ -37,15 +41,16 @@ async def upload_course_material(
     }
 )
 async def delete_course_material(
-    course_id: str = Query(..., description="Identifier of the course."),
-    semester: str = Query(..., description="Semester of the course material."),
-    material_id: str = Query(..., description="Unique identifier of the material to delete.")
+        course_id: str = Query(..., description="Identifier of the course."),
+        semester: str = Query(..., description="Semester of the course material."),
+        material_id: str = Query(..., description="Unique identifier of the material to delete.")
 ):
     for material in dummy_materials:
         if material.course_id == course_id and material.material_id == material_id:
             dummy_materials.remove(material)
             return {"message": "Course material deleted successfully."}
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Material not found.")
+
 
 @router.patch(
     "/course_material",
@@ -60,8 +65,8 @@ async def delete_course_material(
     }
 )
 async def update_course_material(
-    material: CourseMaterial = Body(..., description="Course material object with updated data."),
-    semester: str = Query(..., description="Semester of the course material being updated.")
+        material: CourseMaterial = Body(..., description="Course material object with updated data."),
+        semester: str = Query(..., description="Semester of the course material being updated.")
 ):
     for idx, existing in enumerate(dummy_materials):
         if existing.course_id == material.course_id and existing.material_id == material.material_id:
