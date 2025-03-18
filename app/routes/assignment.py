@@ -11,6 +11,7 @@ dummy_assignments = [
     Assignment(
         assignment_id="assign1",
         course_id="cs_132",
+        semester="summer_2025",
         assignment_title="Assignment 1",
         assignment_guidelines="Follow the instructions carefully.",
         ordered_list=[Question(question_text="What is 2+2?")]
@@ -154,6 +155,7 @@ async def modify_order(
 )
 async def get_assignment(
         course_id: str = Query(..., description="Identifier of the course."),
+        semester: str = Query(..., description="Semester of the course."),
         assignment_id: str = Query(..., description="Identifier of the assignment.")
 ):
     for assignment in dummy_assignments:
@@ -173,7 +175,8 @@ async def get_assignment(
     }
 )
 async def list_assignments(
-        course_id: str = Query(..., description="Identifier of the course.")
+        course_id: str = Query(..., description="Identifier of the course."),
+        semester: str = Query(..., description="Semester of the course.")
 ):
     assignments = [a for a in dummy_assignments if a.course_id == course_id]
     if assignments:

@@ -16,6 +16,7 @@ class Assignment(BaseModel):
     """
     assignment_id: str = Field(..., description="Unique assignment identifier.")
     course_id: str = Field(..., description="Associated course identifier.")
+    semester: str = Field(..., description="The semester associated with the course.")
     assignment_title: Optional[str] = Field(
         None, description="Title of the assignment."
     )

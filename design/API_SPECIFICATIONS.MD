@@ -118,6 +118,7 @@ Contains questions and guidelines for an assignment or quiz.
 ### [course_material](#course_material)
 Contains the course material and its data_type.
 - **course_id** (Non-Null): Associated course ID.
+- **semester** (Non-Null): Semester during which the course is offered.
 - **material_id** (Non-Null): Unique identifier.
 - **material_name** (Non-Null): Title or name of the material.
 - **additional_notes** (Nullable): Supplementary instructor notes.
@@ -455,6 +456,7 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 
 - **Query Parameters:**
   - **course_id** (Required)
+  - **semester** (Non-Null): Semester during which the course is offered.
   - **assignment_id** (Required)
 
 - **Returns:**  
@@ -473,6 +475,7 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 
 - **Query Parameters:**
   - **course_id** (Required)
+  - **semester** (Non-Null): Semester during which the course is offered.
 
 - **Returns:**  
   - A list of [assignment](#assignment) objects.
