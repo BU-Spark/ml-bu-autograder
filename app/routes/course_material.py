@@ -74,7 +74,6 @@ async def get_course_material(
 )
 async def upload_course_material(
         material: CourseMaterial = Body(..., description="Course material object containing details and file data."),
-        semester: str = Query(..., description="Semester during which the course material is being uploaded.")
 ):
     dummy_materials.append(material)
     return material
@@ -116,7 +115,6 @@ async def delete_course_material(
 )
 async def update_course_material(
         material: CourseMaterial = Body(..., description="Course material object with updated data."),
-        semester: str = Query(..., description="Semester of the course material being updated.")
 ):
     for idx, existing in enumerate(dummy_materials):
         if existing.course_id == material.course_id and existing.material_id == material.material_id:

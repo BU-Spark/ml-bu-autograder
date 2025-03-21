@@ -5,9 +5,10 @@ class Question(BaseModel):
     """
     Represents a question in an assignment.
     """
+    question_index: int = Field(..., description="Index of the question in the assignment.")
     question_text: str = Field(..., description="The text of the question.")
     question_graphics_figures: Optional[str] = Field(
-        None, description="Optional graphics/figures associated with the question."
+        None, description="Base64-encoded PNG image representing optional graphics/figures for the question."
     )
 
 class Assignment(BaseModel):
@@ -16,12 +17,13 @@ class Assignment(BaseModel):
     """
     assignment_id: str = Field(..., description="Unique assignment identifier.")
     course_id: str = Field(..., description="Associated course identifier.")
+    semester: str = Field(..., description="The semester associated with the course.")
     assignment_title: Optional[str] = Field(
         None, description="Title of the assignment."
     )
     assignment_guidelines: Optional[str] = Field(
         None, description="General instructions or formatting requirements."
     )
-    ordered_list: List[Question] = Field(
+    questions: List[Question] = Field(
         ..., description="List of questions in order."
     )

@@ -1,10 +1,24 @@
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, status, Query, Body
+from pydantic import Field, BaseModel
 
-from app.models.rubric import Rubric
+from app.models.rubric import Rubric, SubRubric
 
 router = APIRouter()
+
+
+class EditSubRubricRequest(BaseModel):
+    """
+    Request model for editing a sub-rubric of an assignment.
+    Allows modification of grading criteria for individual questions.
+    """
+    semester: str = Field(..., description="Semester of the course.")
+    course_id: str = Field(..., description="Identifier of the course.")
+    assignment_id: str = Field(..., description="Identifier of the assignment.")
+    sub_rubric: SubRubric = Field(...,
+                                  description="Sub-rubric object containing grading instructions and criteria for that specific question.")
+
 
 # Dummy storage for rubrics
 dummy_rubrics = []

@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Query
 
@@ -14,7 +14,7 @@ dummy_grades: List[Grade] = []
     "/grade/specific",
     response_model=List[Grade],
     summary="Grade Specific Responses",
-    description="Grades specific student responses for an assignment.",
+    description="Grades or regrades a specific student responses for an assignment.",
     responses={
         400: {"description": "Missing or invalid parameters."},
         502: {"description": "External LLM API call failure."},
@@ -25,7 +25,7 @@ dummy_grades: List[Grade] = []
 async def grade_specific(
         student_identifiers: List[str] = Query(..., description="List of student identifiers to grade."),
         assignment_id: str = Query(..., description="Identifier of the assignment."),
-        question_index: int = Query(None,
+        question_index: Optional[int] = Query(None,
                                     description="Optional index of the question. Grades all questions if omitted.")
 ):
     grades = []
@@ -51,7 +51,7 @@ async def grade_specific(
 )
 async def grade_ungraded(
         assignment_id: str = Query(..., description="Identifier of the assignment."),
-        question_index: int = Query(None,
+        question_index: Optional[int] = Query(None,
                                     description="Optional index of the question to grade. Grades all ungraded questions if omitted.")
 ):
     grade_obj = Grade(student_identifier="student123", assignment_id=assignment_id, question_index=question_index or 0,

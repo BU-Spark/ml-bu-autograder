@@ -7,6 +7,7 @@ class CourseMaterial(BaseModel):
     Course material object.
     """
     course_id: str = Field(..., description="Associated course identifier.")
+    semester: str = Field(..., description="The semester associated with the course.")
     material_id: str = Field(..., description="Unique material identifier.")
     material_name: str = Field(..., description="Title or name of the material.")
     additional_notes: Optional[str] = Field(
