@@ -1,8 +1,36 @@
 from typing import List
 
 from fastapi import APIRouter, HTTPException, status, Query, Body
+from pydantic import BaseModel, Field
 
 from app.models.assignment import Assignment, Question
+
+
+class OptionalQuestionIndex(Question):
+    question_index: int = Field(..., description="Index of the question. If not specified, it is set to the next "
+                                                 "available question index.")
+
+
+class EditQuestionRequest(BaseModel):
+    semester: str = Field(..., description="Semester of the course.")
+    course_id: str = Field(..., description="Identifier of the course.")
+    assignment_id: str = Field(..., description="Identifier of the assignment.")
+    question: Question = Field(..., description="The updated question data.")
+
+
+class AddQuestionRequest(BaseModel):
+    semester: str = Field(..., description="Semester of the course.")
+    course_id: str = Field(..., description="Identifier of the course.")
+    assignment_id: str = Field(..., description="Identifier of the assignment to update.")
+    question: OptionalQuestionIndex = Field(..., description="The data of the new question.")
+
+
+class ModifyOrderRequest(BaseModel):
+    semester: str = Field(..., description="Semester of the course.")
+    course_id: str = Field(..., description="Identifier of the course.")
+    assignment_id: str = Field(..., description="Identifier of the assignment.")
+    list_of_question_indexes: List[int] = Field(..., description="New order for question indexes.")
+
 
 router = APIRouter()
 
@@ -11,9 +39,10 @@ dummy_assignments = [
     Assignment(
         assignment_id="assign1",
         course_id="cs_132",
+        semester="summer_2025",
         assignment_title="Assignment 1",
         assignment_guidelines="Follow the instructions carefully.",
-        ordered_list=[Question(question_text="What is 2+2?")]
+        questions=[Question(question_index=0, question_text="What is 2+2?")]
     )
 ]
 
@@ -30,10 +59,7 @@ dummy_assignments = [
         403: {"description": "Authenticated but access is not allowed."}
     }
 )
-async def create_assignment(
-        assignment: Assignment = Body(..., description="Assignment object containing questions and guidelines."),
-        semester: str = Query(..., description="Semester when the assignment is being created.")
-):
+async def create_assignment(assignment: Assignment = Body(..., description="The assignment which to create.")):
     dummy_assignments.append(assignment)
     return assignment
 
@@ -50,16 +76,13 @@ async def create_assignment(
     }
 )
 async def add_question(
-        assignment_id: str = Query(..., description="Identifier of the assignment to update."),
-        question_text: str = Query(..., description="Text of the new question."),
-        question_graphics_figures: str = Query(None,
-                                               description="Optional graphics/figures associated with the question.")
+        question: AddQuestionRequest = Body(...)
 ):
     for assignment in dummy_assignments:
-        if assignment.assignment_id == assignment_id:
-            new_question = Question(question_text=question_text, question_graphics_figures=question_graphics_figures)
-            assignment.ordered_list.append(new_question)
-            return {"new_question_index": len(assignment.ordered_list) - 1}
+        if assignment.assignment_id == question.assignment_id:
+            new_question = question.question
+            assignment.questions.append(new_question)
+            return {"new_question_index": len(assignment.questions) - 1}
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found.")
 
 
@@ -81,7 +104,7 @@ async def remove_question(
     for assignment in dummy_assignments:
         if assignment.assignment_id == assignment_id:
             try:
-                assignment.ordered_list.pop(question_index)
+                assignment.questions.pop(question_index)
                 return {"message": "Question removed successfully."}
             except IndexError:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Question not found.")
@@ -100,16 +123,12 @@ async def remove_question(
     }
 )
 async def edit_question(
-        assignment_id: str = Query(..., description="Identifier of the assignment."),
-        question_index: int = Query(..., description="Index of the question to edit."),
-        new_question_text: str = Query(..., description="New text for the question."),
-        new_question_graphics_figures: str = Query(None, description="Optional new graphics/figures for the question.")
+        question: EditQuestionRequest = Body(...)
 ):
     for assignment in dummy_assignments:
-        if assignment.assignment_id == assignment_id:
+        if assignment.assignment_id == question.assignment_id:
             try:
-                assignment.ordered_list[question_index].question_text = new_question_text
-                assignment.ordered_list[question_index].question_graphics_figures = new_question_graphics_figures
+                # do something
                 return {"message": "Question updated successfully."}
             except IndexError:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Question not found.")
@@ -128,15 +147,14 @@ async def edit_question(
     }
 )
 async def modify_order(
-        assignment_id: str = Query(..., description="Identifier of the assignment."),
-        list_of_question_indexes: List[int] = Query(..., description="New order for question indexes.")
+        question: ModifyOrderRequest = Body(...)
 ):
     for assignment in dummy_assignments:
-        if assignment.assignment_id == assignment_id:
-            if sorted(list_of_question_indexes) != list(range(len(assignment.ordered_list))):
+        if assignment.assignment_id == question.assignment_id:
+            if sorted(question.list_of_question_indexes) != list(range(len(assignment.questions))):
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                                     detail="Invalid question indexes provided.")
-            assignment.ordered_list = [assignment.ordered_list[i] for i in list_of_question_indexes]
+            assignment.questions = [assignment.questions[i] for i in question.list_of_question_indexes]
             return assignment
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found.")
 
@@ -154,6 +172,7 @@ async def modify_order(
 )
 async def get_assignment(
         course_id: str = Query(..., description="Identifier of the course."),
+        semester: str = Query(..., description="Semester of the course."),
         assignment_id: str = Query(..., description="Identifier of the assignment.")
 ):
     for assignment in dummy_assignments:
@@ -173,7 +192,8 @@ async def get_assignment(
     }
 )
 async def list_assignments(
-        course_id: str = Query(..., description="Identifier of the course.")
+        course_id: str = Query(..., description="Identifier of the course."),
+        semester: str = Query(..., description="Semester of the course.")
 ):
     assignments = [a for a in dummy_assignments if a.course_id == course_id]
     if assignments:
