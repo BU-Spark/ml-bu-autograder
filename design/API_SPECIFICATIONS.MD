@@ -107,9 +107,9 @@ Represents a course; the combination of course_name and semester must be unique.
 
 ### [assignment](#assignment)
 Contains questions and guidelines for an assignment or quiz.
-- **assignment_id** (Non-Null): Unique identifier.
+- **assignment_id** (Non-Null): The unique title or ID the assignment is known by.
 - **course_id** (Non-Null): The course to which it belongs.
-- **assignment_title** (Nullable): Title of the assignment.
+- **semester** (Non-Null): Semester during which the course is offered.
 - **assignment_guidelines** (Nullable): General instructions or formatting requirements.
 - **ordered_list** (Non-Null): A list of questions, each containing:
   - **question_text** (Non-Null): The question content.
@@ -136,7 +136,7 @@ Contains basic student information.
 ### [student_response](#student_response)
 Represents a student’s answer to a question.
 - **student_identifier** (Non-Null): Student's unique identifier.
-- **assignment_id** (Non-Null): The assignment's ID.
+- **assignment_id** (Non-Null): The unique title or ID the assignment is known by.
 - **question_index** (Non-Null): The question being answered.
 - **data** (Non-Null):
   - **data_type** (Non-Null): (.png, .jpeg, .pdf, .mp3, .mp4, .html, .ppt, .doc, URL)
@@ -146,7 +146,7 @@ Represents a student’s answer to a question.
 ### [grade](#grade)
 Contains grading results for a student’s response.
 - **student_identifier** (Non-Null): Student's unique identifier.
-- **assignment_id** (Non-Null): Assignment identifier.
+- **assignment_id** (Non-Null): The unique title or ID the assignment is known by.
 - **question_index** (Non-Null): The question's index.
 - **grade** (Non-Null): Awarded grade.
 - **explanation** (Nullable): Explanation based on the rubric.
@@ -355,13 +355,15 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 - **JSON Body:**
   - **course_id** (Required)
   - **semester** (Required)
+  // todo: maybe optional?
+  - **assignment_id** (Required): The unique title or ID the assignment is known by.
   - **assignment_guidelines** (Required): General instructions.
   - **ordered_list** (Required): List of questions. Each item includes:
     - **question_text** (Required)
     - **question_graphics_figures** (Optional)
 
 - **Returns:**  
-  - The created [assignment](#assignment) object (including assignment_id).
+  - The created [assignment](#assignment) object.
 
 - **Errors:**
   - **400 Bad Request:** Missing or invalid parameters.
@@ -595,7 +597,7 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 
 <a id="post-response-grade-specific"></a>
 ### **POST `/response/grade/specific`**  
-**Description:** Grades specific student responses for an assignment.
+**Description:** Grades or regrades a specific student responses for an assignment.
 
 - **JSON Body:**
   - **student_identifiers** (Required): List of student identifiers whom to grade.
