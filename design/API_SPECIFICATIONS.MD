@@ -7,8 +7,10 @@
    - [personal_authentication_token](#personal_authentication_token)
    - [access_token](#access_token)
    - [rubric](#rubric)
+   - [sub_rubric](#sub_rubric)
    - [course](#course)
    - [assignment](#assignment)
+   - [assignment_question](#assignment_question)
    - [course_material](#course_material)
    - [student](#student)
    - [student_response](#student_response)
@@ -78,7 +80,7 @@ Used for programmatic API access; it cannot generate additional access tokens.
 - **token_expiry** (Nullable): Expiration time. If omitted, the token never expires.
 
 ### [rubric](#rubric)
-Contains grading instructions for the LLM regarding leniency, point allocations, and deductions.
+Contains grading instructions for the LLM regarding leniency, point allocations, and deductions for the entire question.
 - **assignment_id** (Non-Null): The associated assignment's ID.
 - **grading_flags** (Nullable): A list of grading flags to apply on this rubric.
     - IGNORE_SPELLINGS: Don't penalize for minor spelling mistakes.
@@ -92,11 +94,14 @@ Contains grading instructions for the LLM regarding leniency, point allocations,
   - Leniency 4 – Lenient: The focus is on recognizing the student’s effort and overall understanding, even if the final answer isn’t perfect. Minor errors are tolerated with minimal deductions, and creative or partially correct solutions receive substantial credit, emphasizing improvement and learning over perfection.
   - Leniency 5 – Very Lenient: Grading is highly forgiving, prioritizing the student’s effort and thought process. Even if the answer is not completely correct, significant credit is given for demonstrating a clear understanding or a novel approach. Deductions are minimal for minor mistakes, and the overall goal is to encourage risk-taking and learning.
 - **overall_instructor_guidelines** (Nullable): General grading criteria for all questions.
-- **sub_rubrics** (Non-Null): A list of objects, each containing:
-  - **question_index** (Non-Null): The question index.
-  - **maximum_points** (Non-Null): Maximum points available.
-  - **leniency** (Non-Null, Integer 1–5, Defaults to 3): Specific leniency for the question.
-  - **instructor_guideline** (Nullable): Detailed grading criteria.
+- **sub_rubrics** (Non-Null): A list of objects, each containing a [sub_rubric](#sub_rubric).
+
+### [sub_rubric](#sub_rubric)
+Contains grading instructions for the specific question.
+- **question_index** (Non-Null): The question index.
+- **maximum_points** (Non-Null): Maximum points available.
+- **leniency** (Non-Null, Integer 1–5, Defaults to 3): Specific leniency for the question.
+- **instructor_guideline** (Nullable): Detailed grading criteria.
 
 ### [course](#course)
 Represents a course; the combination of course_name and semester must be unique.
@@ -111,9 +116,13 @@ Contains questions and guidelines for an assignment or quiz.
 - **course_id** (Non-Null): The course to which it belongs.
 - **semester** (Non-Null): Semester during which the course is offered.
 - **assignment_guidelines** (Nullable): General instructions or formatting requirements.
-- **ordered_list** (Non-Null): A list of questions, each containing:
-  - **question_text** (Non-Null): The question content.
-  - **question_graphics_figures** (Nullable): Associated images/figures.
+- **questions** (Non-Null): A list of [assignment_question](#assignment_question).
+
+### [assignment_question](#assignment_question)
+Contains specific questions that are part of an assignment.
+- **question_index** (Non-Null): The index of the question.
+- **question_text** (Non-Null): The question content.
+- **question_graphics_figures** (Nullable): Associated images/figures (as a Base64 PNG).
 
 ### [course_material](#course_material)
 Contains the course material and its data_type.
@@ -167,7 +176,7 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 #### POST `/auth/token`
 **Description:** Creates a new [access_token](#access_token) for programmatic API access.
 
-- **JSON Body:**
+- **Query Parameters:**
   - **token_name** (Optional): Friendly name for the token.  
     *Default:* "token_1", "token_2", etc.
 
@@ -185,7 +194,7 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 #### DELETE `/auth/token`
 **Description:** Deletes an existing [access_token](#access_token).
 
-- **JSON Body:**
+- **Query Parameters:**
   - **token_id** (Required): Unique identifier of the access token to delete.
 
 - **Returns:**  
@@ -240,10 +249,7 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 **Description:** Creates a new [course](#course).
 
 - **JSON Body:**
-  - **course_name** (Required): Name of the course.
-  - **course_id** (Required): Unique course identifier (e.g., "cs_132").
-  - **semester** (Required): Semester during which the course is offered.
-  - **instructors** (Required): List of instructor emails.
+  - The [course](#course) object.
 
 - **Returns:**  
   - The created [course](#course) object.
@@ -258,7 +264,7 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 #### DELETE `/course`
 **Description:** Deletes an existing [course](#course).
 
-- **JSON Body:**
+- **Query Parameters:**
   - **course_id** (Required): Unique identifier.
   - **semester** (Required): Course semester.
 
@@ -276,7 +282,7 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 #### PATCH `/course/transfer`
 **Description:** Transfers course materials and rubric data from a previous semester to a new one.
 
-- **JSON Body:**
+- **Query Parameters:**
   - **current_course_id** (Required): ID of the course being updated.
   - **current_semester** (Required): Current semester.
   - **copy_from_course_id** (Required): ID of the course to copy from.
@@ -309,7 +315,7 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 #### POST `/course/instructor`
 **Description:** Adds an instructor to a [course](#course).
 
-- **JSON Body:**
+- **Query Parameters:**
   - **course_id** (Required)
   - **semester** (Required)
   - **instructor** (Required): Email of the instructor to add.
@@ -330,7 +336,7 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 #### DELETE `/course/instructor`
 **Description:** Removes an instructor from a [course](#course).
 
-- **JSON Body:**
+- **Query Parameters:**
   - **course_id** (Required)
   - **semester** (Required)
   - **instructor** (Required): Email of the instructor to remove.
@@ -353,14 +359,7 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 **Description:** Creates a new [assignment](#assignment) with questions and guidelines.
 
 - **JSON Body:**
-  - **course_id** (Required)
-  - **semester** (Required)
-  // todo: maybe optional?
-  - **assignment_id** (Required): The unique title or ID the assignment is known by.
-  - **assignment_guidelines** (Required): General instructions.
-  - **ordered_list** (Required): List of questions. Each item includes:
-    - **question_text** (Required)
-    - **question_graphics_figures** (Optional)
+  - The [assignment](#assignment) object.
 
 - **Returns:**  
   - The created [assignment](#assignment) object.
@@ -378,12 +377,10 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 **Description:** Adds a new question to an [assignment](#assignment).
 
 - **JSON Body:**
-  - **assignment_id** (Required)
-  - **question_text** (Required)
-  - **question_graphics_figures** (Optional)
+  - The [assignment_question](#assignment_question) object to add.
 
 - **Returns:**  
-  - The new question_index.
+  - The new [assignment_question](#assignment_question) object.
 
 - **Errors:**
   - **400 Bad Request:** Missing or invalid parameters.
@@ -397,7 +394,7 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 #### PATCH `/assignment/remove_question`
 **Description:** Removes a question from an [assignment](#assignment).
 
-- **JSON Body:**
+- **Query Parameters:**
   - **assignment_id** (Required)
   - **question_index** (Required)
 
@@ -417,10 +414,7 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 **Description:** Edits an existing question in an [assignment](#assignment).
 
 - **JSON Body:**
-  - **assignment_id** (Required)
-  - **question_index** (Required)
-  - **new_question_text** (Required)
-  - **new_question_graphics_figures** (Optional)
+  - The modified [assignment_question](#assignment_question) object to add.
 
 - **Returns:**  
   - A success message.
@@ -492,7 +486,7 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 #### DELETE `/assignment`
 **Description:** Deletes a specified [assignment](#assignment).
 
-- **JSON Body:**
+- **Query Parameters:**
   - **assignment_id** (Required)
 
 - **Returns:**  
@@ -512,16 +506,10 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 **Description:** Uploads a [student_response](#student_response) to a specific assignment question.  The size of the data must be below a certain threshold or this endpoint will result in an error 400.
 
 - **JSON Body:**
-  - **student_identifier** (Required)
-  - **assignment_id** (Required)
-  - **question_index** (Required)
-  - **data** (Required):
-    - **data_type** (Required): (.png, .jpeg, .pdf, .mp3, .mp4, .html, .ppt, .doc, URL)
-    - **metadata** (Optional): Any associated metadata with the file.
-    - **content** (Required): Binary content encoded in Base64.
+  - The [student_response](#student_response)
 
 - **Returns:**  
-  - A success message.
+  - The created [student_response](#student_response)
 
 - **Errors:**
   - **400 Bad Request:** Missing or invalid parameters.
@@ -536,16 +524,10 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 **Description:** Replaces an existing [student_response](#student_response).  The size of the data must be below a certain threshold or this endpoint will result in an error 400.
 
 - **JSON Body:**
-  - **student_identifier** (Required)
-  - **assignment_id** (Required)
-  - **question_index** (Required)
-  - **data** (Required):
-    - **data_type** (Required): (.png, .jpeg, .pdf, .mp3, .mp4, .html, .ppt, .doc, URL)
-    - **metadata** (Optional): Any associated metadata with the file.
-    - **content** (Required): Binary content encoded in Base64.
+  - The [student_response](#student_response)
 
 - **Returns:**  
-  - A success message.
+  - The updated [student_response](#student_response)
 
 - **Errors:**
   - **400 Bad Request:** Missing or invalid parameters.
@@ -559,7 +541,7 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 #### DELETE `/response`
 **Description:** Deletes a [student_response](#student_response). If question_index is omitted, all responses for that assignment and student are deleted.
 
-- **JSON Body:**
+- **Query Parameters:**
   - **student_identifier** (Required)
   - **assignment_id** (Required)
   - **question_index** (Optional)
@@ -599,7 +581,7 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 ### **POST `/response/grade/specific`**  
 **Description:** Grades or regrades a specific student responses for an assignment.
 
-- **JSON Body:**
+- **Query Parameters:**
   - **student_identifiers** (Required): List of student identifiers whom to grade.
   - **assignment_id** (Required)
   - **question_index** (Optional): Grades all questions for given assignment_id if omitted.
@@ -619,7 +601,7 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 ### **POST `/response/grade/ungraded`**  
 **Description:** Grades all ungraded responses for a specific assignment (optionally for a specific question).
 
-- **JSON Body:**
+- **Query Parameters:**
   - **assignment_id** (Required)
   - **question_index** (Optional): Grades all ungraded questions for the assignment if omitted.
 
@@ -638,7 +620,7 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 ### **POST `/response/grade/all`**  
 **Description:** Grades or regrades all student responses for a specific assignment (optionally for a specific question).  
 
-- **JSON Body:**
+- **Query Parameters:**
   - **assignment_id** (Required)
   - **question_index** (Optional): Grades or Regrades all questions for the assignment if omitted.
 
@@ -685,7 +667,7 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 #### DELETE `/course_material`
 **Description:** Deletes specified [course_material](#course_material).
 
-- **JSON Body:**
+- **Query Parameters:**
   - **course_id** (Required)
   - **semester** (Required)
   - **material_id** (Required)
@@ -705,15 +687,7 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 **Description:** Updates existing [course_material](#course_material). The size of the data must be below a certain threshold or this endpoint will result in an error 400.
 
 - **JSON Body:**
-  - **course_id** (Required)
-  - **semester** (Required)
-  - **material_id** (Required): ID of the material we are updated.
-  - **material_name** (Optional): The friendly string name of the material.
-  - **additional_notes** (Optional)
-  - **data** (Optional):
-    - **data_type** (Required): (.png, .jpeg, .pdf, .mp3, .mp4, .html, .ppt, .doc, URL)
-    - **metadata** (Optional): Any associated metadata with the file.
-    - **content** (Required): Binary content encoded in Base64.
+  - The [course_material](#course_material) object.
 
 - **Returns:**  
   - The updated [course_material](#course_material) object.
@@ -733,19 +707,7 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 **Description:** Manually creates a new [rubric](#rubric) for an assignment.
 
 - **JSON Body:**
-  - **assignment_id** (Required)
-  - **max_points** (Required): Total maximum points (must be ≥ sum of individual question points).
-  - **overall_instructor_guidelines** (Optional)
-  - **grading_flags**: A list of grading flags.
-    - IGNORE_SPELLINGS: Don't penalize for minor spelling mistakes.
-    - IGNORE_GRAMMAR: Don't penalize for minor grammar issues.
-    - ORIGINALITY: Award points for originality and creativity while deducting for unoriginal ideas.
-    - IGNORE_FORMATTING: Don't penalize for formatting issues.
-  - **leniency** (Optional; defaults to 3): A number between 1-5 where 1 is very strict and 5 is very lenient.
-  - **sub_rubrics** (Required): A list of sub-rubric objects, each including:
-    - **question_index** (Required)
-    - **maximum_points** (Required)
-    - **instructor_guideline** (Required)
+  - The [rubric](#rubric) object
 
 - **Returns:**  
   - The created [rubric](#rubric) object.
@@ -764,7 +726,7 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 If a [rubric](#rubric) does not exist for the given assignment, a new one is generated with its own guidelines.  
 *Note: This only proposes a new rubric and does not modify or create an existing rubric.*
 
-- **JSON Body:**
+- **Query Parameters:**
   - **assignment_id** (Required)
   - **instructions** (Optional): Specific improvement instructions. If omitted, default instructions are applied.
 
