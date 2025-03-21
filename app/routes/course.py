@@ -1,13 +1,16 @@
-from fastapi import APIRouter, HTTPException, status, Query
 from typing import List
+
+from fastapi import APIRouter, HTTPException, status, Query
+
 from app.models.course import Course
 
 router = APIRouter()
 
 # Dummy storage for courses
 dummy_courses = [
-    Course(course_id="cs_132", course_name="Intro to CS", semester="Fall 2024", instructors=["instructor@example.com"])
+    Course(course_id="cs_132", semester="Fall 2024", instructors=["instructor@example.com"])
 ]
+
 
 @router.post(
     "/course",
@@ -20,11 +23,12 @@ dummy_courses = [
     }
 )
 async def create_course(
-    course: Course,
-    semester: str = Query(..., description="Semester during which the course is offered.")
+        course: Course,
+        semester: str = Query(..., description="Semester during which the course is offered.")
 ):
     dummy_courses.append(course)
     return course
+
 
 @router.delete(
     "/course",
@@ -37,14 +41,15 @@ async def create_course(
     }
 )
 async def delete_course(
-    course_id: str = Query(..., description="Unique identifier of the course to delete."),
-    semester: str = Query(..., description="Semester of the course to delete.")
+        course_id: str = Query(..., description="Unique identifier of the course to delete."),
+        semester: str = Query(..., description="Semester of the course to delete.")
 ):
     for course in dummy_courses:
         if course.course_id == course_id and course.semester == semester:
             dummy_courses.remove(course)
             return {"message": "Course deleted successfully."}
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
+
 
 @router.patch(
     "/course/transfer",
@@ -58,13 +63,46 @@ async def delete_course(
     }
 )
 async def transfer_course(
-    current_course_id: str = Query(..., description="ID of the course being updated."),
-    current_semester: str = Query(..., description="Current semester of the course."),
-    copy_from_course_id: str = Query(..., description="ID of the course to copy from."),
-    copy_from_course_semester: str = Query(..., description="Semester of the source course.")
+        current_course_id: str = Query(..., description="ID of the course being updated."),
+        current_semester: str = Query(..., description="Current semester of the course."),
+        copy_from_course_id: str = Query(..., description="ID of the course to copy from."),
+        copy_from_course_semester: str = Query(..., description="Semester of the source course.")
 ):
-    updated_course = {"course_id": current_course_id, "course_name": "Transferred Course", "semester": current_semester, "instructors": ["instructor@example.com"]}
+    updated_course = {"course_id": current_course_id, "semester": current_semester,
+                      "instructors": ["instructor@example.com"]}
     return {"message": "Course transfer successful.", "updated_course": updated_course}
+
+
+@router.get(
+    "/course",
+    response_model=Course,
+    summary="Get Specific Course",
+    description="Retrieves a specific course object based on course_id and semester.",
+    responses={
+        404: {"description": "Course not found."},
+        400: {"description": "Invalid parameters."},
+        401: {"description": "Requester is not authenticated."},
+        403: {"description": "Authenticated but access is not allowed."}
+    }
+)
+async def get_course(
+    course_id: str = Query(..., description="Unique identifier of the course."),
+    semester: str = Query(..., description="Course semester."),
+):
+    if not course_id or not semester:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid parameters."
+        )
+
+    for course in dummy_courses:
+        if course.course_id == course_id and course.semester == semester:
+            return course
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Course not found."
+    )
 
 @router.get(
     "/courses",
@@ -77,6 +115,7 @@ async def transfer_course(
 )
 async def list_courses():
     return dummy_courses
+
 
 @router.post(
     "/course/instructor",
@@ -91,17 +130,19 @@ async def list_courses():
     }
 )
 async def add_course_instructor(
-    course_id: str = Query(..., description="Unique identifier of the course."),
-    semester: str = Query(..., description="Semester of the course."),
-    instructor: str = Query(..., description="Email of the instructor to add.")
+        course_id: str = Query(..., description="Unique identifier of the course."),
+        semester: str = Query(..., description="Semester of the course."),
+        instructor: str = Query(..., description="Email of the instructor to add.")
 ):
     for course in dummy_courses:
         if course.course_id == course_id and course.semester == semester:
             if instructor in course.instructors:
-                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Instructor already assigned to course.")
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                                    detail="Instructor already assigned to course.")
             course.instructors.append(instructor)
             return {"message": "Instructor added successfully."}
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
+
 
 @router.delete(
     "/course/instructor",
@@ -115,9 +156,9 @@ async def add_course_instructor(
     }
 )
 async def remove_course_instructor(
-    course_id: str = Query(..., description="Unique identifier of the course."),
-    semester: str = Query(..., description="Semester of the course."),
-    instructor: str = Query(..., description="Email of the instructor to remove.")
+        course_id: str = Query(..., description="Unique identifier of the course."),
+        semester: str = Query(..., description="Semester of the course."),
+        instructor: str = Query(..., description="Email of the instructor to remove.")
 ):
     for course in dummy_courses:
         if course.course_id == course_id and course.semester == semester:
