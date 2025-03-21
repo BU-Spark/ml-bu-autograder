@@ -1,11 +1,28 @@
-from fastapi import APIRouter, HTTPException, status, Query, Body
 from typing import Optional
-from app.models.rubric import Rubric
+
+from fastapi import APIRouter, HTTPException, status, Query, Body
+from pydantic import Field, BaseModel
+
+from app.models.rubric import Rubric, SubRubric
 
 router = APIRouter()
 
+
+class EditSubRubricRequest(BaseModel):
+    """
+    Request model for editing a sub-rubric of an assignment.
+    Allows modification of grading criteria for individual questions.
+    """
+    semester: str = Field(..., description="Semester of the course.")
+    course_id: str = Field(..., description="Identifier of the course.")
+    assignment_id: str = Field(..., description="Identifier of the assignment.")
+    sub_rubric: SubRubric = Field(...,
+                                  description="Sub-rubric object containing grading instructions and criteria for that specific question.")
+
+
 # Dummy storage for rubrics
 dummy_rubrics = []
+
 
 @router.put(
     "/rubric",
@@ -20,10 +37,11 @@ dummy_rubrics = []
     }
 )
 async def create_rubric(
-    rubric: Rubric = Body(..., description="Rubric object containing grading instructions and sub-rubrics.")
+        rubric: Rubric = Body(..., description="Rubric object containing grading instructions and sub-rubrics.")
 ):
     dummy_rubrics.append(rubric)
     return rubric
+
 
 @router.get(
     "/ai_rubric",
@@ -37,8 +55,8 @@ async def create_rubric(
     }
 )
 async def get_ai_rubric(
-    assignment_id: str = Query(..., description="Identifier of the assignment."),
-    instructions: Optional[str] = Query(None, description="Optional specific improvement instructions for the AI.")
+        assignment_id: str = Query(..., description="Identifier of the assignment."),
+        instructions: Optional[str] = Query(None, description="Optional specific improvement instructions for the AI.")
 ):
     dummy_rubric = Rubric(
         assignment_id=assignment_id,
@@ -48,6 +66,7 @@ async def get_ai_rubric(
         sub_rubrics=[]
     )
     return dummy_rubric
+
 
 @router.get(
     "/rubric",
@@ -61,8 +80,9 @@ async def get_ai_rubric(
     }
 )
 async def get_rubric(
-    assignment_id: str = Query(..., description="Identifier of the assignment."),
-    question_index: Optional[int] = Query(None, description="Optional question index to retrieve a specific sub-rubric.")
+        assignment_id: str = Query(..., description="Identifier of the assignment."),
+        question_index: Optional[int] = Query(None,
+                                              description="Optional question index to retrieve a specific sub-rubric.")
 ):
     for rubric in dummy_rubrics:
         if rubric.assignment_id == assignment_id:

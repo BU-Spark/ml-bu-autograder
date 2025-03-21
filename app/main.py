@@ -1,9 +1,9 @@
-from fastapi import FastAPI
 from dotenv import load_dotenv
-from app.routes import auth, course, assignment, student_response, grading, course_material, rubric
-
-# Load environment variables
+# Load environment variables first
 load_dotenv()
+from fastapi import FastAPI
+import os
+from app.routes import auth, course, assignment, student_response, grading, course_material, rubric, user
 
 # TODO: later we can access these environment variables to grab access tokens and such.
 
@@ -22,7 +22,4 @@ app.include_router(student_response.router, prefix="/api/v1", tags=["Student Res
 app.include_router(grading.router, prefix="/api/v1/response", tags=["Grading"])
 app.include_router(course_material.router, prefix="/api/v1", tags=["Course Material"])
 app.include_router(rubric.router, prefix="/api/v1", tags=["Rubric"])
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+app.include_router(user.router, prefix="/api/v1", tags=["User"])

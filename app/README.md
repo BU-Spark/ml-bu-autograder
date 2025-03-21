@@ -1,6 +1,8 @@
 # BU MET Autograder Backend API
 
-This project is a modular FastAPI application for the BU MET Autograder API. It implements endpoints for user authentication, course management, assignments, student responses, grading, course materials, and rubric management using dummy data for testing purposes.
+This project is a modular FastAPI application for the BU MET Autograder API. It implements endpoints for user
+authentication, course management, assignments, student responses, grading, course materials, and rubric management
+using dummy data for testing purposes.
 
 ## Prerequisites
 
@@ -55,10 +57,17 @@ Copy the sample `.env-example` file to `.env`. Then provide or modify all enviro
 Start the FastAPI application using Uvicorn with the auto-reload option for development:
 
 ```bash
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --port 8000
 ```
 
 The server should start on [http://localhost:8000](http://localhost:8000).
+
+To start the FastAPI application for production use, run the following instead:
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+```
+
+Feel free to modify the port to your use case in either case.
 
 ### 5. Access the API Documentation
 
@@ -101,7 +110,9 @@ Once the application is running, you can view the interactive API documentation 
 ## Notes
 
 - **Dummy Data:**  
-  The API currently uses in-memory dummy data for testing. Replace these with your actual persistence logic (e.g., a database) for production use.
+  The API currently uses in-memory dummy data for testing. Replace these with your actual persistence logic (e.g., a
+  database) for production use.
 
 - **Error Documentation:**  
-  Each endpoint includes detailed error response documentation (e.g., 400, 401, 403, 404, 409, 502) which can be viewed in the Swagger or ReDoc interfaces.
+  Each endpoint includes detailed error response documentation (e.g., 400, 401, 403, 404, 409, 502) which can be viewed
+  in the Swagger or ReDoc interfaces.

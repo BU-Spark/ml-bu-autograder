@@ -1,17 +1,29 @@
-from pydantic import BaseModel
+from typing import Union, Optional
 
-from app.models.uploaded_file import UploadedFile
+from pydantic import BaseModel, Field
+
+from app.models import Grade
+from app.models.uploaded_file import UploadedFileData, UploadedFileReference
 
 
 class StudentResponse(BaseModel):
     """
     Represents a student’s answer to a question.
-    - **student_identifier**: Student's unique identifier.
-    - **assignment_id**: The assignment’s identifier.
-    - **question_index**: The index of the question answered.
-    - **data**: ResponseData containing the answer content.
     """
-    student_identifier: str
-    assignment_id: str
-    question_index: int
-    data: UploadedFile
+    student_identifier: str = Field(
+        ..., description="Unique identifier for the student submitting the response."
+    )
+    assignment_id: str = Field(
+        ..., description="Identifier of the assignment the response belongs to."
+    )
+    question_index: int = Field(
+        ..., description="Index of the question being answered within the assignment."
+    )
+    data: Union[UploadedFileData, UploadedFileReference] = Field(
+        ..., description="Either the uploaded file content or a reference to a previously stored file."
+    )
+
+
+class GradedStudentResponse(StudentResponse):
+    grade: Optional[Grade] = Field(..., description="The grade the LLM gave this student response. If this assignment "
+                                                    "is not yet graded, the grade object may not be present.")
