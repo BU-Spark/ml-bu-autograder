@@ -57,10 +57,17 @@ Copy the sample `.env-example` file to `.env`. Then provide or modify all enviro
 Start the FastAPI application using Uvicorn with the auto-reload option for development:
 
 ```bash
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --port 8000
 ```
 
 The server should start on [http://localhost:8000](http://localhost:8000).
+
+To start the FastAPI application for production use, run the following instead:
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+```
+
+Feel free to modify the port to your use case in either case.
 
 ### 5. Access the API Documentation
 
