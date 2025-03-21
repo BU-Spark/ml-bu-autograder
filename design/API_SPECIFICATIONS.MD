@@ -22,10 +22,14 @@
      - [DELETE /auth/token](#delete-auth-token)
      - [GET /auth/tokens](#get-auth-tokens)
      - [GET /auth/google_oauth](#get-auth-google-oauth)
+   - **User Settings Endpoints**
+     - [GET /user](#get-user)
+     - [PATCH /user](#patch-user)
    - **Course Endpoints**
      - [POST /course](#post-course)
      - [DELETE /course](#delete-course)
      - [PATCH /course/transfer](#patch-course-transfer)
+     - [GET /course](#get-course)
      - [GET /courses](#get-courses)
      - [POST /course/instructor](#post-course-instructor)
      - [DELETE /course/instructor](#delete-course-instructor)
@@ -48,6 +52,8 @@
      - [POST /response/grade/ungraded](#post-response-grade-ungraded)
      - [POST /response/grade/all](#post-response-grade-all)
    - **Course Material Endpoints**
+     - [GET /course_materials](#get-course-materials)
+     - [GET /course_material](#get-course-material)
      - [POST /course_material](#post-course-material)
      - [DELETE /course_material](#delete-course-material)
      - [PATCH /course_material](#patch-course-material)
@@ -63,9 +69,10 @@
 ### [user](#user)
 The user object (i.e. the instructor) who is signed in.
 - **user_id** (Non-Null): Internal unique identifier.
+- **user_email** (Non-Null): The user's email address.
 - **first_name** (Nullable): The user's first name.
 - **last_name** (Nullable): The user's last name.
-- **user_email** (Non-Null): The user's email address.
+- **dark_mode** (Non-Null): Does the user prefer dark-mode on the website? (defaults to false)
 
 ### [personal_authentication_token](#personal_authentication_token)
 A JSON Web Token (JWT) for interactive sessions on the official front end.
@@ -73,7 +80,7 @@ A JSON Web Token (JWT) for interactive sessions on the official front end.
 - **authentication_token** (Non-Null): The JWT string.
 
 ### [access_token](#access_token)
-Used for programmatic API access; it cannot generate additional access tokens.
+Used for programmatic API access; it cannot generate additional access tokens or edit user settings.
 - **user_id** (Non-Null): The token owner's identifier.
 - **token_name** (Non-Null): A friendly name for the token (must be unique per user).
 - **token_id** (Non-Null): The secret token string (displayed only once during creation).
@@ -242,6 +249,38 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 
 ---
 
+### User Settings Endpoints
+
+<a id="get-user"></a>
+### **GET `/user`**
+**Description:** Retrieves the authenticated user's profile information.
+
+- **Returns:**  
+  A [user](#user) object containing profile details.
+
+- **Errors:**  
+  - **401 Unauthorized:** Requester is not authenticated.
+
+---
+
+<a id="patch-user"></a>
+#### PATCH `/user
+**Description:** Updates the authenticated user's profile preferences. This endpoint allows users to modify their first name, last name, and dark mode setting.
+
+- **JSON Body:**
+  - **first_name** (Optional): The updated first name.
+  - **last_name** (Optional): The updated last name.
+  - **dark_mode** (Optional): Boolean value indicating the user's preference for dark mode (`true`) or light mode (`false`).
+
+- **Returns:**  
+  - The updated [user](#user) object reflecting the new preferences.
+
+- **Errors:**
+  - **400 Bad Request:** Missing or invalid parameters.
+  - **401 Unauthorized:** Requester is not authenticated.
+
+---
+
 ### Course Endpoints
 
 <a id="post-course"></a>
@@ -290,6 +329,25 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 
 - **Returns:**  
   - A success message and/or the updated [course](#course) object.
+
+- **Errors:**
+  - **404 Not Found:** Source or destination course not found.
+  - **400 Bad Request:** Invalid parameters.
+  - **401 Unauthorized:** Requester is not authenticated.
+  - **403 Forbidden:** Authenticated but access is not allowed.
+
+---
+
+<a id="get-course"></a>
+#### GET `/course`
+**Description:** Retrieves a specific [course](#course) object.
+
+- **Query Parameters:**
+  - **course_id** (Required): Unique identifier.
+  - **semester** (Required): Course semester.
+
+- **Returns:**  
+  - A specific [course](#course) objects.
 
 - **Errors:**
   - **404 Not Found:** Source or destination course not found.
@@ -559,7 +617,7 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 
 <a id="get-responses"></a>
 #### GET `/responses`
-**Description:** Retrieves [student_response](#student_response) objects (optionally including [grade](#grade) information) based on criteria.
+**Description:** Retrieves [student_response](#student_response) objects (possible including [grade](#grade) information if available) based on criteria.
 
 - **Query Parameters:**
   - **assignment_id** (Required)
@@ -567,7 +625,7 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
   - **student_identifier** (Optional)
 
 - **Returns:**  
-  - Combined [student_response](#student_response) and [grade](#grade) objects (if graded).
+  - List of combined [student_response](#student_response) and [grade](#grade) objects (if graded).
 
 - **Errors:**
   - **400 Bad Request:** Missing assignment_id.
@@ -637,11 +695,44 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 
 ### Course Material Endpoints
 
+<a id="get-course-materials"></a>
+### **GET `/course_materials`**
+**Description:** Retrieves all course materials for the specified course.
+
+- **Query Parameters:**
+  - **course_id** (Required) – Identifier of the course.
+  - **semester** (Required) – Semester of the course material.
+
+- **Returns:**  
+  - A **single** [course_material](#course-material).
+
+- **Errors:**  
+  - **404 Not Found:** No matching course found.  
+  - **401 Unauthorized:** Requester is not authenticated.  
+  - **403 Forbidden:** Authenticated but access is not allowed.  
+
+<a id="get-course-material"></a>
+### **GET `/course_material`**
+**Description:** Retrieves a specific course material for the specified course.
+
+- **Query Parameters:**
+  - **course_id** (Required) – Identifier of the course.
+  - **semester** (Required) – Semester of the course material.
+  - **material_id** (Required) – Unique identifier of the specific material.
+
+- **Returns:**  
+  - A **single** [course_material](#course-material-object).
+
+- **Errors:**  
+  - **404 Not Found:** No matching course or course material found.  
+  - **401 Unauthorized:** Requester is not authenticated.  
+  - **403 Forbidden:** Authenticated but access is not allowed.  
+
 <a id="post-course-material"></a>
 #### POST `/course_material`
 **Description:** Uploads new [course_material](#course_material). The size of the data must be below a certain threshold or this endpoint will result in an error 400.
 
-- **Parameters:**
+- **JSON Body:**
   - **course_id** (Required)
   - **semester** (Required)
   - **material_name** (Optional): The friendly string name of the material.
