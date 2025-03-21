@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict
 from pydantic import BaseModel, Field
 from enum import Enum
 
@@ -18,19 +18,34 @@ class GradingFlag(str, Enum):
     IGNORE_FORMATTING = "IGNORE_FORMATTING"
 
 
+class GradingCriteria(BaseModel):
+    """
+    Represents a grading criteria for an individual question.
+    """
+    criteria_id: str = Field(..., description="Title of the grading criteria.")
+    criteria: str = Field(..., description="A detailed description of this grading criteria outlining what "
+                                           "exactly constitutes as fulfilling this criteria.")
+    points: float = Field(..., description="The amount of points allocated to this criteria.")
+
+
 class SubRubric(BaseModel):
     """
     Sub-rubric for an individual question.
     """
     question_index: int = Field(..., description="Index of the question.")
-    maximum_points: float = Field(..., description="Maximum points for this question.")
+    max_points: float = Field(..., description="Maximum points for this question.")
     leniency: Optional[int] = Field(
         None, ge=1, le=5,
         description="Leniency (1=very strict, 5=very lenient). If omitted, no specific question-level leniency is set."
     )
     instructor_guideline: Optional[str] = Field(
-        None, description="Detailed grading criteria for the question."
+        None, description="General instruction guidelines outline the grading rules for the question."
     )
+    grading_criteria: Optional[List[GradingCriteria]] = Field(None, description="A breakdown of the grading criteria. "
+                                                                                "If this field is specified, "
+                                                                                "the sum of the points allocated to "
+                                                                                "each grading criteria must sum to "
+                                                                                "'max_points'.")
 
 
 class Rubric(BaseModel):

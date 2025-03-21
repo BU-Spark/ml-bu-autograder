@@ -2,7 +2,7 @@ from typing import Optional, List
 
 from fastapi import APIRouter, HTTPException, status, Query, Body
 
-from app.models.student_response import StudentResponse
+from app.models.student_response import StudentResponse, GradedStudentResponse
 
 router = APIRouter()
 
@@ -87,7 +87,7 @@ async def delete_response(
     "/responses",
     summary="Get Student Responses",
     description="Retrieves student responses (possibly including grade information) based on criteria.",
-    response_model=List[StudentResponse],
+    response_model=List[GradedStudentResponse],
     responses={
         400: {"description": "Missing assignment_id."},
         404: {"description": "No matching responses found."},
