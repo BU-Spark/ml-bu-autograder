@@ -2,3 +2,5 @@ fastapi==0.115.11
 uvicorn==0.34.0
 pydantic[email]
 dotenv==0.9.9
+azure-storage-blob==12.25.0
+azure-identity==1.21.0

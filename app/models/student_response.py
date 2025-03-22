@@ -10,8 +10,14 @@ class StudentResponse(BaseModel):
     """
     Represents a student’s answer to a question.
     """
-    student_identifier: str = Field(
+    student_id: str = Field(
         ..., description="Unique identifier for the student submitting the response."
+    )
+    course_id: str = Field(
+        ..., description="The course identifier."
+    )
+    semester: str = Field(
+        ..., description="The semester associated with the course."
     )
     assignment_id: str = Field(
         ..., description="Identifier of the assignment the response belongs to."

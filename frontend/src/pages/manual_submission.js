@@ -349,7 +349,7 @@ export default function ManualSubmission() {
 
       if (responseType === 'text') {
         responseData = {
-          student_identifier: studentIdentifier,
+          student_id: studentIdentifier,
           assignment_id: selectedAssignment,
           question_index: parseInt(selectedQuestion),
           data: {
@@ -362,7 +362,7 @@ export default function ManualSubmission() {
         const fileContent = await readFileAsBase64(fileResponse);
 
         responseData = {
-          student_identifier: studentIdentifier,
+          student_id: studentIdentifier,
           assignment_id: selectedAssignment,
           question_index: parseInt(selectedQuestion),
           data: {

@@ -1,5 +1,24 @@
+from enum import Enum
+
 from pydantic import BaseModel, Field
 from typing import Optional, Dict
+
+
+class DataType(Enum):
+    """
+    Represents a list of accepted data types.
+    """
+    # TODO: determine which of these will we support
+    PNG = "png"
+    PDF = "pdf"
+    WORD_DOC = "doc"
+    POWERPOINT = "ppt"
+    URL = "url"
+    EXCEL = "xls"
+    TEXT = "txt"
+    CSV = "csv"
+    JSON = "json"
+    MP4 = "mp4"
 
 
 class UploadedFileData(BaseModel):
@@ -11,9 +30,8 @@ class UploadedFileData(BaseModel):
     - **metadata**: A dictionary containing optional metadata such as file size, dimensions, or other descriptive information.
     - **content**: A string representing the binary content of the file encoded in Base64.
     """
-    data_type: str = Field(..., description="The file type or extension (e.g., '.png', '.pdf', '.doc', URL).")
-    metadata: Optional[Dict[str, str]] = Field(None,
-                                               description="Optional metadata as key-value pairs (e.g., {'size': '2MB', 'dimensions': '1024x768'}).")
+    data_type: DataType = Field(..., description="The data type which 'content' should be interpret as.")
+    metadata: Optional[Dict[str, str]] = Field(None, description="Optional metadata as key-value pairs.")
     content: str = Field(..., description="Binary content of the file encoded in Base64.")
 
 

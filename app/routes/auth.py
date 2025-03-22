@@ -9,7 +9,7 @@ router = APIRouter()
 
 # Dummy in-memory storage for access tokens
 dummy_access_tokens = [
-    AccessToken(user_id="user123", token_name="token_1", token_id="abc123", token_expiry=None)
+    AccessToken(token_name="token_1", token_id="abc123", token_expiry=None)
 ]
 
 
@@ -17,17 +17,16 @@ dummy_access_tokens = [
     "/token",
     response_model=AccessToken,
     summary="Create Access Token",
-    description="Creates a new access token for programmatic API access.",
+    description="Creates a new access token for programmatic API access for the authenticated user.",
     responses={
         400: {"description": "Invalid parameters."},
         401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
     }
 )
 async def create_access_token(
         token_name: str = Query(..., description="Friendly name for the token. Defaults to 'token_n' (where n is a number).")
 ):
-    new_token = AccessToken(user_id="user123", token_name=token_name, token_id="newtoken123", token_expiry=None)
+    new_token = AccessToken(token_name=token_name, token_id="newtoken123", token_expiry=None)
     dummy_access_tokens.append(new_token)
     return new_token
 

@@ -5,7 +5,7 @@ class Student(BaseModel):
     """
     Student object containing basic information.
     """
-    student_identifier: str = Field(
+    student_id: str = Field(
         ..., description="Unique identifier for the student (e.g., BU email)."
     )
     first_name: Optional[str] = Field(

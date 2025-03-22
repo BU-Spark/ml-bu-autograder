@@ -6,7 +6,7 @@ class Grade(BaseModel):
     """
     Grade object for a student's response.
     """
-    student_identifier: str = Field(..., description="Student's unique identifier.")
+    student_id: str = Field(..., description="Student's unique identifier.")
     semester: str = Field(..., description="The semester associated with the course.")
     course_id: str = Field(..., description="Associated course identifier.")
     assignment_id: str = Field(..., description="Identifier of the assignment.")

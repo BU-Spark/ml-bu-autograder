@@ -6,9 +6,6 @@ class AccessToken(BaseModel):
     """
     Token used for programmatic API access.
     """
-    user_id: str = Field(
-        ..., description="Unique identifier of the user who owns the token."
-    )
     token_name: str = Field(
         ..., description="A friendly, user-defined name for the token."
     )
