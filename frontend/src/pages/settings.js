@@ -50,8 +50,8 @@ import {
   Visibility as VisibilityIcon,
   VisibilityOff as VisibilityOffIcon,
 } from '@mui/icons-material';
-import { useTheme } from '../context/ThemeContext';
-import { authService, userService } from '../services/api';
+import { useTheme } from '../ThemeContext';
+import { authService, userService } from '../api';
 import CardSkeleton from '../components/CardSkeleton';
 import ConfirmationDialog from '../components/ConfirmationDialog';
 

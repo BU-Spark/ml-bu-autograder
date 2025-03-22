@@ -1,8 +1,4 @@
-/**
- * Navigation component for BU MET Autograder
- * Provides sidebar navigation with expandable sections
- */
-
+// src/components/Navigation.js
 import React, { useState } from 'react';
 import { useRouter } from 'next/router';
 import {
@@ -42,20 +38,24 @@ const DrawerContent = styled(Box)(({ theme }) => ({
   },
 }));
 
-const StyledListItemButton = styled(ListItemButton)(({ theme, active }) => ({
+const StyledListItemButton = styled(ListItemButton, {
+  shouldForwardProp: (prop) => prop !== '$active' // Prevent $active from being passed to the DOM
+})(({ theme, $active }) => ({
   borderRadius: theme.shape.borderRadius,
   margin: theme.spacing(0.5, 1),
-  color: active ? theme.palette.primary.main : theme.palette.text.primary,
-  backgroundColor: active ? `${theme.palette.primary.main}10` : 'transparent',
+  color: $active ? theme.palette.primary.main : theme.palette.text.primary,
+  backgroundColor: $active ? `${theme.palette.primary.main}10` : 'transparent',
   '&:hover': {
-    backgroundColor: active
+    backgroundColor: $active
       ? `${theme.palette.primary.main}20`
       : theme.palette.action.hover,
   },
 }));
 
-const StyledListItemIcon = styled(ListItemIcon)(({ theme, active }) => ({
-  color: active ? theme.palette.primary.main : theme.palette.text.primary,
+const StyledListItemIcon = styled(ListItemIcon, {
+    shouldForwardProp: (prop) => prop !== '$active'
+})(({ theme, $active }) => ({
+  color: $active ? theme.palette.primary.main : theme.palette.text.primary,
   minWidth: 40,
 }));
 
@@ -66,17 +66,17 @@ export default function Navigation({ open, onClose, variant = 'permanent' }) {
     course: true,
   });
 
-  // Check if the current route matches a given path
-  const isActivePath = (path) => {
-    return router.pathname === path || router.pathname.startsWith(`${path}/`);
-  };
+  // Check if the current route matches a given path, or is a subpath
+    const isActivePath = (path) => {
+        return router.pathname === path || router.pathname.startsWith(path + "/");
+    };
 
   // Toggle expanded state for collapsible sections
   const toggleExpand = (section) => {
-    setExpandedItems({
-      ...expandedItems,
-      [section]: !expandedItems[section],
-    });
+    setExpandedItems((prevExpandedItems) => ({
+      ...prevExpandedItems,
+      [section]: !prevExpandedItems[section],
+    }));
   };
 
   // Navigate to a route and close sidebar on mobile
@@ -148,10 +148,10 @@ export default function Navigation({ open, onClose, variant = 'permanent' }) {
             <ListItem disablePadding>
               {item.expandable ? (
                 <StyledListItemButton
-                  active={isActivePath(item.path)}
+                  $active={isActivePath(item.path)}
                   onClick={() => toggleExpand(item.section)}
                 >
-                  <StyledListItemIcon active={isActivePath(item.path)}>
+                  <StyledListItemIcon $active={isActivePath(item.path)}>
                     {item.icon}
                   </StyledListItemIcon>
                   <ListItemText primary={item.text} />
@@ -159,10 +159,10 @@ export default function Navigation({ open, onClose, variant = 'permanent' }) {
                 </StyledListItemButton>
               ) : (
                 <StyledListItemButton
-                  active={isActivePath(item.path)}
+                  $active={isActivePath(item.path)}
                   onClick={() => navigateTo(item.path)}
                 >
-                  <StyledListItemIcon active={isActivePath(item.path)}>
+                  <StyledListItemIcon $active={isActivePath(item.path)}>
                     {item.icon}
                   </StyledListItemIcon>
                   <ListItemText primary={item.text} />
@@ -180,11 +180,11 @@ export default function Navigation({ open, onClose, variant = 'permanent' }) {
                   {item.subItems.map((subItem) => (
                     <ListItem key={subItem.text} disablePadding>
                       <StyledListItemButton
-                        active={isActivePath(subItem.path)}
-                        onClick={() => navigateTo(`${item.path}${subItem.path}`)}
+                        $active={isActivePath(subItem.path)}
+                        onClick={() => navigateTo(subItem.path)}
                         sx={{ pl: 4 }}
                       >
-                        <StyledListItemIcon active={isActivePath(subItem.path)}>
+                        <StyledListItemIcon $active={isActivePath(subItem.path)}>
                           {subItem.icon}
                         </StyledListItemIcon>
                         <ListItemText primary={subItem.text} />

@@ -8,9 +8,9 @@ import Head from 'next/head';
 import { CacheProvider } from '@emotion/react';
 import { SessionProvider } from 'next-auth/react';
 import createEmotionCache from '../utils/createEmotionCache';
-import { ThemeProvider } from '../context/ThemeContext';
+import { ThemeProvider } from '../ThemeContext';
 import Layout from '../components/Layout';
-import { APP_CONFIG } from '../config/config';
+import { APP_CONFIG } from '../config';
 import '../styles/globals.css';
 
 // Client-side emotion cache
@@ -46,15 +46,3 @@ export default function MyApp({
     </CacheProvider>
   );
 }
-
-// Add a utility function to create emotion cache
-// Create /src/utils/createEmotionCache.js with:
-/**
- * This file would contain:
- *
- * import createCache from '@emotion/cache';
- *
- * export default function createEmotionCache() {
- *   return createCache({ key: 'css', prepend: true });
- * }
- */

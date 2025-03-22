@@ -35,7 +35,7 @@ import {
   School as SchoolIcon,
   Person as PersonIcon,
 } from '@mui/icons-material';
-import { useCourses, courseService } from '../services/api';
+import { useCourses, courseService } from '../api';
 import CardSkeleton from '../components/CardSkeleton';
 import ConfirmationDialog from '../components/ConfirmationDialog';
 

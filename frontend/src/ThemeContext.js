@@ -6,8 +6,8 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { ThemeProvider as MUIThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { createAppTheme } from '../theme/theme';
-import { APP_CONFIG } from '../config/config';
+import { createAppTheme } from './styles/theme';
+import { APP_CONFIG } from './config';
 
 // Create the context
 const ThemeContext = createContext({
