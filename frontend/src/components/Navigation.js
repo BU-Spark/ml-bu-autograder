@@ -80,19 +80,21 @@ export default function Navigation({ open, onClose, variant = 'permanent' }) {
   };
 
   // Navigate to a route and close sidebar on mobile
-  const navigateTo = (path) => {
-    router.push(path);
-    if (variant === 'temporary') {
-      onClose();
-    }
-  };
+    const navigateTo = (path) => {
+      if (router.pathname !== path) {
+        router.push(path);
+      }
+      if (variant === 'temporary') {
+        onClose();
+      }
+    };
 
   // Navigation items
   const navigationItems = [
     {
       text: 'Dashboard',
       icon: <DashboardIcon />,
-      path: '/dashboard',
+      path: '/courses',
     },
     {
       text: 'Courses',
