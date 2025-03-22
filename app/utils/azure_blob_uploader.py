@@ -1,6 +1,7 @@
 import base64
 import json
 import mimetypes
+import os
 from typing import List, Dict, Optional
 
 from azure.storage.blob import BlobServiceClient, ContentSettings
@@ -9,8 +10,11 @@ from app.models import Course, Assignment, Question, StudentResponse, Rubric, Co
     AccessToken
 from app.models.student_response import GradedStudentResponse
 
+azure_blob_uploader: Optional["AzureBlobUploader"] = None
+
 
 class AzureBlobUploader:
+
     def __init__(self, sas_url, container_name):
         """
         Initialize AzureBlobUploader using SAS token authentication.
@@ -318,3 +322,13 @@ class AzureBlobUploader:
         """
         content_type, _ = mimetypes.guess_type(filename)
         return content_type if content_type else 'application/octet-stream'
+
+    @staticmethod
+    def init_singleton(sas_url, container_name):
+        global azure_blob_uploader
+        azure_blob_uploader = AzureBlobUploader(sas_url, container_name)
+
+    @staticmethod
+    def get_instance() -> Optional["AzureBlobUploader"]:
+        global azure_blob_uploader
+        return azure_blob_uploader

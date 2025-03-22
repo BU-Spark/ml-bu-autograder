@@ -20,8 +20,8 @@ router = APIRouter()
 )
 async def create_course(
         course: Course,
-        blob_uploader: AzureBlobUploader = Depends(),
 ):
+    blob_uploader = AzureBlobUploader.get_instance()
     blob_uploader.upload_course_metadata(course)
     return course
 
@@ -39,8 +39,8 @@ async def create_course(
 async def delete_course(
         semester: str = Query(..., description="Semester of the course to delete."),
         course_id: str = Query(..., description="Unique identifier of the course to delete."),
-        blob_uploader: AzureBlobUploader = Depends(),
 ):
+    blob_uploader = AzureBlobUploader.get_instance()
     blobs_deleted = blob_uploader.delete_course(semester, course_id)
     if blobs_deleted == 0:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
@@ -62,8 +62,8 @@ async def transfer_course(
         current_semester: str = Query(..., description="Current semester of the course."),
         copy_from_course_id: str = Query(..., description="ID of the course to copy from."),
         copy_from_course_semester: str = Query(..., description="Semester of the source course."),
-        blob_uploader: AzureBlobUploader = Depends(),
 ):
+    blob_uploader = AzureBlobUploader.get_instance()
     raise NotImplementedError()  # TODO: not worth implementing rn
 
 
@@ -82,8 +82,8 @@ async def transfer_course(
 async def get_course(
         semester: str = Query(..., description="Course semester."),
         course_id: str = Query(..., description="Unique identifier of the course."),
-        blob_uploader: AzureBlobUploader = Depends(),
 ):
+    blob_uploader = AzureBlobUploader.get_instance()
     # TODO: add logic to make sure user is allowed to access this course
     course = blob_uploader.get_course(semester, course_id)
     if course is None:
@@ -107,8 +107,8 @@ async def get_course(
 )
 async def list_courses(
         semester: Optional[str] = Query(None, description="The semester for which to list the courses for."),
-        blob_uploader: AzureBlobUploader = Depends(),
 ):
+    blob_uploader = AzureBlobUploader.get_instance()
     return blob_uploader.list_courses(semester)
 
 
@@ -128,8 +128,8 @@ async def add_course_instructor(
         semester: str = Query(..., description="Semester of the course."),
         course_id: str = Query(..., description="Unique identifier of the course."),
         instructor: str = Query(..., description="Email of the instructor to add."),
-        blob_uploader: AzureBlobUploader = Depends(),
 ):
+    blob_uploader = AzureBlobUploader.get_instance()
     instructors = blob_uploader.get_instructors(semester, course_id)
     if instructors is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
@@ -155,8 +155,8 @@ async def remove_course_instructor(
         course_id: str = Query(..., description="Unique identifier of the course."),
         semester: str = Query(..., description="Semester of the course."),
         instructor: str = Query(..., description="Email of the instructor to remove."),
-        blob_uploader: AzureBlobUploader = Depends(),
 ):
+    blob_uploader = AzureBlobUploader.get_instance()
     instructors = blob_uploader.get_instructors(semester, course_id)
     if instructors is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")

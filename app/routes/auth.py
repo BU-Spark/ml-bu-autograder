@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, status, Query
 
 from app.models.token import AccessToken
 from app.models.user import User, PersonalAuthenticationToken
+from app.utils.azure_blob_uploader import AzureBlobUploader
 
 router = APIRouter()
 
@@ -44,6 +45,7 @@ async def create_access_token(
 async def delete_access_token(
         token_id: str = Query(..., description="Unique identifier of the access token to delete.")
 ):
+    blob_uploader = AzureBlobUploader.get_instance()
     for token in dummy_access_tokens:
         if token.token_id == token_id:
             dummy_access_tokens.remove(token)
@@ -62,6 +64,7 @@ async def delete_access_token(
     }
 )
 async def list_access_tokens():
+    blob_uploader = AzureBlobUploader.get_instance()
     return dummy_access_tokens
 
 
