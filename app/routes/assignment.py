@@ -1,13 +1,14 @@
-from typing import List
+from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException, status, Query, Body
+from fastapi import APIRouter, HTTPException, status, Query, Body, Depends
 from pydantic import BaseModel, Field
 
 from app.models.assignment import Assignment, Question
+from app.utils.azure_blob_uploader import AzureBlobUploader
 
 
 class OptionalQuestionIndex(Question):
-    question_index: int = Field(..., description="Index of the question. If not specified, it is set to the next "
+    question_index: Optional[int] = Field(None, description="Index of the question. If not specified, it is set to the next "
                                                  "available question index.")
 
 
@@ -59,7 +60,10 @@ dummy_assignments = [
         403: {"description": "Authenticated but access is not allowed."}
     }
 )
-async def create_assignment(assignment: Assignment = Body(..., description="The assignment which to create.")):
+async def create_assignment(
+        assignment: Assignment = Body(..., description="The assignment which to create."),
+        blob_uploader: AzureBlobUploader = Depends(),
+):
     dummy_assignments.append(assignment)
     return assignment
 
@@ -76,7 +80,8 @@ async def create_assignment(assignment: Assignment = Body(..., description="The 
     }
 )
 async def add_question(
-        question: AddQuestionRequest = Body(...)
+        question: AddQuestionRequest = Body(...),
+        blob_uploader: AzureBlobUploader = Depends(),
 ):
     for assignment in dummy_assignments:
         if assignment.assignment_id == question.assignment_id:
@@ -98,8 +103,11 @@ async def add_question(
     }
 )
 async def remove_question(
+        semester: str = Query(..., description="Semester of the course."),
+        course_id: str = Query(..., description="Identifier of the course."),
         assignment_id: str = Query(..., description="Identifier of the assignment."),
-        question_index: int = Query(..., description="Index of the question to remove.")
+        question_index: int = Query(..., description="Index of the question to remove."),
+        blob_uploader: AzureBlobUploader = Depends(),
 ):
     for assignment in dummy_assignments:
         if assignment.assignment_id == assignment_id:
@@ -123,7 +131,8 @@ async def remove_question(
     }
 )
 async def edit_question(
-        question: EditQuestionRequest = Body(...)
+        question: EditQuestionRequest = Body(...),
+        blob_uploader: AzureBlobUploader = Depends(),
 ):
     for assignment in dummy_assignments:
         if assignment.assignment_id == question.assignment_id:
@@ -147,7 +156,8 @@ async def edit_question(
     }
 )
 async def modify_order(
-        question: ModifyOrderRequest = Body(...)
+        question: ModifyOrderRequest = Body(...),
+        blob_uploader: AzureBlobUploader = Depends(),
 ):
     for assignment in dummy_assignments:
         if assignment.assignment_id == question.assignment_id:
@@ -171,10 +181,11 @@ async def modify_order(
     }
 )
 async def get_assignment(
-        course_id: str = Query(..., description="Identifier of the course."),
         semester: str = Query(..., description="Semester of the course."),
-        assignment_id: str = Query(..., description="Identifier of the assignment.")
+        course_id: str = Query(..., description="Identifier of the course."),
+        assignment_id: str = Query(..., description="Identifier of the assignment."),
 ):
+    blob_uploader = AzureBlobUploader.get_instance()
     for assignment in dummy_assignments:
         if assignment.assignment_id == assignment_id and assignment.course_id == course_id:
             return assignment
@@ -192,9 +203,10 @@ async def get_assignment(
     }
 )
 async def list_assignments(
+        semester: str = Query(..., description="Semester of the course."),
         course_id: str = Query(..., description="Identifier of the course."),
-        semester: str = Query(..., description="Semester of the course.")
 ):
+    blob_uploader = AzureBlobUploader.get_instance()
     assignments = [a for a in dummy_assignments if a.course_id == course_id]
     if assignments:
         return assignments
@@ -212,8 +224,11 @@ async def list_assignments(
     }
 )
 async def delete_assignment(
+        semester: str = Query(..., description="Semester of the course."),
+        course_id: str = Query(..., description="Identifier of the course."),
         assignment_id: str = Query(..., description="Identifier of the assignment to delete.")
 ):
+    blob_uploader = AzureBlobUploader.get_instance()
     for assignment in dummy_assignments:
         if assignment.assignment_id == assignment_id:
             dummy_assignments.remove(assignment)
