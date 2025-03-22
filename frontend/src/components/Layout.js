@@ -15,19 +15,18 @@ const LayoutRoot = styled(Box)(({ theme }) => ({
 }));
 
 const LayoutContent = styled(Box, {
-  shouldForwardProp: (prop) => prop !== '$isMobile'  // Prevent $isMobile from reaching the DOM
+  shouldForwardProp: (prop) => prop !== '$isMobile'
 })(({ theme, open, $isMobile }) => ({
   display: 'flex',
   flex: '1 1 auto',
   paddingTop: 'var(--header-height)',
   [theme.breakpoints.up('md')]: {
-    marginLeft: open ? 'var(--sidebar-width)' : 'var(--sidebar-collapsed-width)',
-    width: open
-      ? `calc(100% - var(--sidebar-width))`
-      : `calc(100% - var(--sidebar-collapsed-width))`,
+    // Only apply marginLeft and width adjustments on desktop (md and up)
+    marginLeft: open ? 'var(--sidebar-width)' : 0,  // No margin when closed
+    width: open ? `calc(100% - var(--sidebar-width))` : '100%', // Full width when closed
     transition: theme.transitions.create(['margin', 'width'], {
       easing: theme.transitions.easing.sharp,
-      duration: theme.transitions.duration.leavingScreen,
+      duration: theme.transitions.duration.enteringScreen, // Use enteringScreen for both
     }),
   },
 }));

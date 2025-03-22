@@ -34,12 +34,12 @@ const DrawerContent = styled(Box)(({ theme }) => ({
   marginTop: 'var(--header-height)',
   overflowX: 'hidden',
   [theme.breakpoints.down('md')]: {
-    width: 'var(--sidebar-width)',
+    width: 'var(--sidebar-width)', // Keep width on mobile
   },
 }));
 
 const StyledListItemButton = styled(ListItemButton, {
-  shouldForwardProp: (prop) => prop !== '$active' // Prevent $active from being passed to the DOM
+  shouldForwardProp: (prop) => prop !== '$active'
 })(({ theme, $active }) => ({
   borderRadius: theme.shape.borderRadius,
   margin: theme.spacing(0.5, 1),
@@ -66,12 +66,10 @@ export default function Navigation({ open, onClose, variant = 'permanent' }) {
     course: true,
   });
 
-  // Check if the current route matches a given path, or is a subpath
     const isActivePath = (path) => {
         return router.pathname === path || router.pathname.startsWith(path + "/");
     };
 
-  // Toggle expanded state for collapsible sections
   const toggleExpand = (section) => {
     setExpandedItems((prevExpandedItems) => ({
       ...prevExpandedItems,
@@ -79,7 +77,6 @@ export default function Navigation({ open, onClose, variant = 'permanent' }) {
     }));
   };
 
-  // Navigate to a route and close sidebar on mobile
     const navigateTo = (path) => {
       if (router.pathname !== path) {
         router.push(path);
@@ -89,7 +86,6 @@ export default function Navigation({ open, onClose, variant = 'permanent' }) {
       }
     };
 
-  // Navigation items
   const navigationItems = [
     {
       text: 'Dashboard',
@@ -213,14 +209,13 @@ export default function Navigation({ open, onClose, variant = 'permanent' }) {
     </DrawerContent>
   );
 
-  // Render different drawer variants based on the prop
   return variant === 'temporary' ? (
-    <Drawer
+     <Drawer
       variant="temporary"
       open={open}
       onClose={onClose}
       ModalProps={{
-        keepMounted: true, // Better open performance on mobile
+        keepMounted: true,
       }}
       sx={{
         display: { xs: 'block', md: 'none' },
@@ -238,13 +233,14 @@ export default function Navigation({ open, onClose, variant = 'permanent' }) {
       sx={{
         display: { xs: 'none', md: 'block' },
         '& .MuiDrawer-paper': {
-          width: open ? 'var(--sidebar-width)' : 'var(--sidebar-collapsed-width)',
+          width: open ? 'var(--sidebar-width)' : 0, // Set width to 0 when closed
           transition: (theme) =>
-            theme.transitions.create('width', {
+            theme.transitions.create('width', { // Animate only the width
               easing: theme.transitions.easing.sharp,
               duration: theme.transitions.duration.enteringScreen,
             }),
           overflowX: 'hidden',
+          transitionProperty: 'width', // Specify transition property
         },
       }}
     >
