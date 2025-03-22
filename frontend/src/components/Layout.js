@@ -1,8 +1,4 @@
-/**
- * Main layout component for BU MET Autograder
- * Provides consistent page structure with header, navigation, and footer
- */
-
+// src/components/Layout.js
 import React, { useState } from 'react';
 import { Box, Container, useMediaQuery } from '@mui/material';
 import { styled, useTheme } from '@mui/material/styles';
@@ -18,7 +14,9 @@ const LayoutRoot = styled(Box)(({ theme }) => ({
   backgroundColor: theme.palette.background.default,
 }));
 
-const LayoutContent = styled(Box)(({ theme, open, isMobile }) => ({
+const LayoutContent = styled(Box, {
+  shouldForwardProp: (prop) => prop !== '$isMobile'  // Prevent $isMobile from reaching the DOM
+})(({ theme, open, $isMobile }) => ({
   display: 'flex',
   flex: '1 1 auto',
   paddingTop: 'var(--header-height)',
@@ -73,7 +71,7 @@ export default function Layout({ children }) {
         variant={isMobile ? 'temporary' : 'permanent'}
       />
 
-      <LayoutContent open={sidebarOpen} isMobile={isMobile}>
+      <LayoutContent open={sidebarOpen} $isMobile={isMobile}>
         <MainContainer maxWidth="xl">
           {children}
         </MainContainer>

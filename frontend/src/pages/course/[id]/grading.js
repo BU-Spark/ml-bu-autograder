@@ -41,7 +41,7 @@ import {
   PersonSearch as StudentSearchIcon,
   QuestionAnswer as QuestionIcon,
 } from '@mui/icons-material';
-import { assignmentService, responseService } from '../../../services/api';
+import { assignmentService, responseService } from '../../../api';
 import CardSkeleton from '../../../components/CardSkeleton';
 import GradingModeSelect from '../../../components/GradingModeSelect';
 import SelectableList from '../../../components/SelectableList';

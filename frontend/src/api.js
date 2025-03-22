@@ -5,7 +5,8 @@
 
 import axios from 'axios';
 import useSWR from 'swr';
-import { BACKEND_URL, API_PREFIX, LIMITS, ERROR_MESSAGES } from '../config/config';
+import { BACKEND_URL, API_PREFIX, LIMITS, ERROR_MESSAGES } from './config';
+import { signOut } from 'next-auth/react';
 
 // Create an Axios instance with default config
 const api = axios.create({
@@ -37,32 +38,35 @@ api.interceptors.response.use(
       // Server responded with a status code outside of 2xx range
       switch (error.response.status) {
         case 401:
-          // Unauthorized - could trigger logout or refresh token
-          console.error('Authentication error:', error);
+          // Unauthorized - could trigger logout or refresh token (if implemented)
+          console.error('Authentication error:', error.response);
+          signOut({ callbackUrl: '/login' }); // Redirect to login on 401
           return Promise.reject(new Error(ERROR_MESSAGES.auth.unauthorized));
+
         case 403:
-          console.error('Forbidden error:', error);
+          console.error('Forbidden error:', error.response);
           return Promise.reject(new Error(ERROR_MESSAGES.auth.unauthorized));
         case 404:
-          console.error('Not found error:', error);
+          console.error('Not found error:', error.response);
           return Promise.reject(new Error(ERROR_MESSAGES.api.notFound));
         case 400:
-          console.error('Bad request error:', error);
-          return Promise.reject(new Error(ERROR_MESSAGES.api.badRequest));
+          console.error('Bad request error:', error.response);
+          // Returning the original error response to provide details.
+          return Promise.reject(error.response); // Reject with the full response
         case 500:
-          console.error('Server error:', error);
+          console.error('Server error:', error.response);
           return Promise.reject(new Error(ERROR_MESSAGES.api.serverError));
         default:
-          console.error('API error:', error);
+          console.error('API error:', error.response);
           return Promise.reject(new Error(ERROR_MESSAGES.general));
       }
     } else if (error.request) {
       // Request was made but no response received
-      console.error('Network error:', error);
+      console.error('Network error:', error.request);
       return Promise.reject(new Error(ERROR_MESSAGES.network));
     } else {
       // Something else happened while setting up the request
-      console.error('Request configuration error:', error);
+      console.error('Request configuration error:', error.message);
       return Promise.reject(new Error(ERROR_MESSAGES.general));
     }
   }
@@ -74,7 +78,7 @@ const fetcher = async (url) => {
     const response = await api.get(url);
     return response.data;
   } catch (error) {
-    throw error;
+    throw error; // SWR handles the error
   }
 };
 
@@ -89,6 +93,8 @@ export const authService = {
   createToken: (tokenName) => api.post('/auth/token', null, { params: { token_name: tokenName } }),
   listTokens: () => api.get('/auth/tokens'),
   deleteToken: (tokenId) => api.delete('/auth/token', { params: { token_id: tokenId } }),
+  //Sign out
+  signOut: () => api.post('/auth/signout')
 };
 
 // Course management
@@ -133,6 +139,9 @@ export const assignmentService = {
     api.patch('/assignment/remove_question', null, { params: { assignment_id: assignmentId, question_index: questionIndex } }),
   editQuestion: (questionData) => api.patch('/assignment/edit_question', questionData),
   modifyQuestionOrder: (orderData) => api.patch('/assignment/modify_order', orderData),
+
+  //Update assignment
+  updateAssignment: (assignmentData) => api.put('/assignment', assignmentData),
 };
 
 // Student response management
@@ -204,7 +213,7 @@ export const rubricService = {
   // Rubric CRUD operations
   getRubric: (assignmentId, questionIndex = null) =>
     api.get('/rubric', { params: { assignment_id: assignmentId, question_index: questionIndex } }),
-  createRubric: (rubricData) => api.put('/rubric', rubricData),
+  createRubric: (rubricData) => api.put('/rubric', rubricData), // Correctly uses PUT
 
   // AI rubric enhancement
   getAIRubric: (assignmentId, instructions = null) =>

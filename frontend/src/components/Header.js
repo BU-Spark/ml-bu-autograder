@@ -27,9 +27,9 @@ import {
   Logout as LogoutIcon,
   Person as PersonIcon,
 } from '@mui/icons-material';
-import { useUser } from '../services/api';
+import { useUser } from '../api';
 import ThemeToggle from './ThemeToggle';
-import { APP_CONFIG } from '../config/config';
+import { APP_CONFIG } from '../config';
 
 // Styled components
 const StyledAppBar = styled(AppBar)(({ theme }) => ({

@@ -48,7 +48,7 @@ import {
   RuleFolder as RubricIcon,
   Help as HelpIcon,
 } from '@mui/icons-material';
-import { assignmentService, rubricService } from '../../../services/api';
+import { assignmentService, rubricService } from '../../../api';
 import CardSkeleton from '../../../components/CardSkeleton';
 import AISuggestionCard from '../../../components/AISuggestionCard';
 import ConfirmationDialog from '../../../components/ConfirmationDialog';

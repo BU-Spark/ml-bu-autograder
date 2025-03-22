@@ -6,7 +6,7 @@
 import React from 'react';
 import { Box, Container, Divider, Grid, Link, Typography } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import { APP_CONFIG } from '../config/config';
+import { APP_CONFIG } from '../config';
 
 // Styled components
 const FooterRoot = styled(Box)(({ theme }) => ({

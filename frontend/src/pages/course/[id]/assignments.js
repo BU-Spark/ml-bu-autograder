@@ -40,7 +40,7 @@ import {
   QuestionAnswer as QuestionIcon,
 } from '@mui/icons-material';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import { courseService, assignmentService } from '../../../services/api';
+import { courseService, assignmentService } from '../../../api';
 import CardSkeleton from '../../../components/CardSkeleton';
 import ConfirmationDialog from '../../../components/ConfirmationDialog';
 

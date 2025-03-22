@@ -43,7 +43,7 @@ import {
   Assessment as GradingIcon,
   SwapHoriz as TransferIcon,
 } from '@mui/icons-material';
-import { courseService, assignmentService, useUser } from '../../../services/api';
+import { courseService, assignmentService, useUser } from '../../../api';
 import CardSkeleton from '../../../components/CardSkeleton';
 
 // Styled components

@@ -43,10 +43,10 @@ import {
   CloudUpload as UploadIcon,
 } from '@mui/icons-material';
 import { useDropzone } from 'react-dropzone';
-import { courseService, materialService } from '../../../services/api';
+import { courseService, materialService } from '../../../api';
 import CardSkeleton from '../../../components/CardSkeleton';
 import ConfirmationDialog from '../../../components/ConfirmationDialog';
-import { APP_CONFIG } from '../../../config/config';
+import { APP_CONFIG } from '../../../config';
 
 // Styled components
 const MaterialCard = styled(Card)(({ theme }) => ({

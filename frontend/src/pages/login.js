@@ -20,8 +20,8 @@ import {
 } from '@mui/material';
 import { Google as GoogleIcon, Microsoft as MicrosoftIcon } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
-import { authService } from '../services/api';
-import { ERROR_MESSAGES, APP_CONFIG } from '../config/config';
+import { authService } from '../api';
+import { ERROR_MESSAGES, APP_CONFIG } from '../config';
 import Link from 'next/link';
 
 // Styled components

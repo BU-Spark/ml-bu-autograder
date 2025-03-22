@@ -32,7 +32,7 @@ import {
   Email as EmailIcon,
   PersonAdd as PersonAddIcon,
 } from '@mui/icons-material';
-import { courseService, useUser } from '../../../services/api';
+import { courseService, useUser } from '../../../api';
 import ConfirmationDialog from '../../../components/ConfirmationDialog';
 import CardSkeleton from '../../../components/CardSkeleton';
 

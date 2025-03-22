@@ -37,8 +37,8 @@ import {
   ArrowBack as BackIcon,
   ArrowForward as ForwardIcon,
 } from '@mui/icons-material';
-import { courseService, assignmentService, responseService } from '../services/api';
-import { APP_CONFIG } from '../config/config';
+import { courseService, assignmentService, responseService } from '../api';
+import { APP_CONFIG } from '../config';
 import CardSkeleton from '../components/CardSkeleton';
 
 // Styled components
