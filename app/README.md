@@ -132,6 +132,18 @@ Once the application is running, you can view the interactive API documentation 
 
 ```
 
+## Creating Azure
+
+
+```
+az ad sp create-for-rbac --name "Autograder Backend Service Principal" --role "Storage Blob Data Owner" --scopes "/subscriptions/YOUR_SUBSCRIPTION_ID/resourceGroups/YOUR_RESOURCE_GROUP/providers/Microsoft.Storage/storageAccounts/YOUR_STORAGE_ACCOUNT"
+```
+
+```
+az ad sp create-for-rbac --name "Autograder Backend Service Principal" --role "Storage Blob Data Owner" --scopes "/subscriptions/3b608a14-90b7-42d9-82e2-77c947974137/resourceGroups/AutoGrader-JoshYip-TestCase/providers/Microsoft.Storage/storageAccounts/autograde"
+```
+
+
 ## Notes
 
 - **Dummy Data:**  
