@@ -83,17 +83,23 @@ export default function Header({ sidebarOpen, onSidebarToggle }) {
   const handleLogout = async () => {
     handleMenuClose();
     // In a real implementation, this would call the logout API
-    router.push('/login');
+    if (router.pathname !== '/login') {
+      router.push('/login');
+    }
   };
 
   const handleSettings = () => {
     handleMenuClose();
-    router.push('/settings');
+    if (router.pathname !== '/settings') {
+      router.push('/settings');
+    }
   };
 
   const handleProfile = () => {
     handleMenuClose();
-    router.push('/profile');
+     if (router.pathname !== '/profile') {
+        router.push('/profile');
+     }
   };
 
   const handleNotifications = () => {
