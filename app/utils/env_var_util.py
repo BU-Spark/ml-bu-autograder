@@ -11,7 +11,7 @@ def get_str_var(var_name, default=None) -> str:
     :return: The environment variable value or the default value
     """
     ret = os.getenv(var_name, default)
-    if ret is None:
+    if ret is None or ret == '':
         raise Exception("Environment variable '{}' not found.".format(var_name))
     return ret
 
