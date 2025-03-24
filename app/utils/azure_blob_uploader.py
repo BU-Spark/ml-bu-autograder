@@ -1,7 +1,7 @@
 import base64
 import json
+import logging
 import mimetypes
-import os
 from typing import List, Dict, Optional
 
 from azure.storage.blob import BlobServiceClient, ContentSettings
@@ -15,13 +15,16 @@ azure_blob_uploader: Optional["AzureBlobUploader"] = None
 
 class AzureBlobUploader:
 
-    def __init__(self, sas_url, container_name):
+    def __init__(self, credential, storage_account_name, container_name):
         """
         Initialize AzureBlobUploader using SAS token authentication.
         :param sas_url: The full SAS URL for the container.
         :param container_name: The name of the container inside the storage account.
         """
-        self.blob_service_client = BlobServiceClient(account_url=sas_url)
+        self.blob_service_client = BlobServiceClient(
+            account_url=f"https://{storage_account_name}.blob.core.windows.net",
+            credential=credential
+        )
         self.container_client = self.blob_service_client.get_container_client(container_name)
 
     def upload_base64_file(self, base64_data, blob_path, metadata=None):
@@ -39,9 +42,9 @@ class AzureBlobUploader:
                 content_settings=ContentSettings(content_type=content_type),
                 metadata=metadata
             )
-            print(f"Uploaded base64 data to {blob_path} with metadata: {metadata}")
+            logging.debug(f"Uploaded base64 data to {blob_path} with metadata: {metadata}")
         except Exception as e:
-            print(f"Failed to upload base64 data to {blob_path}: {e}")
+            logging.error(f"Failed to upload base64 data to {blob_path}: {e}")
 
     def upload_json(self, data, blob_path, metadata: Dict[str, str] = None):
         """
@@ -57,9 +60,9 @@ class AzureBlobUploader:
                 metadata=metadata
             )
 
-            print(f"Uploaded JSON data to {blob_path} with metadata: {metadata}")
+            logging.debug(f"Uploaded JSON data to {blob_path} with metadata: {metadata}")
         except Exception as e:
-            print(f"Failed to upload JSON to {blob_path}: {e}")
+            logging.error(f"Failed to upload JSON to {blob_path}: {e}")
 
     def download_file(self, blob_path, local_file_path):
         """
@@ -69,9 +72,9 @@ class AzureBlobUploader:
             blob_client = self.container_client.get_blob_client(blob_path)
             with open(local_file_path, "wb") as file:
                 file.write(blob_client.download_blob().readall())
-            print(f"Downloaded {blob_path} to {local_file_path}")
+            logging.debug(f"Downloaded {blob_path} to {local_file_path}")
         except Exception as e:
-            print(f"Failed to download {blob_path}: {e}")
+            logging.error(f"Failed to download {blob_path}: {e}")
 
     def download_json(self, blob_path):
         """
@@ -82,7 +85,7 @@ class AzureBlobUploader:
             json_data = blob_client.download_blob().readall()
             return json.loads(json_data)
         except Exception as e:
-            print(f"Failed to download JSON from {blob_path}: {e}")
+            logging.error(f"Failed to download JSON from {blob_path}: {e}")
             return None
 
     def delete_blob(self, blob_path: str):
@@ -90,9 +93,9 @@ class AzureBlobUploader:
         try:
             blob_client = self.container_client.get_blob_client(blob_path)
             blob_client.delete_blob()
-            print(f"Deleted blob: {blob_path}")
+            logging.debug(f"Deleted blob: {blob_path}")
         except Exception as e:
-            print(f"Failed to delete blob {blob_path}: {e}")
+            logging.error(f"Failed to delete blob {blob_path}: {e}")
 
     def list_files(self, prefix=None):
         """
@@ -102,7 +105,7 @@ class AzureBlobUploader:
             blobs = self.container_client.list_blobs(name_starts_with=prefix)
             return [blob.name for blob in blobs]
         except Exception as e:
-            print(f"Failed to list files: {e}")
+            logging.error(f"Failed to list files: {e}")
             return []
 
     def upload_user(self, user: User):
@@ -324,9 +327,9 @@ class AzureBlobUploader:
         return content_type if content_type else 'application/octet-stream'
 
     @staticmethod
-    def init_singleton(sas_url, container_name):
+    def init_singleton(credential, storage_account_name, container_name):
         global azure_blob_uploader
-        azure_blob_uploader = AzureBlobUploader(sas_url, container_name)
+        azure_blob_uploader = AzureBlobUploader(credential, storage_account_name, container_name)
 
     @staticmethod
     def get_instance() -> Optional["AzureBlobUploader"]:
