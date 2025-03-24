@@ -1,6 +1,7 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, status, Query, Depends
+from pydantic import EmailStr
 
 from app.models.course import Course
 from app.utils.azure_blob_uploader import AzureBlobUploader
@@ -41,6 +42,10 @@ async def delete_course(
         course_id: str = Query(..., description="Unique identifier of the course to delete."),
 ):
     blob_uploader = AzureBlobUploader.get_instance()
+    # normalize query params
+    semester = semester.strip().lower()
+    course_id = course_id.strip().lower()
+
     blobs_deleted = blob_uploader.delete_course(semester, course_id)
     if blobs_deleted == 0:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
@@ -58,13 +63,20 @@ async def delete_course(
     }
 )
 async def transfer_course(
-        current_course_id: str = Query(..., description="ID of the course being updated."),
         current_semester: str = Query(..., description="Current semester of the course."),
-        copy_from_course_id: str = Query(..., description="ID of the course to copy from."),
+        current_course_id: str = Query(..., description="ID of the course being updated."),
         copy_from_course_semester: str = Query(..., description="Semester of the source course."),
+        copy_from_course_id: str = Query(..., description="ID of the course to copy from."),
 ):
     blob_uploader = AzureBlobUploader.get_instance()
-    raise NotImplementedError()  # TODO: not worth implementing rn
+    # normalize query params
+    current_semester = current_semester.strip().lower()
+    current_semester = current_course_id.strip().lower()
+    copy_from_course_semester = copy_from_course_semester.strip().lower()
+    copy_from_course_id = copy_from_course_id.strip().lower()
+
+    # TODO: not worth implementing rn
+    raise NotImplementedError()
 
 
 @router.get(
@@ -84,6 +96,11 @@ async def get_course(
         course_id: str = Query(..., description="Unique identifier of the course."),
 ):
     blob_uploader = AzureBlobUploader.get_instance()
+
+    # normalize query params
+    semester = semester.strip().lower()
+    course_id = course_id.strip().lower()
+
     # TODO: add logic to make sure user is allowed to access this course
     course = blob_uploader.get_course(semester, course_id)
     if course is None:
@@ -108,8 +125,13 @@ async def get_course(
 async def list_courses(
         semester: Optional[str] = Query(None, description="The semester for which to list the courses for."),
 ):
+    # TODO: this lists all courses
+    #  It should instead list only the courses user has access to
     blob_uploader = AzureBlobUploader.get_instance()
-    return blob_uploader.list_courses(semester)
+
+    semester = None if None else semester.strip().lower()
+    user = ...  # TODO
+    return blob_uploader.list_courses(user, semester)
 
 
 @router.post(
@@ -127,9 +149,14 @@ async def list_courses(
 async def add_course_instructor(
         semester: str = Query(..., description="Semester of the course."),
         course_id: str = Query(..., description="Unique identifier of the course."),
-        instructor: str = Query(..., description="Email of the instructor to add."),
+        instructor: EmailStr = Query(..., description="Email of the instructor to add."),
 ):
     blob_uploader = AzureBlobUploader.get_instance()
+    # normalize query params
+    semester = semester.strip().lower()
+    course_id = course_id.strip().lower()
+    instructor = instructor.strip().lower()
+
     instructors = blob_uploader.get_instructors(semester, course_id)
     if instructors is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
@@ -139,6 +166,11 @@ async def add_course_instructor(
 
     instructors.append(instructor)
     blob_uploader.upload_instructors(semester, course_id, instructors)
+
+    instructor_user = blob_uploader.get_user(instructor)
+    instructor_user.authenticated_courses.append((semester, course_id))
+    blob_uploader.upload_user(instructor_user)
+
 
 @router.delete(
     "/course/instructor",
@@ -157,6 +189,11 @@ async def remove_course_instructor(
         instructor: str = Query(..., description="Email of the instructor to remove."),
 ):
     blob_uploader = AzureBlobUploader.get_instance()
+    # normalize query params
+    semester = semester.strip().lower()
+    course_id = course_id.strip().lower()
+    instructor = instructor.strip().lower()
+
     instructors = blob_uploader.get_instructors(semester, course_id)
     if instructors is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
@@ -169,3 +206,7 @@ async def remove_course_instructor(
 
     instructors.remove(instructor)
     blob_uploader.upload_instructors(semester, course_id, instructors)
+
+    instructor_user = blob_uploader.get_user(instructor)
+    instructor_user.authenticated_courses.remove((semester, course_id))
+    blob_uploader.upload_user(instructor_user)

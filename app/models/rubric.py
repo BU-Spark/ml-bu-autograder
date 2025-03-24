@@ -1,5 +1,5 @@
 from typing import List, Optional, Dict
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 from enum import Enum
 
 
@@ -52,6 +52,8 @@ class Rubric(BaseModel):
     """
     Rubric object containing grading instructions.
     """
+    semester: str = Field(..., description="The semester associated with the course.")
+    course_id: str = Field(..., description="Associated course identifier.")
     assignment_id: str = Field(..., description="Associated assignment's ID.")
     grading_flags: Optional[List[GradingFlag]] = Field(
         None, description=(
@@ -71,3 +73,8 @@ class Rubric(BaseModel):
     sub_rubrics: List[SubRubric] = Field(
         ..., description="List of sub-rubrics specifying grading for individual questions."
     )
+
+    @validator("semester", "course_id", "assignment_id", pre=True, always=True)
+    def normalize_lowercase(cls, value: str) -> str:
+        """Converts course_id and semester to lowercase and trims spaces."""
+        return value.strip().lower()

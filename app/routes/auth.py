@@ -85,8 +85,8 @@ async def google_oauth(
         token_type: str = Query(..., description="Type of the token, usually 'Bearer'."),
         id_token: str = Query(..., description="ID token provided by Google.")
 ):
-    dummy_user = User(user_id="user123", first_name="John", last_name="Doe", user_email="john.doe@example.com")
-    dummy_pat = PersonalAuthenticationToken(user_id="user123", authentication_token="dummy_jwt_token")
+    dummy_user = User(first_name="John", last_name="Doe", user_email="john.doe@example.com")
+    dummy_pat = PersonalAuthenticationToken(user_email="user123@example.com", authentication_token="dummy_jwt_token")
     return {"user": dummy_user, "personal_authentication_token": dummy_pat}
 
 
