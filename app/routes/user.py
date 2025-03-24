@@ -17,7 +17,6 @@ router = APIRouter()
 
 # Dummy storage for a user (simulate the currently authenticated user)
 dummy_user = User(
-    user_id="user_1",
     first_name="John",
     last_name="Doe",
     dark_mode=False,

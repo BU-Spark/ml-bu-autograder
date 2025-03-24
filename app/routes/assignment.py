@@ -62,8 +62,8 @@ dummy_assignments = [
 )
 async def create_assignment(
         assignment: Assignment = Body(..., description="The assignment which to create."),
-        blob_uploader: AzureBlobUploader = Depends(),
 ):
+    blob_uploader = AzureBlobUploader.get_instance()
     dummy_assignments.append(assignment)
     return assignment
 
@@ -81,8 +81,8 @@ async def create_assignment(
 )
 async def add_question(
         question: AddQuestionRequest = Body(...),
-        blob_uploader: AzureBlobUploader = Depends(),
 ):
+    blob_uploader = AzureBlobUploader.get_instance()
     for assignment in dummy_assignments:
         if assignment.assignment_id == question.assignment_id:
             new_question = question.question
@@ -107,8 +107,8 @@ async def remove_question(
         course_id: str = Query(..., description="Identifier of the course."),
         assignment_id: str = Query(..., description="Identifier of the assignment."),
         question_index: int = Query(..., description="Index of the question to remove."),
-        blob_uploader: AzureBlobUploader = Depends(),
 ):
+    blob_uploader = AzureBlobUploader.get_instance()
     for assignment in dummy_assignments:
         if assignment.assignment_id == assignment_id:
             try:
@@ -132,8 +132,8 @@ async def remove_question(
 )
 async def edit_question(
         question: EditQuestionRequest = Body(...),
-        blob_uploader: AzureBlobUploader = Depends(),
 ):
+    blob_uploader = AzureBlobUploader.get_instance()
     for assignment in dummy_assignments:
         if assignment.assignment_id == question.assignment_id:
             try:
@@ -157,8 +157,8 @@ async def edit_question(
 )
 async def modify_order(
         question: ModifyOrderRequest = Body(...),
-        blob_uploader: AzureBlobUploader = Depends(),
 ):
+    blob_uploader = AzureBlobUploader.get_instance()
     for assignment in dummy_assignments:
         if assignment.assignment_id == question.assignment_id:
             if sorted(question.list_of_question_indexes) != list(range(len(assignment.questions))):
