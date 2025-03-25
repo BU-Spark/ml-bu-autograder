@@ -4,9 +4,11 @@ from fastapi import APIRouter, HTTPException, status, Query
 
 from app.models.token import AccessToken
 from app.models.user import User, PersonalAuthenticationToken
+from app.utils import JWTService
 from app.utils.azure_blob_service import AzureBlobService
 
 router = APIRouter()
+user_from_authorization_header = JWTService.get_instance().from_authorization_header
 
 # Dummy in-memory storage for access tokens
 dummy_access_tokens = [

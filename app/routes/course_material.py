@@ -3,9 +3,11 @@ from typing import List
 from fastapi import APIRouter, HTTPException, status, Query, Body
 
 from app.models.course_material import CourseMaterial
+from app.utils import JWTService
 from app.utils.azure_blob_service import AzureBlobService
 
 router = APIRouter()
+user_from_authorization_header = JWTService.get_instance().from_authorization_header
 
 # Dummy storage for course materials
 dummy_materials: List[CourseMaterial] = []

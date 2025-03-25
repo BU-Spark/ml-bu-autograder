@@ -3,9 +3,11 @@ from typing import Optional, List
 from fastapi import APIRouter, HTTPException, status, Query, Body
 
 from app.models.student_response import StudentResponse, GradedStudentResponse
+from app.utils import JWTService
 from app.utils.azure_blob_service import AzureBlobService
 
 router = APIRouter()
+user_from_authorization_header = JWTService.get_instance().from_authorization_header
 
 # Dummy storage for student responses
 dummy_responses: List[StudentResponse] = []

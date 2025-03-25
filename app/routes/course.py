@@ -4,10 +4,11 @@ from fastapi import APIRouter, HTTPException, status, Query, Depends
 from pydantic import EmailStr
 
 from app.models.course import Course
+from app.utils import JWTService, UserMeta
 from app.utils.azure_blob_service import AzureBlobService
 
 router = APIRouter()
-
+user_from_authorization_header = JWTService.get_instance().from_authorization_header
 
 @router.post(
     "/course",
@@ -21,7 +22,10 @@ router = APIRouter()
 )
 async def create_course(
         course: Course,
+        user_meta: UserMeta = Depends(user_from_authorization_header),
 ):
+    if user_meta is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="You are not authenticated.")
     blob_uploader = AzureBlobService.get_instance()
     blob_uploader.upload_course_metadata(course)
     return course
@@ -40,12 +44,22 @@ async def create_course(
 async def delete_course(
         semester: str = Query(..., description="Semester of the course to delete."),
         course_id: str = Query(..., description="Unique identifier of the course to delete."),
+        user_meta: UserMeta = Depends(user_from_authorization_header),
 ):
+    if user_meta is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="You are not authenticated.")
     blob_uploader = AzureBlobService.get_instance()
-    # normalize query params
+    # Normalize query params
     semester = semester.strip().lower()
     course_id = course_id.strip().lower()
-
+    # Check if course exists
+    course = blob_uploader.get_course(semester, course_id)
+    if course is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course does not exist.")
+    # Check if user has perms
+    if user_meta.user_email not in course.instructors:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not authorized on this course.")
+    # Carry out the operation
     blobs_deleted = blob_uploader.delete_course(semester, course_id)
     if blobs_deleted == 0:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
@@ -94,23 +108,20 @@ async def transfer_course(
 async def get_course(
         semester: str = Query(..., description="Course semester."),
         course_id: str = Query(..., description="Unique identifier of the course."),
+        user_meta: UserMeta = Depends(user_from_authorization_header),
 ):
     blob_uploader = AzureBlobService.get_instance()
 
     # normalize query params
     semester = semester.strip().lower()
     course_id = course_id.strip().lower()
-
-    # TODO: add logic to make sure user is allowed to access this course
+    # Get the course
     course = blob_uploader.get_course(semester, course_id)
     if course is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
-    instructors = blob_uploader.get_instructors(semester, course_id)
-    # TODO: instructors.__contains__("TODO")
-    #  add logic to make sure instructor can access this course
-    if instructors is None or True:
-        return course
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="You are not allowed to access this course.")
+    if user_meta.user_email not in course.instructors:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not authorized on this course.")
+    return course
 
 
 @router.get(
@@ -123,6 +134,7 @@ async def get_course(
     }
 )
 async def list_courses(
+        user_meta: UserMeta = Depends(user_from_authorization_header),
         semester: Optional[str] = Query(None, description="The semester for which to list the courses for."),
 ):
     # TODO: this lists all courses
