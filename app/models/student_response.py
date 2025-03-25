@@ -1,7 +1,10 @@
-from typing import Union
+from typing import Union, Optional
 
 from pydantic import BaseModel, Field
+
+from app.models import Grade
 from app.models.uploaded_file import UploadedFileData, UploadedFileReference
+
 
 class StudentResponse(BaseModel):
     """
@@ -19,3 +22,8 @@ class StudentResponse(BaseModel):
     data: Union[UploadedFileData, UploadedFileReference] = Field(
         ..., description="Either the uploaded file content or a reference to a previously stored file."
     )
+
+
+class GradedStudentResponse(StudentResponse):
+    grade: Optional[Grade] = Field(..., description="The grade the LLM gave this student response. If this assignment "
+                                                    "is not yet graded, the grade object may not be present.")

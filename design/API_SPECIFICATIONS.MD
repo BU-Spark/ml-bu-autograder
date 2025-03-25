@@ -106,14 +106,13 @@ Contains grading instructions for the LLM regarding leniency, point allocations,
 ### [sub_rubric](#sub_rubric)
 Contains grading instructions for the specific question.
 - **question_index** (Non-Null): The question index.
-- **maximum_points** (Non-Null): Maximum points available.
+- **max_points** (Non-Null): Maximum points available for this question.
 - **leniency** (Non-Null, Integer 1–5, Defaults to 3): Specific leniency for the question.
 - **instructor_guideline** (Nullable): Detailed grading criteria.
 
 ### [course](#course)
 Represents a course; the combination of course_name and semester must be unique.
-- **course_id** (Non-Null): Unique identifier.
-- **course_name** (Non-Null): Name of the course.
+- **course_id** (Non-Null): Unique identifier for the course, usually its name.
 - **semester** (Non-Null): Semester during which the course is offered.
 - **instructors** (Non-Null): List of instructor emails.
 
@@ -162,9 +161,12 @@ Represents a student’s answer to a question.
 ### [grade](#grade)
 Contains grading results for a student’s response.
 - **student_identifier** (Non-Null): Student's unique identifier.
+- **semester** (Non-Null): Semester during which the course is offered.
+- **course_id** (Non-Null): Associated course ID.
 - **assignment_id** (Non-Null): The unique title or ID the assignment is known by.
 - **question_index** (Non-Null): The question's index.
-- **grade** (Non-Null): Awarded grade.
+- **awarded_points** (Non-Null): Awarded points for this question.
+- **max_points** (Non-Null): Maximum points that were available for this question.
 - **explanation** (Nullable): Explanation based on the rubric.
 
 ---

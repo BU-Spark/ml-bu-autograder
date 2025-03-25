@@ -107,6 +107,31 @@ Once the application is running, you can view the interactive API documentation 
 └── README.md
 ```
 
+## Azure Storage Format
+
+```
+📂 `/course/`
+│── 📂 `{semester_key}/`
+│   └── 📂 `{course_id}/`
+│       ├── 📄 `course.json` *(Course metadata)*
+│       ├── 📄 `instructor.json` *(Instructor details)*
+│       ├── 📂 `assignment/`
+│       │   └── 📂 `{assignment_id}/`
+│       │       ├── 📄 `assignment.json` *(Assignment metadata)*
+│       │       ├── 📂 `{question_index}/`
+│       │       │   ├── 📄 `question.json` *(Question metadata)*
+│       │       │   ├── 📂 `student_response/`
+│       │       │   │   └── 📂 `{student_id}/`
+│       │       │   │       ├── 📄 `response.*` *(Student's answer - any file type)*
+│       │       │   │       └── 📄 `grade.json` *(Grading details)*
+│       │       ├── 📂 `rubrics/`
+│       │       │   ├── 📄 `assignment.json` *(Rubric for full assignment)*
+│       │       │   └── 📄 `{question_index}.json` *(Sub-rubric for a specific question)*
+│       ├── 📂 `course_material/`
+│       │   └── 📄 `{material_id}.*` *(Course materials - any file type)*
+
+```
+
 ## Notes
 
 - **Dummy Data:**  

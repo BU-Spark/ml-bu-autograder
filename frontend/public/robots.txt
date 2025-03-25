@@ -1,0 +1,11 @@
+# BU MET Autograder robots.txt
+User-agent: *
+Allow: /
+
+# Disallow sensitive routes
+Disallow: /settings
+Disallow: /course/*/grading
+Disallow: /manual_submission
+
+# Sitemap
+Sitemap: https://autograder.bu.edu/sitemap.xml
