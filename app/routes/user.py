@@ -4,7 +4,7 @@ from fastapi import APIRouter, Body
 from pydantic import BaseModel
 
 from app.models.user import User
-from app.utils.azure_blob_service import AzureBlobUploader
+from app.utils.azure_blob_service import AzureBlobService
 
 
 class UserPreferencesUpdate(BaseModel):
@@ -38,7 +38,7 @@ dummy_user = User(
 async def update_user_preferences(
         preferences: UserPreferencesUpdate = Body(..., description="User preferences to update.")
 ):
-    blob_uploader = AzureBlobUploader.get_instance()
+    blob_uploader = AzureBlobService.get_instance()
     # In a real-world scenario, you'd retrieve the authenticated user from the request context
     # and update their record in your persistent datastore.
     if preferences.first_name is not None:
@@ -61,5 +61,5 @@ async def update_user_preferences(
     }
 )
 async def get_user() -> User:
-    blob_uploader = AzureBlobUploader.get_instance()
+    blob_uploader = AzureBlobService.get_instance()
     return dummy_user

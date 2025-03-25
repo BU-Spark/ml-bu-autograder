@@ -3,7 +3,7 @@ from typing import Optional, List
 from fastapi import APIRouter, HTTPException, status, Query, Body
 
 from app.models.student_response import StudentResponse, GradedStudentResponse
-from app.utils.azure_blob_service import AzureBlobUploader
+from app.utils.azure_blob_service import AzureBlobService
 
 router = APIRouter()
 
@@ -25,7 +25,7 @@ dummy_responses: List[StudentResponse] = []
 async def upload_response(
         response: StudentResponse = Body(..., description="Student response object containing the answer data.")
 ):
-    blob_uploader = AzureBlobUploader.get_instance()
+    blob_uploader = AzureBlobService.get_instance()
     dummy_responses.append(response)
     return {"message": "Response uploaded successfully."}
 
@@ -44,7 +44,7 @@ async def upload_response(
 async def replace_response(
         response: StudentResponse = Body(..., description="Student response object with the updated answer data.")
 ):
-    blob_uploader = AzureBlobUploader.get_instance()
+    blob_uploader = AzureBlobService.get_instance()
     for idx, existing in enumerate(dummy_responses):
         if (existing.student_id == response.student_id and
                 existing.assignment_id == response.assignment_id and
@@ -73,7 +73,7 @@ async def delete_response(
                                               description="Optional index of the question. If omitted, all responses "
                                                           "for the assignment are deleted.")
 ):
-    blob_uploader = AzureBlobUploader.get_instance()
+    blob_uploader = AzureBlobService.get_instance()
     global dummy_responses
     if question_index is not None:
         for response in dummy_responses:
@@ -107,7 +107,7 @@ async def get_responses(
         question_index: Optional[int] = Query(None, description="Optional index of the question."),
         student_id: Optional[str] = Query(None, description="Optional unique identifier for the student.")
 ):
-    blob_uploader = AzureBlobUploader.get_instance()
+    blob_uploader = AzureBlobService.get_instance()
     results = []
     for response in dummy_responses:
         if response.assignment_id == assignment_id:

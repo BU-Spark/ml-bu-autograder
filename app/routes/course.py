@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, status, Query, Depends
 from pydantic import EmailStr
 
 from app.models.course import Course
-from app.utils.azure_blob_service import AzureBlobUploader
+from app.utils.azure_blob_service import AzureBlobService
 
 router = APIRouter()
 
@@ -22,7 +22,7 @@ router = APIRouter()
 async def create_course(
         course: Course,
 ):
-    blob_uploader = AzureBlobUploader.get_instance()
+    blob_uploader = AzureBlobService.get_instance()
     blob_uploader.upload_course_metadata(course)
     return course
 
@@ -41,7 +41,7 @@ async def delete_course(
         semester: str = Query(..., description="Semester of the course to delete."),
         course_id: str = Query(..., description="Unique identifier of the course to delete."),
 ):
-    blob_uploader = AzureBlobUploader.get_instance()
+    blob_uploader = AzureBlobService.get_instance()
     # normalize query params
     semester = semester.strip().lower()
     course_id = course_id.strip().lower()
@@ -68,7 +68,7 @@ async def transfer_course(
         copy_from_course_semester: str = Query(..., description="Semester of the source course."),
         copy_from_course_id: str = Query(..., description="ID of the course to copy from."),
 ):
-    blob_uploader = AzureBlobUploader.get_instance()
+    blob_uploader = AzureBlobService.get_instance()
     # normalize query params
     current_semester = current_semester.strip().lower()
     current_semester = current_course_id.strip().lower()
@@ -95,7 +95,7 @@ async def get_course(
         semester: str = Query(..., description="Course semester."),
         course_id: str = Query(..., description="Unique identifier of the course."),
 ):
-    blob_uploader = AzureBlobUploader.get_instance()
+    blob_uploader = AzureBlobService.get_instance()
 
     # normalize query params
     semester = semester.strip().lower()
@@ -127,7 +127,7 @@ async def list_courses(
 ):
     # TODO: this lists all courses
     #  It should instead list only the courses user has access to
-    blob_uploader = AzureBlobUploader.get_instance()
+    blob_uploader = AzureBlobService.get_instance()
 
     semester = None if None else semester.strip().lower()
     user = ...  # TODO
@@ -151,7 +151,7 @@ async def add_course_instructor(
         course_id: str = Query(..., description="Unique identifier of the course."),
         instructor: EmailStr = Query(..., description="Email of the instructor to add."),
 ):
-    blob_uploader = AzureBlobUploader.get_instance()
+    blob_uploader = AzureBlobService.get_instance()
     # normalize query params
     semester = semester.strip().lower()
     course_id = course_id.strip().lower()
@@ -188,7 +188,7 @@ async def remove_course_instructor(
         semester: str = Query(..., description="Semester of the course."),
         instructor: str = Query(..., description="Email of the instructor to remove."),
 ):
-    blob_uploader = AzureBlobUploader.get_instance()
+    blob_uploader = AzureBlobService.get_instance()
     # normalize query params
     semester = semester.strip().lower()
     course_id = course_id.strip().lower()
