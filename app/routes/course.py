@@ -8,7 +8,7 @@ router = APIRouter()
 
 # Dummy storage for courses
 dummy_courses = [
-    Course(course_id="cs_132", course_name="Intro to CS", semester="Fall 2024", instructors=["instructor@example.com"])
+    Course(course_id="cs_132", semester="Fall 2024", instructors=["instructor@example.com"])
 ]
 
 
@@ -68,7 +68,7 @@ async def transfer_course(
         copy_from_course_id: str = Query(..., description="ID of the course to copy from."),
         copy_from_course_semester: str = Query(..., description="Semester of the source course.")
 ):
-    updated_course = {"course_id": current_course_id, "course_name": "Transferred Course", "semester": current_semester,
+    updated_course = {"course_id": current_course_id, "semester": current_semester,
                       "instructors": ["instructor@example.com"]}
     return {"message": "Course transfer successful.", "updated_course": updated_course}
 

@@ -86,3 +86,24 @@ async def google_oauth(
     dummy_user = User(user_id="user123", first_name="John", last_name="Doe", user_email="john.doe@example.com")
     dummy_pat = PersonalAuthenticationToken(user_id="user123", authentication_token="dummy_jwt_token")
     return {"user": dummy_user, "personal_authentication_token": dummy_pat}
+
+
+@router.get(
+    "/google_oauth_url",
+    summary="Get Google OAuth URL",
+    description="Returns the Google OAuth URL for redirecting users to authentication.",
+)
+async def get_oauth_url():
+    client_id = "your_google_client_id"
+    redirect_uri = "your_redirect_uri"
+    scope = "openid email profile"
+    oauth_url = (
+        f"https://accounts.google.com/o/oauth2/auth?"
+        f"client_id={client_id}&"
+        f"redirect_uri={redirect_uri}&"
+        f"response_type=code&"
+        f"scope={scope}&"
+        f"access_type=offline&"
+        f"prompt=consent"
+    )
+    return {"oauth_url": oauth_url}
