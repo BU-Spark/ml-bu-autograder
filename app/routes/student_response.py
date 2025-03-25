@@ -3,7 +3,7 @@ from typing import Optional, List
 from fastapi import APIRouter, HTTPException, status, Query, Body
 
 from app.models.student_response import StudentResponse, GradedStudentResponse
-from app.utils.azure_blob_uploader import AzureBlobUploader
+from app.utils.azure_blob_service import AzureBlobUploader
 
 router = APIRouter()
 
