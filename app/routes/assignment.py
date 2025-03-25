@@ -55,7 +55,7 @@ dummy_assignments = [
     description="Creates a new assignment with questions and guidelines.",
     responses={
         400: {"description": "Missing or invalid parameters."},
-        404: {"description": "Associated course not found."},
+        404: {"description": "Course does not exist."},
         401: {"description": "Requester is not authenticated."},
         403: {"description": "Authenticated but access is not allowed."}
     }
@@ -64,7 +64,34 @@ async def create_assignment(
         assignment: Assignment = Body(..., description="The assignment which to create."),
 ):
     blob_uploader = AzureBlobUploader.get_instance()
-    dummy_assignments.append(assignment)
+    # Check if the course exists
+    course_exists = blob_uploader.course_exists(assignment.semester, assignment.course_id)
+    if not course_exists:
+        raise HTTPException(status_code=404, detail="Course does not exist.")
+    # Check if user has perms on course
+    # TODO
+    # If the user did not specify an assignment title, figure one out now
+    if assignment.assignment_title is None:
+        current_assignments = blob_uploader.list_assignments(assignment.semester, assignment.course_id)
+        new_title = "Assignment "
+        assignment_number = None
+        for current_assignment in current_assignments:
+            if current_assignment.assignment_title.startswith(new_title):
+                try:
+                    current_assignment_number = int(current_assignment.assignment_title.split(" ")[-1])
+                    assignment_number = current_assignment_number if assignment_number is None \
+                        else max(assignment_number, current_assignment_number)
+                except ValueError:
+                    ...
+        assignment_number = 1 if assignment_number is None else assignment_number + 1
+        assignment.assignment_title = new_title + str(assignment_number)
+    # upload assignment metadata
+    blob_uploader.upload_assignment_metadata(assignment)
+    # upload assignment questions
+    for question in assignment.questions:
+        blob_uploader.upload_question_metadata(
+            assignment.semester, assignment.course_id, assignment.assignment_id, question
+        )
     return assignment
 
 
@@ -83,12 +110,9 @@ async def add_question(
         question: AddQuestionRequest = Body(...),
 ):
     blob_uploader = AzureBlobUploader.get_instance()
-    for assignment in dummy_assignments:
-        if assignment.assignment_id == question.assignment_id:
-            new_question = question.question
-            assignment.questions.append(new_question)
-            return {"new_question_index": len(assignment.questions) - 1}
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found.")
+    blob_uploader.upload_question_metadata(
+        question.semester, question.course_id, question.assignment_id, question.question
+    )
 
 
 @router.patch(
