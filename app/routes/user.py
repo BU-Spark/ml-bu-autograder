@@ -4,7 +4,7 @@ from fastapi import APIRouter, Body
 from pydantic import BaseModel
 
 from app.models.user import User
-from app.utils.azure_blob_uploader import AzureBlobUploader
+from app.utils.azure_blob_service import AzureBlobUploader
 
 
 class UserPreferencesUpdate(BaseModel):

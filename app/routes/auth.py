@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, status, Query
 
 from app.models.token import AccessToken
 from app.models.user import User, PersonalAuthenticationToken
-from app.utils.azure_blob_uploader import AzureBlobUploader
+from app.utils.azure_blob_service import AzureBlobUploader
 
 router = APIRouter()
 

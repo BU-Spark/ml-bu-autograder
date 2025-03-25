@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, status, Query, Depends
 from pydantic import EmailStr
 
 from app.models.course import Course
-from app.utils.azure_blob_uploader import AzureBlobUploader
+from app.utils.azure_blob_service import AzureBlobUploader
 
 router = APIRouter()
 

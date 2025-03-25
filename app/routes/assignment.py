@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, status, Query, Body, Depends
 from pydantic import BaseModel, Field
 
 from app.models.assignment import Assignment, Question
-from app.utils.azure_blob_uploader import AzureBlobUploader
+from app.utils.azure_blob_service import AzureBlobUploader
 
 
 class OptionalQuestionIndex(Question):

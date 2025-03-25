@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, status, Query, Body
 from pydantic import Field, BaseModel
 
 from app.models.rubric import Rubric, SubRubric
-from app.utils.azure_blob_uploader import AzureBlobUploader
+from app.utils.azure_blob_service import AzureBlobUploader
 
 router = APIRouter()
 

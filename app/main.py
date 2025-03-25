@@ -9,7 +9,7 @@ from app.utils import get_str_var, get_bool_var, setup_loggers
 load_dotenv()  # Load environment variables first
 
 from app.utils.azure_ai_service import AzureAIService
-from app.utils.azure_blob_uploader import AzureBlobUploader
+from app.utils.azure_blob_service import AzureBlobUploader
 from fastapi import FastAPI
 import os
 from app.routes import auth, course, assignment, student_response, grading, course_material, rubric, user

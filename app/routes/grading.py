@@ -3,7 +3,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Query
 
 from app.models.grade import Grade
-from app.utils.azure_blob_uploader import AzureBlobUploader
+from app.utils.azure_blob_service import AzureBlobUploader
 
 router = APIRouter()
 
