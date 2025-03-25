@@ -25,5 +25,5 @@ class Assignment(BaseModel):
         None, description="General instructions or formatting requirements."
     )
     questions: List[Question] = Field(
-        ..., description="List of questions in order."
+        ..., description="List of questions in order.", exclude=True  # exclude from serialization, stored manually
     )
