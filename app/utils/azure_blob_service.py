@@ -119,13 +119,6 @@ class AzureBlobService:
         blob_path = f"course/{course.semester}/{course.course_id}/course.json"
         self.upload_json(course, blob_path)
 
-    def upload_instructors(self, semester_key: str, course_id: str, instructor_details: List[str]):
-        """
-        Uploads instructor details JSON.
-        """
-        blob_path = f"course/{semester_key}/{course_id}/instructor.json"
-        self.upload_json(instructor_details, blob_path)
-
     def upload_assignment_metadata(self, assignment: Assignment):
         """
         Uploads assignment metadata JSON.
@@ -174,12 +167,6 @@ class AzureBlobService:
         blob_path = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/assignment.json"
         data = self.download_json(blob_path)
         return Assignment(**data) if data else None
-
-    def get_instructors(self, semester_key: str, course_id: str) -> Optional[List[str]]:
-        """Fetches the list of instructors for a given course."""
-        blob_path = f"course/{semester_key}/{course_id}/instructor.json"
-        data = self.download_json(blob_path)
-        return data if data else None
 
     def upload_course_material(self, material: CourseMaterial):
         """

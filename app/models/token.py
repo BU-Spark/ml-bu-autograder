@@ -10,9 +10,7 @@ class AccessToken(BaseModel):
     token_name: str = Field(
         ..., description="A friendly, user-defined name for the token."
     )
-    token_id: str = Field(
-        ..., description="The secret token string, displayed only once during creation."
-    )
     token_expiry: Optional[datetime] = Field(
         None, description="Optional expiration time of the token. If omitted, the token never expires."
     )
+    # Note: the token id is not stored

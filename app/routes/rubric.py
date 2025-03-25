@@ -4,9 +4,11 @@ from fastapi import APIRouter, HTTPException, status, Query, Body
 from pydantic import Field, BaseModel
 
 from app.models.rubric import Rubric, SubRubric
+from app.utils import JWTService
 from app.utils.azure_blob_service import AzureBlobService
 
 router = APIRouter()
+user_from_authorization_header = JWTService.get_instance().from_authorization_header
 
 
 class EditSubRubricRequest(BaseModel):

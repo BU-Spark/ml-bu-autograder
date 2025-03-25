@@ -268,7 +268,6 @@ frontend
 │── 📂 `{semester_key}/`
 │   └── 📂 `{course_id}/`
 │       ├── 📄 `course.json` *(Course metadata)*
-│       ├── 📄 `instructor.json` *(Instructor details)*
 │       ├── 📂 `assignment/`
 │       │   └── 📂 `{assignment_id}/`
 │       │       ├── 📄 `assignment.json` *(Assignment metadata)*

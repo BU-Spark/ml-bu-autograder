@@ -4,6 +4,7 @@ from fastapi import APIRouter, Body
 from pydantic import BaseModel
 
 from app.models.user import User
+from app.utils import JWTService
 from app.utils.azure_blob_service import AzureBlobService
 
 
@@ -14,6 +15,7 @@ class UserPreferencesUpdate(BaseModel):
 
 
 router = APIRouter()
+user_from_authorization_header = JWTService.get_instance().from_authorization_header
 
 # Dummy storage for a user (simulate the currently authenticated user)
 dummy_user = User(
