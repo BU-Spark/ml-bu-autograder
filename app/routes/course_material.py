@@ -3,7 +3,7 @@ from typing import List
 from fastapi import APIRouter, HTTPException, status, Query, Body
 
 from app.models.course_material import CourseMaterial
-from app.utils.azure_blob_service import AzureBlobUploader
+from app.utils.azure_blob_service import AzureBlobService
 
 router = APIRouter()
 
@@ -26,7 +26,7 @@ async def get_course_materials(
         semester: str = Query(..., description="Semester of the course material."),
         course_id: str = Query(..., description="Identifier of the course."),
 ):
-    blob_uploader = AzureBlobUploader.get_instance()
+    blob_uploader = AzureBlobService.get_instance()
     results = [material for material in dummy_materials if material.course_id == course_id]
 
     if not results:
@@ -54,7 +54,7 @@ async def get_course_material(
         course_id: str = Query(..., description="Identifier of the course."),
         material_id: str = Query(..., description="Unique identifier of the specific material."),
 ):
-    blob_uploader = AzureBlobUploader.get_instance()
+    blob_uploader = AzureBlobService.get_instance()
     for material in dummy_materials:
         if material.course_id == course_id and material.material_id == material_id:
             return material
@@ -80,7 +80,7 @@ async def get_course_material(
 async def upload_course_material(
         material: CourseMaterial = Body(..., description="Course material object containing details and file data."),
 ):
-    blob_uploader = AzureBlobUploader.get_instance()
+    blob_uploader = AzureBlobService.get_instance()
     dummy_materials.append(material)
     return material
 
@@ -100,7 +100,7 @@ async def delete_course_material(
         course_id: str = Query(..., description="Identifier of the course."),
         material_id: str = Query(..., description="Unique identifier of the material to delete.")
 ):
-    blob_uploader = AzureBlobUploader.get_instance()
+    blob_uploader = AzureBlobService.get_instance()
     for material in dummy_materials:
         if material.course_id == course_id and material.material_id == material_id:
             dummy_materials.remove(material)
@@ -123,7 +123,7 @@ async def delete_course_material(
 async def update_course_material(
         material: CourseMaterial = Body(..., description="Course material object with updated data."),
 ):
-    blob_uploader = AzureBlobUploader.get_instance()
+    blob_uploader = AzureBlobService.get_instance()
     for idx, existing in enumerate(dummy_materials):
         if existing.course_id == material.course_id and existing.material_id == material.material_id:
             dummy_materials[idx] = material

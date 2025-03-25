@@ -3,13 +3,14 @@ import logging
 
 from azure.identity import DefaultAzureCredential
 from dotenv import load_dotenv
+from pydantic import FilePath
 
-from app.utils import get_str_var, get_bool_var, setup_loggers
+from app.utils import get_str_var, get_bool_var, setup_loggers, JWTService
 
 load_dotenv()  # Load environment variables first
 
 from app.utils.azure_ai_service import AzureAIService
-from app.utils.azure_blob_service import AzureBlobUploader
+from app.utils.azure_blob_service import AzureBlobService
 from fastapi import FastAPI
 import os
 from app.routes import auth, course, assignment, student_response, grading, course_material, rubric, user
@@ -27,6 +28,7 @@ AZURE_TENANT_ID = get_str_var("AZURE_TENANT_ID")
 APPLICATION_VERSION = get_str_var("APPLICATION_VERSION")
 GOOGLE_OAUTH_CLIENT_FILE = get_str_var("GOOGLE_OAUTH_CLIENT_FILE")
 PRODUCTION = get_bool_var("PRODUCTION")
+JWT_ENCRYPTION_SECRET_FILE = FilePath(get_str_var("JWT_ENCRYPTION_SECRET_FILE"))
 
 # Setup logging level
 setup_loggers(production=PRODUCTION)
@@ -35,8 +37,9 @@ logging.info("Loading Azure services...")
 # Credentials are automatically recognized based of the values of these env variables:
 # AZURE_CLIENT_ID, AZURE_TENANT_ID, and AZURE_CLIENT_SECRET
 credential = DefaultAzureCredential()
-AzureBlobUploader.init_singleton(credential, AZURE_STORAGE_ACCOUNT_NAME, AZURE_CONTAINER_NAME)
+AzureBlobService.init_singleton(credential, AZURE_STORAGE_ACCOUNT_NAME, AZURE_CONTAINER_NAME)
 AzureAIService.init_singleton(credential)  # TODO set up at some point
+JWTService.init_singleton(JWT_ENCRYPTION_SECRET_FILE, AzureBlobService.get_instance())
 
 logging.info("Starting FastAPI server...")
 app = FastAPI(

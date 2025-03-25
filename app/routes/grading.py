@@ -3,7 +3,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Query
 
 from app.models.grade import Grade
-from app.utils.azure_blob_service import AzureBlobUploader
+from app.utils.azure_blob_service import AzureBlobService
 
 router = APIRouter()
 
@@ -29,7 +29,7 @@ async def grade_specific(
         question_index: Optional[int] = Query(None,
                                               description="Optional index of the question. Grades all questions if omitted.")
 ):
-    blob_uploader = AzureBlobUploader.get_instance()
+    blob_uploader = AzureBlobService.get_instance()
     grades = []
     for student in student_ids:
         grade_obj = Grade(student_id=student, assignment_id=assignment_id, question_index=question_index or 0,
@@ -56,7 +56,7 @@ async def grade_ungraded(
         question_index: Optional[int] = Query(None,
                                               description="Optional index of the question to grade. Grades all ungraded questions if omitted.")
 ):
-    blob_uploader = AzureBlobUploader.get_instance()
+    blob_uploader = AzureBlobService.get_instance()
     grade_obj = Grade(student_id="student123", assignment_id=assignment_id, question_index=question_index or 0,
                       grade=85.0, explanation="Dummy grade for ungraded response.")
     dummy_grades.append(grade_obj)
@@ -80,7 +80,7 @@ async def grade_all(
         question_index: int = Query(None,
                                     description="Optional index of the question to grade or regrade. Grades all questions if omitted.")
 ):
-    blob_uploader = AzureBlobUploader.get_instance()
+    blob_uploader = AzureBlobService.get_instance()
     grade_obj = Grade(student_id="student123", assignment_id=assignment_id, question_index=question_index or 0,
                       grade=88.0, explanation="Dummy grade for all responses.")
     dummy_grades.append(grade_obj)

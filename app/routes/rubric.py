@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, status, Query, Body
 from pydantic import Field, BaseModel
 
 from app.models.rubric import Rubric, SubRubric
-from app.utils.azure_blob_service import AzureBlobUploader
+from app.utils.azure_blob_service import AzureBlobService
 
 router = APIRouter()
 
@@ -40,7 +40,7 @@ dummy_rubrics = []
 async def create_rubric(
         rubric: Rubric = Body(..., description="Rubric object containing grading instructions and sub-rubrics.")
 ):
-    blob_uploader = AzureBlobUploader.get_instance()
+    blob_uploader = AzureBlobService.get_instance()
     dummy_rubrics.append(rubric)
     return rubric
 
@@ -60,7 +60,7 @@ async def get_ai_rubric(
         assignment_id: str = Query(..., description="Identifier of the assignment."),
         instructions: Optional[str] = Query(None, description="Optional specific improvement instructions for the AI.")
 ):
-    blob_uploader = AzureBlobUploader.get_instance()
+    blob_uploader = AzureBlobService.get_instance()
     dummy_rubric = Rubric(
         assignment_id=assignment_id,
         grading_flags=["IGNORE_SPELLINGS", "IGNORE_GRAMMAR"],
@@ -87,7 +87,7 @@ async def get_rubric(
         question_index: Optional[int] = Query(None,
                                               description="Optional question index to retrieve a specific sub-rubric.")
 ):
-    blob_uploader = AzureBlobUploader.get_instance()
+    blob_uploader = AzureBlobService.get_instance()
     for rubric in dummy_rubrics:
         if rubric.assignment_id == assignment_id:
             return rubric

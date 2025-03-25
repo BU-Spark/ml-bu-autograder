@@ -9,10 +9,10 @@ import fsspec
 from app.models import Course, Assignment, Question, StudentResponse, Rubric, CourseMaterial, User, AccessToken
 from app.models.student_response import GradedStudentResponse
 
-azure_blob_uploader: Optional["AzureBlobUploader"] = None
+azure_blob_uploader: Optional["AzureBlobService"] = None
 
 
-class AzureBlobUploader:
+class AzureBlobService:
     def __init__(self, credential, storage_account_name, container_name, cache_expiry: int = 3600,
                  cache_storage: str = "/tmp/blob_cache"):
         """
@@ -371,6 +371,23 @@ class AzureBlobUploader:
         full_path = self._full_path(blob_path)
         return self.fs.exists(full_path)
 
+    def count_questions(self, semester_key: str, course_id: str, assignment_id: str) -> int:
+        """
+        Counts the number of questions in a given assignment by checking the number of question metadata files.
+
+        :param semester_key: The semester identifier.
+        :param course_id: The course ID.
+        :param assignment_id: The assignment ID.
+        :return: The number of questions found.
+        """
+        pattern = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/*/question.json"
+        try:
+            files = self.fs.glob(self._full_path(pattern))
+            return len(files)
+        except Exception as e:
+            logging.error(f"Failed to count questions for {course_id}, {assignment_id}: {e}")
+            return 0
+
     @staticmethod
     def _guess_content_type(filename: str) -> str:
         """
@@ -382,9 +399,9 @@ class AzureBlobUploader:
     @staticmethod
     def init_singleton(credential, storage_account_name, container_name):
         global azure_blob_uploader
-        azure_blob_uploader = AzureBlobUploader(credential, storage_account_name, container_name)
+        azure_blob_uploader = AzureBlobService(credential, storage_account_name, container_name)
 
     @staticmethod
-    def get_instance() -> Optional["AzureBlobUploader"]:
+    def get_instance() -> Optional["AzureBlobService"]:
         global azure_blob_uploader
         return azure_blob_uploader
