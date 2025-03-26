@@ -27,7 +27,8 @@ dummy_access_tokens = [
     }
 )
 async def create_access_token(
-        token_name: str = Query(..., description="Friendly name for the token. Defaults to 'token_n' (where n is a number).")
+        token_name: str = Query(...,
+                                description="Friendly name for the token. Defaults to 'token_n' (where n is a number).")
 ):
     new_token = AccessToken(token_name=token_name, token_id="newtoken123", token_expiry=None)
     dummy_access_tokens.append(new_token)

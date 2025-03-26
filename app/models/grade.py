@@ -1,4 +1,5 @@
 from typing import Optional
+
 from pydantic import BaseModel, Field, validator
 
 
@@ -21,4 +22,3 @@ class Grade(BaseModel):
     def normalize_lowercase(cls, value: str) -> str:
         """Converts course_id and semester to lowercase and trims spaces."""
         return value.strip().lower()
-

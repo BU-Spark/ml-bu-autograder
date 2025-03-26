@@ -1,6 +1,9 @@
 from typing import Optional, Union
+
 from pydantic import BaseModel, Field, validator
+
 from app.models.uploaded_file import UploadedFileData, UploadedFileReference
+
 
 class CourseMaterial(BaseModel):
     """
