@@ -1,15 +1,20 @@
 from typing import List, Optional
 from pydantic import BaseModel, Field
 
-class Question(BaseModel):
-    """
-    Represents a question in an assignment.
-    """
-    question_index: int = Field(..., description="Index of the question in the assignment.")
+
+class FloatingQuestion(BaseModel):
     question_text: str = Field(..., description="The text of the question.")
     question_graphics_figures: Optional[str] = Field(
         None, description="Base64-encoded PNG image representing optional graphics/figures for the question."
     )
+
+
+class Question(FloatingQuestion):
+    """
+    Represents a question in an assignment.
+    """
+    question_index: int = Field(..., description="Index of the question in the assignment.")
+
 
 class Assignment(BaseModel):
     """
@@ -25,5 +30,5 @@ class Assignment(BaseModel):
         None, description="General instructions or formatting requirements."
     )
     questions: List[Question] = Field(
-        ..., description="List of questions in order."
+        ..., description="List of questions in order.", exclude=True  # exclude from serialization, stored manually
     )

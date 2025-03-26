@@ -219,7 +219,7 @@ export default function GradingDashboard() {
     // Filter by student search
     if (studentSearch) {
       filtered = filtered.filter((response) =>
-        response.student_identifier.toLowerCase().includes(studentSearch.toLowerCase())
+        response.student_id.toLowerCase().includes(studentSearch.toLowerCase())
       );
     }
 
@@ -540,7 +540,7 @@ export default function GradingDashboard() {
 
           <SelectableList
             items={filteredResponses}
-            keyField="student_identifier"
+            keyField="student_id"
             secondaryKeyField="question_index"
             selectedItems={selectedStudents}
             onSelectionChange={setSelectedStudents}
@@ -550,7 +550,7 @@ export default function GradingDashboard() {
             renderItem={(response) => (
               <Box>
                 <Typography variant="subtitle1" noWrap>
-                  {response.student_identifier}
+                  {response.student_id}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   Question {response.question_index + 1}
@@ -605,7 +605,7 @@ export default function GradingDashboard() {
                 <ResponseCard>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
                     <Typography variant="h6">
-                      {selectedResponse.student_identifier}
+                      {selectedResponse.student_id}
                     </Typography>
 
                     <Chip
@@ -664,7 +664,7 @@ export default function GradingDashboard() {
                       }}
                     >
                       <Typography variant="h6">
-                        Grade for {selectedResponse.student_identifier}
+                        Grade for {selectedResponse.student_id}
                       </Typography>
 
                       <Box sx={{ textAlign: 'right' }}>
