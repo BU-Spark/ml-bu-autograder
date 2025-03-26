@@ -6,7 +6,8 @@ from typing import List, Dict, Optional
 
 import fsspec
 
-from app.models import Course, Assignment, Question, StudentResponse, Rubric, CourseMaterial, User, AccessToken
+from app.models import Course, Assignment, Question, StudentResponse, Rubric, CourseMaterial, User, AccessToken, \
+    SubRubric
 from app.models.student_response import GradedStudentResponse
 
 azure_blob_uploader: Optional["AzureBlobService"] = None
@@ -149,12 +150,22 @@ class AzureBlobService:
         )
         self.upload_base64_file(student_response.data.content, blob_path, student_response.data.metadata)
 
-    def upload_rubric(self, semester_key: str, course_id: str, assignment_id: str, rubric: Rubric):
+    def upload_rubric(self, semester_key: str, course_id: str, assignment_id: str, rubric: Rubric, upload_sub_rubrics=True):
         """
         Uploads rubric JSON. Can upload a rubric for an entire assignment including its sub rubrics.
         """
-        blob_path = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/rubric.json"
+        blob_path = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/rubrics/assignment.json"
+        if upload_sub_rubrics:
+            for sub_rubric in rubric.sub_rubrics:
+                self.upload_sub_rubric(semester_key, course_id, assignment_id, sub_rubric)
         self.upload_json(rubric, blob_path)
+
+    def upload_sub_rubric(self, semester_key: str, course_id: str, assignment_id: str, sub_rubric: SubRubric):
+        """
+        Uploads sub rubric JSON.
+        """
+        blob_path = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/rubrics/{sub_rubric.question_index}.json"
+        self.upload_json(sub_rubric, blob_path)
 
     def get_course(self, semester_key: str, course_id: str) -> Optional[Course]:
         """Fetches metadata for a specific course."""
@@ -195,11 +206,24 @@ class AzureBlobService:
         data = self.download_json(blob_path)
         return GradedStudentResponse(**data) if data else None
 
-    def get_rubric(self, semester_key: str, course_id: str, assignment_id: str) -> Optional[Rubric]:
+    def get_rubric(self, semester_key: str, course_id: str, assignment_id: str, include_sub_rubrics=True) -> Optional[Rubric]:
         """Fetches the rubric for an assignment."""
         blob_path = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/rubric.json"
         data = self.download_json(blob_path)
-        return Rubric(**data) if data else None
+        rubric = Rubric(**data) if data else None
+        if rubric is None:
+            return None
+        if include_sub_rubrics:
+            rubric.sub_rubrics = self.list_sub_rubrics(semester_key, course_id, assignment_id)
+        return rubric
+
+    def get_sub_rubric(self, semester_key: str, course_id: str, assignment_id: str, question_index: str) -> Optional[SubRubric]:
+        """
+        Fetches the sub-rubric for a specific question within an assignment.
+        """
+        blob_path = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/rubrics/{question_index}.json"
+        data = self.download_json(blob_path)
+        return SubRubric(**data) if data else None
 
     def get_course_material(self, semester_key: str, course_id: str, material_id: str) -> Optional[CourseMaterial]:
         """Fetches course material."""
@@ -242,15 +266,11 @@ class AzureBlobService:
         :returns: the number of blobs deleted.
         """
         prefix = f"course/{semester_key}/{course_id}/"
-        try:
-            files = self.fs.glob(self._full_path(prefix) + "**")
-            for file in files:
-                self.fs.rm(file)
-            logging.debug(f"Deleted {len(files)} blobs for course {course_id}")
-            return len(files)
-        except Exception as e:
-            logging.error(f"Failed to delete course {course_id}: {e}")
-            return 0
+        files = self.fs.glob(self._full_path(prefix) + "**")
+        for file in files:
+            self.fs.rm(file)
+        logging.debug(f"Deleted {len(files)} blobs for course {course_id}")
+        return len(files)
 
     def delete_course_material(self, semester_key: str, course_id: str, material_id: str):
         """Deletes course material."""
@@ -333,6 +353,19 @@ class AzureBlobService:
             logging.error(f"Failed to list student responses: {e}")
         return responses
 
+    def list_sub_rubrics(self, semester_key: str, course_id: str, assignment_id: str) -> List[SubRubric]:
+        """
+        Lists all sub-rubrics for a specific assignment.
+        """
+        pattern = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/rubrics/*.json"
+        sub_rubrics = []
+        for file in self.fs.glob(self._full_path(pattern)):
+            relative_path = file.split('/', 1)[1]
+            data = self.download_json(relative_path)
+            if data:
+                sub_rubrics.append(SubRubric(**data))
+        return sub_rubrics
+
     def course_exists(self, semester_key: str, course_id: str) -> bool:
         """
         Checks if a course exists by verifying the presence of its metadata file.
@@ -368,12 +401,8 @@ class AzureBlobService:
         :return: The number of questions found.
         """
         pattern = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/*/question.json"
-        try:
-            files = self.fs.glob(self._full_path(pattern))
-            return len(files)
-        except Exception as e:
-            logging.error(f"Failed to count questions for {course_id}, {assignment_id}: {e}")
-            return 0
+        files = self.fs.glob(self._full_path(pattern))
+        return len(files)
 
     @staticmethod
     def _guess_content_type(filename: str) -> str:
