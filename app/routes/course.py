@@ -10,6 +10,7 @@ from app.utils.azure_blob_service import AzureBlobService
 router = APIRouter()
 user_from_authorization_header = JWTService.get_instance().from_authorization_header
 
+
 @router.post(
     "/course",
     response_model=Course,
@@ -174,7 +175,8 @@ async def add_course_instructor(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
 
     if instructors.__contains__(instructor):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Instructor is already assigned to the course.")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                            detail="Instructor is already assigned to the course.")
 
     instructors.append(instructor)
     blob_uploader.upload_instructors(semester, course_id, instructors)
@@ -214,7 +216,8 @@ async def remove_course_instructor(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Instructor not assigned to the course.")
 
     if instructor == "TODO":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You cannot remove yourself from the course.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="You cannot remove yourself from the course.")
 
     instructors.remove(instructor)
     blob_uploader.upload_instructors(semester, course_id, instructors)

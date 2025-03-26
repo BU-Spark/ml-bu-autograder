@@ -1,7 +1,7 @@
 from enum import Enum
+from typing import Optional, Dict
 
 from pydantic import BaseModel, Field
-from typing import Optional, Dict
 
 
 class DataType(Enum):
