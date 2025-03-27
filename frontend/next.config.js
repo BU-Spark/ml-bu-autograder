@@ -3,7 +3,7 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   images: {
-    domains: ['api.autograder.bu.edu'],
+    domains: ['api.autograder.bu.edu', 'localhost:8000'],
     formats: ['image/avif', 'image/webp'],
   },
   // Redirect from root to dashboard
