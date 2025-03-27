@@ -5,6 +5,7 @@ import mimetypes
 from typing import List, Dict, Optional
 
 import fsspec
+from azure.identity import ChainedTokenCredential
 
 from app.models import Course, Assignment, Question, StudentResponse, Rubric, CourseMaterial, User, AccessToken, \
     SubRubric
@@ -14,7 +15,7 @@ azure_blob_uploader: Optional["AzureBlobService"] = None
 
 
 class AzureBlobService:
-    def __init__(self, credential, storage_account_name, container_name, cache_expiry: int = 3600,
+    def __init__(self, credential: ChainedTokenCredential, storage_account_name: str, container_name: str, cache_expiry: int = 3600,
                  cache_storage: str = "/tmp/blob_cache"):
         """
         Initializes Azure Blob Storage service with configurable caching.
@@ -474,7 +475,7 @@ class AzureBlobService:
         return content_type
 
     @staticmethod
-    def init_singleton(credential, storage_account_name, container_name):
+    def init_singleton(credential: ChainedTokenCredential, storage_account_name: str, container_name: str):
         """Initializes global singleton instance."""
         global azure_blob_uploader
         azure_blob_uploader = AzureBlobService(credential, storage_account_name, container_name)
