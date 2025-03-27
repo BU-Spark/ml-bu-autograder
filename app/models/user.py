@@ -1,5 +1,7 @@
 from typing import Optional, List, Tuple
+
 from pydantic import BaseModel, EmailStr, Field
+
 
 class User(BaseModel):
     """

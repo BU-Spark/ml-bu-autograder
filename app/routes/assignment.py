@@ -1,6 +1,6 @@
-from typing import List, Optional
+from typing import List
 
-from fastapi import APIRouter, HTTPException, status, Query, Body, Depends
+from fastapi import APIRouter, HTTPException, status, Query, Body
 from pydantic import BaseModel, Field
 
 from app.models.assignment import Assignment, Question, FloatingQuestion
@@ -123,7 +123,8 @@ async def add_question(
     if not blob_uploader.assignment_exists(add_question_request.semester, add_question_request.course_id):
         raise HTTPException(status_code=404, detail="Assignment does not exist.")
     # Figure out question index
-    question_index = blob_uploader.count_questions(add_question_request.semester, add_question_request.course_id, add_question_request.assignment_id) + 1
+    question_index = blob_uploader.count_questions(add_question_request.semester, add_question_request.course_id,
+                                                   add_question_request.assignment_id) + 1
     question = Question(
         question_index=question_index,
         question_text=add_question_request.question.question_text,

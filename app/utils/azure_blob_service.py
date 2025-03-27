@@ -5,6 +5,7 @@ import mimetypes
 from typing import List, Dict, Optional
 
 import fsspec
+from azure.identity import ChainedTokenCredential
 
 from app.models import Course, Assignment, Question, StudentResponse, Rubric, CourseMaterial, User, AccessToken, \
     SubRubric
@@ -14,130 +15,160 @@ azure_blob_uploader: Optional["AzureBlobService"] = None
 
 
 class AzureBlobService:
-    def __init__(self, credential, storage_account_name, container_name, cache_expiry: int = 3600,
+    def __init__(self, credential: ChainedTokenCredential, storage_account_name: str, container_name: str, cache_expiry: int = 3600,
                  cache_storage: str = "/tmp/blob_cache"):
         """
-        Initialize AzureBlobUploader using AzureBlobFileSystem with configurable caching.
+        Initializes Azure Blob Storage service with configurable caching.
 
-        :param credential: Azure Storage credential (e.g., account key, SAS token).
-        :param storage_account_name: Name of the storage account.
-        :param container_name: Name of the container.
-        :param cache_expiry: Cache expiry time in seconds (default: 600 seconds = 10 minutes).
-        :param cache_storage: Local storage path for caching metadata and files.
+        Args:
+            credential: Azure credential (account key, SAS token).
+            storage_account_name: Azure storage account name.
+            container_name: Target container name.
+            cache_expiry: Cache TTL in seconds (default: 1 hour).
+            cache_storage: Local cache directory (default: /tmp/blob_cache).
         """
-        # Build options for the underlying Azure Blob FileSystem provided by adlfs.
         azure_fs_options = {
             "account_name": storage_account_name,
             "credential": credential,
         }
-        # Wrap the adlfs filesystem using fsspec's filecache to enable caching.
-        # The target_protocol here (e.g., "abfs") must match the protocol implemented by adlfs.
         self.fs = fsspec.filesystem(
             "filecache",
-            target_protocol="abfs",  # adjust if needed (e.g., "az" for classic blob storage)
+            target_protocol="abfs",
             target_options=azure_fs_options,
             cache_storage=cache_storage,
             expiry_time=cache_expiry
         )
         self.container = container_name
+        logging.debug(f"Initialized AzureBlobService for container {container_name}")
 
     def _full_path(self, blob_path: str) -> str:
-        """Prepends the container name to the given blob path."""
+        """Constructs full blob path by prepending container name."""
         return f"{self.container}/{blob_path}"
 
     def upload_base64_file(self, base64_data, blob_path, metadata=None):
         """
-        Uploads a base64-encoded file to Azure Blob Storage using AzureBlobFileSystem.
+        Uploads base64-encoded data to Azure Blob Storage.
+
+        Args:
+            base64_data: Base64-encoded file content.
+            blob_path: Destination blob path.
+            metadata: Optional blob metadata (key-value pairs).
         """
+        logging.debug(f"Starting upload of base64 file to {blob_path}")
         file_data = base64.b64decode(base64_data)
+        logging.debug(f"Decoded {len(file_data)} bytes for {blob_path}")
         content_type = self._guess_content_type(blob_path)
         full_path = self._full_path(blob_path)
-        # The following extra kwargs (content_settings, metadata) are passed through
+
         with self.fs.open(full_path, 'wb',
                           content_settings={"content_type": content_type},
                           metadata=metadata) as f:
             f.write(file_data)
-        logging.debug(f"Uploaded base64 data to {blob_path} with metadata: {metadata}")
+        logging.debug(f"Uploaded {len(file_data)} bytes to {blob_path}")
 
     def upload_json(self, data, blob_path, metadata: Dict[str, str] = None):
         """
-        Uploads JSON data to Azure Blob Storage.
+        Uploads JSON data from a Pydantic model.
+
+        Args:
+            data: Pydantic model instance to serialize.
+            blob_path: Destination blob path.
+            metadata: Optional blob metadata.
         """
-        json_data = json.dumps(data.dict(), indent=4)
+        logging.debug(f"Serializing JSON data for {blob_path}")
+        json_data = data.json(indent=4)  # Requires Pydantic model
         full_path = self._full_path(blob_path)
+
+        logging.debug(f"Uploading JSON to {blob_path}")
         with self.fs.open(full_path, 'w',
                           content_settings={"content_type": "application/json"},
                           metadata=metadata) as f:
             f.write(json_data)
-        logging.debug(f"Uploaded JSON data to {blob_path} with metadata: {metadata}")
+        logging.info(f"Uploaded JSON to {blob_path}")
 
     def download_file(self, blob_path, local_file_path):
-        """
-        Downloads a file from Azure Blob Storage.
-        """
+        """Downloads a blob to a local file."""
+        logging.debug(f"Starting download of {blob_path} to {local_file_path}")
         full_path = self._full_path(blob_path)
         with self.fs.open(full_path, 'rb') as remote_file, open(local_file_path, "wb") as local_file:
             local_file.write(remote_file.read())
-        logging.debug(f"Downloaded {blob_path} to {local_file_path}")
+        logging.info(f"Downloaded {blob_path} to {local_file_path}")
 
-    def download_json(self, blob_path):
-        """
-        Downloads JSON data from Azure Blob Storage and returns it as a Python dictionary.
-        """
+    def download_json(self, blob_path) -> Optional[dict]:
+        """Downloads and parses JSON blob. Returns None on failure."""
+        logging.debug(f"Downloading JSON from {blob_path}")
         full_path = self._full_path(blob_path)
-        with self.fs.open(full_path, 'r') as f:
-            return json.load(f)
+        try:
+            with self.fs.open(full_path, 'r') as f:
+                data = json.load(f)
+            logging.debug(f"Successfully parsed JSON from {blob_path}")
+            return data
+        except json.JSONDecodeError:
+            logging.warning(f"Invalid JSON in {blob_path}")
+            return None
 
     def delete_blob(self, blob_path: str):
         """
         Deletes a blob from Azure Blob Storage.
+
+        Args:
+            blob_path: Path to the blob to delete.
         """
+        logging.debug(f"Attempting to delete blob: {blob_path}")
         full_path = self._full_path(blob_path)
         self.fs.rm(full_path)
-        logging.debug(f"Deleted blob: {blob_path}")
+        logging.info(f"Deleted blob: {blob_path}")
 
-    def list_files(self, prefix=None):
+    def list_files(self, prefix=None) -> List[str]:
         """
-        Lists all files in the container with an optional prefix filter.
+        Lists files in container with optional prefix filter.
+
+        Args:
+            prefix: Optional path prefix to filter results.
+
+        Returns:
+            List of relative blob paths.
         """
         search_path = self._full_path(prefix) if prefix else self._full_path('')
+        logging.debug(f"Listing files with prefix: {prefix}")
         files = self.fs.ls(search_path)
-        # Remove container prefix from results for consistency with the original implementation
-        return [f.split('/', 1)[1] if '/' in f else f for f in files]
+        # Remove container prefix from results
+        result = [f.split('/', 1)[1] if '/' in f else f for f in files]
+        logging.debug(f"Found {len(result)} files matching prefix")
+        return result
 
     def upload_user(self, user: User):
+        """Uploads user metadata."""
         blob_path = f"user/{user.user_email}.json"
+        logging.debug(f"Uploading user {user.user_email}")
         self.upload_json(user, blob_path)
 
     def upload_token(self, user_email: str, token: AccessToken):
+        """Uploads access token for specified user."""
         blob_path = f"user/{user_email}/tokens/{token.token_id}.json"
+        logging.debug(f"Uploading token {token.token_id} for user {user_email}")
         self.upload_json(token, blob_path)
 
     def upload_course_metadata(self, course: Course):
-        """
-        Uploads course metadata JSON.
-        """
+        """Uploads course metadata."""
         blob_path = f"course/{course.semester}/{course.course_id}/course.json"
+        logging.debug(f"Uploading metadata for course {course.course_id}")
         self.upload_json(course, blob_path)
 
     def upload_assignment_metadata(self, assignment: Assignment):
-        """
-        Uploads assignment metadata JSON.
-        """
+        """Uploads assignment metadata."""
         blob_path = f"course/{assignment.semester}/{assignment.course_id}/assignment/{assignment.assignment_id}/assignment.json"
+        logging.debug(f"Uploading metadata for assignment {assignment.assignment_id}")
         self.upload_json(assignment, blob_path)
 
     def upload_question_metadata(self, semester_key: str, course_id: str, assignment_id: str, question: Question):
-        """
-        Uploads question metadata JSON.
-        """
+        """Uploads question metadata."""
         blob_path = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/{question.question_index}/question.json"
+        logging.debug(f"Uploading question {question.question_index} for assignment {assignment_id}")
         self.upload_json(question, blob_path)
 
     def upload_student_response(self, student_response: GradedStudentResponse):
-        """
-        Uploads student response file.
-        """
+        """Uploads student response with automatic content type detection."""
         blob_path = (
             f"course/{student_response.semester}/"
             f"{student_response.course_id}/"
@@ -148,41 +179,48 @@ class AzureBlobService:
             f"{student_response.student_id}/"
             f"response.{student_response.data.data_type}"
         )
-        self.upload_base64_file(student_response.data.content, blob_path, student_response.data.metadata)
+        logging.debug(f"Uploading response from student {student_response.student_id}")
+        self.upload_base64_file(
+            student_response.data.content,
+            blob_path,
+            student_response.data.metadata
+        )
 
-    def upload_rubric(self, semester_key: str, course_id: str, assignment_id: str, rubric: Rubric, upload_sub_rubrics=True):
-        """
-        Uploads rubric JSON. Can upload a rubric for an entire assignment including its sub rubrics.
-        """
+    def upload_rubric(self, semester_key: str, course_id: str, assignment_id: str, rubric: Rubric,
+                      upload_sub_rubrics=True):
+        """Uploads rubric with optional sub-rubrics."""
         blob_path = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/rubrics/assignment.json"
+        logging.debug(f"Uploading rubric for assignment {assignment_id}")
+
         if upload_sub_rubrics:
+            logging.debug(f"Uploading {len(rubric.sub_rubrics)} sub-rubrics")
             for sub_rubric in rubric.sub_rubrics:
                 self.upload_sub_rubric(semester_key, course_id, assignment_id, sub_rubric)
+
         self.upload_json(rubric, blob_path)
 
     def upload_sub_rubric(self, semester_key: str, course_id: str, assignment_id: str, sub_rubric: SubRubric):
-        """
-        Uploads sub rubric JSON.
-        """
+        """Uploads individual sub-rubric."""
         blob_path = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/rubrics/{sub_rubric.question_index}.json"
+        logging.debug(f"Uploading sub-rubric for question {sub_rubric.question_index}")
         self.upload_json(sub_rubric, blob_path)
 
     def get_course(self, semester_key: str, course_id: str) -> Optional[Course]:
-        """Fetches metadata for a specific course."""
+        """Retrieves course metadata if exists."""
         blob_path = f"course/{semester_key}/{course_id}/course.json"
+        logging.debug(f"Fetching course {course_id}")
         data = self.download_json(blob_path)
         return Course(**data) if data else None
 
     def get_assignment_metadata(self, semester_key: str, course_id: str, assignment_id: str) -> Optional[Assignment]:
-        """Fetches the metadata for a specific assignment."""
+        """Retrieves assignment metadata if exists."""
         blob_path = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/assignment.json"
+        logging.debug(f"Fetching assignment {assignment_id}")
         data = self.download_json(blob_path)
         return Assignment(**data) if data else None
 
     def upload_course_material(self, material: CourseMaterial):
-        """
-        Uploads course material file.
-        """
+        """Uploads course material with automatic content type handling."""
         blob_path = (
             f"course/"
             f"{material.semester}/"
@@ -190,101 +228,123 @@ class AzureBlobService:
             f"course_material/"
             f"{material.material_id}.{material.data.data_type}"
         )
+        logging.debug(f"Uploading course material {material.material_id}")
         self.upload_base64_file(material.data.content, blob_path, material.data.metadata)
 
     def get_student_response(self, semester_key: str, course_id: str, assignment_id: str, question_index: str,
                              student_id: str) -> Optional[StudentResponse]:
-        """Fetches student response file."""
+        """Retrieves student response if exists."""
         blob_path = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/{question_index}/student_response/{student_id}/response.json"
+        logging.debug(f"Fetching response from student {student_id}")
         data = self.download_json(blob_path)
         return StudentResponse(**data) if data else None
 
     def get_grading_details(self, semester_key: str, course_id: str, assignment_id: str, question_index: str,
                             student_id: str) -> Optional[GradedStudentResponse]:
-        """Fetches grading details for a student response."""
+        """Retrieves grading details if exists."""
         blob_path = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/{question_index}/student_response/{student_id}/grade.json"
+        logging.debug(f"Fetching grades for student {student_id}")
         data = self.download_json(blob_path)
         return GradedStudentResponse(**data) if data else None
 
-    def get_rubric(self, semester_key: str, course_id: str, assignment_id: str, include_sub_rubrics=True) -> Optional[Rubric]:
-        """Fetches the rubric for an assignment."""
+    def get_rubric(self, semester_key: str, course_id: str, assignment_id: str, include_sub_rubrics=True) -> Optional[
+        Rubric]:
+        """Retrieves rubric with optional sub-rubrics."""
         blob_path = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/rubric.json"
+        logging.debug(f"Fetching rubric for assignment {assignment_id}")
         data = self.download_json(blob_path)
-        rubric = Rubric(**data) if data else None
-        if rubric is None:
+        if not data:
             return None
+
+        rubric = Rubric(**data)
         if include_sub_rubrics:
+            logging.debug("Including sub-rubrics in response")
             rubric.sub_rubrics = self.list_sub_rubrics(semester_key, course_id, assignment_id)
         return rubric
 
-    def get_sub_rubric(self, semester_key: str, course_id: str, assignment_id: str, question_index: str) -> Optional[SubRubric]:
-        """
-        Fetches the sub-rubric for a specific question within an assignment.
-        """
+    def get_sub_rubric(self, semester_key: str, course_id: str, assignment_id: str, question_index: str) -> Optional[
+        SubRubric]:
+        """Retrieves specific sub-rubric if exists."""
         blob_path = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/rubrics/{question_index}.json"
+        logging.debug(f"Fetching sub-rubric for question {question_index}")
         data = self.download_json(blob_path)
         return SubRubric(**data) if data else None
 
     def get_course_material(self, semester_key: str, course_id: str, material_id: str) -> Optional[CourseMaterial]:
-        """Fetches course material."""
+        """Retrieves course material if exists."""
         blob_path = f"course/{semester_key}/{course_id}/course_material/{material_id}.json"
+        logging.debug(f"Fetching course material {material_id}")
         data = self.download_json(blob_path)
         return CourseMaterial(**data) if data else None
 
     def get_user(self, user_email: str) -> Optional[User]:
-        """Fetches user details."""
+        """Retrieves user data if exists."""
         blob_path = f"user/{user_email}.json"
+        logging.debug(f"Fetching user {user_email}")
         data = self.download_json(blob_path)
         return User(**data) if data else None
 
     def get_token(self, user_email: str, token_id: str) -> Optional[AccessToken]:
-        """Fetches an authentication token."""
+        """Retrieves access token if exists."""
         blob_path = f"user/{user_email}/tokens/{token_id}.json"
+        logging.debug(f"Fetching token {token_id} for user {user_email}")
         data = self.download_json(blob_path)
         return AccessToken(**data) if data else None
 
     def delete_student_response(self, semester_key: str, course_id: str, assignment_id: str, question_index: str,
                                 student_id: str):
-        """Deletes student response file."""
+        """Deletes specific student response."""
         blob_path = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/{question_index}/student_response/{student_id}/response.json"
+        logging.debug(f"Deleting response from student {student_id}")
         self.delete_blob(blob_path)
 
     def delete_grading_details(self, semester_key: str, course_id: str, assignment_id: str, question_index: str,
                                student_id: str):
-        """Deletes grading details for a student response."""
+        """Deletes specific grading details."""
         blob_path = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/{question_index}/student_response/{student_id}/grade.json"
+        logging.debug(f"Deleting grades for student {student_id}")
         self.delete_blob(blob_path)
 
     def delete_rubric(self, semester_key: str, course_id: str, assignment_id: str):
-        """Deletes the rubric for an assignment."""
+        """Deletes assignment rubric."""
         blob_path = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/rubric.json"
+        logging.debug(f"Deleting rubric for assignment {assignment_id}")
         self.delete_blob(blob_path)
 
     def delete_course(self, semester_key: str, course_id: str) -> int:
         """
-        Deletes an entire course, including all subpaths.
-        :returns: the number of blobs deleted.
+        Recursively deletes all course data.
+
+        Returns:
+            Number of blobs deleted.
         """
         prefix = f"course/{semester_key}/{course_id}/"
+        logging.debug(f"Starting recursive delete for course {course_id}")
         files = self.fs.glob(self._full_path(prefix) + "**")
+
         for file in files:
             self.fs.rm(file)
-        logging.debug(f"Deleted {len(files)} blobs for course {course_id}")
-        return len(files)
+
+        deleted_count = len(files)
+        logging.info(f"Deleted {deleted_count} blobs for course {course_id}")
+        return deleted_count
 
     def delete_course_material(self, semester_key: str, course_id: str, material_id: str):
-        """Deletes course material."""
+        """Deletes specific course material."""
         blob_path = f"course/{semester_key}/{course_id}/course_material/{material_id}.json"
+        logging.debug(f"Deleting course material {material_id}")
         self.delete_blob(blob_path)
 
     def delete_user(self, user_email: str):
-        """Deletes user details."""
+        """Deletes user data."""
         blob_path = f"user/{user_email}.json"
+        logging.debug(f"Deleting user {user_email}")
         self.delete_blob(blob_path)
 
     def delete_token(self, user_email: str, token_id: str):
-        """Deletes an authentication token."""
+        """Deletes specific access token."""
         blob_path = f"user/{user_email}/tokens/{token_id}.json"
+        logging.debug(f"Deleting token {token_id} for user {user_email}")
         self.delete_blob(blob_path)
 
     def list_courses(self, user: User, semester_key: Optional[str] = None) -> List[Course]:
@@ -308,9 +368,11 @@ class AzureBlobService:
         return courses
 
     def list_assignments(self, semester_key: str, course_id: str) -> List[Assignment]:
-        """Gets all assignments for a specific course and semester."""
+        """Lists all assignments for a course."""
         pattern = f"course/{semester_key}/{course_id}/assignment/*/assignment.json"
         assignments = []
+        logging.debug(f"Listing assignments for course {course_id}")
+
         try:
             for file in self.fs.glob(self._full_path(pattern)):
                 relative_path = file.split('/', 1)[1]
@@ -318,13 +380,17 @@ class AzureBlobService:
                 if data:
                     assignments.append(Assignment(**data))
         except Exception as e:
-            logging.error(f"Failed to list assignments: {e}")
+            logging.error(f"Assignment listing failed: {e}")
+
+        logging.debug(f"Found {len(assignments)} assignments")
         return assignments
 
     def list_questions(self, semester_key: str, course_id: str, assignment_id: str) -> List[Question]:
-        """Gets all questions for a specific assignment."""
+        """Lists all questions for an assignment."""
         pattern = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/*/question.json"
         questions = []
+        logging.debug(f"Listing questions for assignment {assignment_id}")
+
         try:
             for file in self.fs.glob(self._full_path(pattern)):
                 relative_path = file.split('/', 1)[1]
@@ -332,17 +398,22 @@ class AzureBlobService:
                 if data:
                     questions.append(Question(**data))
         except Exception as e:
-            logging.error(f"Failed to list questions: {e}")
+            logging.error(f"Question listing failed: {e}")
+
+        logging.debug(f"Found {len(questions)} questions")
         return questions
 
     def list_student_responses(self, semester_key: str, course_id: str, assignment_id: str,
                                question_index: Optional[str] = None) -> List[StudentResponse]:
-        """Gets all student responses for a specific assignment, optionally filtered by question index."""
+        """Lists student responses with optional question filter."""
         if question_index:
             pattern = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/{question_index}/student_response/*/response.json"
         else:
             pattern = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/**/student_response/*/response.json"
+
         responses = []
+        logging.debug(f"Listing student responses for assignment {assignment_id}")
+
         try:
             for file in self.fs.glob(self._full_path(pattern)):
                 relative_path = file.split('/', 1)[1]
@@ -350,74 +421,67 @@ class AzureBlobService:
                 if data:
                     responses.append(StudentResponse(**data))
         except Exception as e:
-            logging.error(f"Failed to list student responses: {e}")
+            logging.error(f"Response listing failed: {e}")
+
+        logging.debug(f"Found {len(responses)} responses")
         return responses
 
     def list_sub_rubrics(self, semester_key: str, course_id: str, assignment_id: str) -> List[SubRubric]:
-        """
-        Lists all sub-rubrics for a specific assignment.
-        """
+        """Lists all sub-rubrics for an assignment."""
         pattern = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/rubrics/*.json"
         sub_rubrics = []
+        logging.debug(f"Listing sub-rubrics for assignment {assignment_id}")
+
         for file in self.fs.glob(self._full_path(pattern)):
             relative_path = file.split('/', 1)[1]
             data = self.download_json(relative_path)
             if data:
                 sub_rubrics.append(SubRubric(**data))
+
+        logging.debug(f"Found {len(sub_rubrics)} sub-rubrics")
         return sub_rubrics
 
     def course_exists(self, semester_key: str, course_id: str) -> bool:
-        """
-        Checks if a course exists by verifying the presence of its metadata file.
-
-        :param semester_key: The semester identifier.
-        :param course_id: The course ID.
-        :return: True if the course exists, False otherwise.
-        """
+        """Checks if course metadata exists."""
         blob_path = f"course/{semester_key}/{course_id}/course.json"
         full_path = self._full_path(blob_path)
-        return self.fs.exists(full_path)
+        exists = self.fs.exists(full_path)
+        logging.debug(f"Course existence check for {course_id}: {exists}")
+        return exists
 
     def assignment_exists(self, semester_key: str, course_id: str, assignment_id: str) -> bool:
-        """
-        Checks if an assignment exists by verifying the presence of its metadata file.
-
-        :param semester_key: The semester identifier.
-        :param course_id: The course ID.
-        :param assignment_id: The assignment ID.
-        :return: True if the assignment exists, False otherwise.
-        """
+        """Checks if assignment metadata exists."""
         blob_path = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/assignment.json"
         full_path = self._full_path(blob_path)
-        return self.fs.exists(full_path)
+        exists = self.fs.exists(full_path)
+        logging.debug(f"Assignment existence check for {assignment_id}: {exists}")
+        return exists
 
     def count_questions(self, semester_key: str, course_id: str, assignment_id: str) -> int:
-        """
-        Counts the number of questions in a given assignment by checking the number of question metadata files.
-
-        :param semester_key: The semester identifier.
-        :param course_id: The course ID.
-        :param assignment_id: The assignment ID.
-        :return: The number of questions found.
-        """
+        """Counts questions for an assignment."""
         pattern = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/*/question.json"
         files = self.fs.glob(self._full_path(pattern))
-        return len(files)
+        count = len(files)
+        logging.debug(f"Found {count} questions for assignment {assignment_id}")
+        return count
 
     @staticmethod
     def _guess_content_type(filename: str) -> str:
-        """
-        Attempts to guess the content type based on the file extension.
-        """
+        """Guesses MIME type with fallback logging."""
         content_type, _ = mimetypes.guess_type(filename)
-        return content_type if content_type else 'application/octet-stream'
+        if not content_type:
+            logging.warning(f"Unknown content type for {filename}, using octet-stream")
+            content_type = 'application/octet-stream'
+        return content_type
 
     @staticmethod
-    def init_singleton(credential, storage_account_name, container_name):
+    def init_singleton(credential: ChainedTokenCredential, storage_account_name: str, container_name: str):
+        """Initializes global singleton instance."""
         global azure_blob_uploader
         azure_blob_uploader = AzureBlobService(credential, storage_account_name, container_name)
 
     @staticmethod
     def get_instance() -> Optional["AzureBlobService"]:
+        """Retrieves global singleton instance."""
         global azure_blob_uploader
         return azure_blob_uploader

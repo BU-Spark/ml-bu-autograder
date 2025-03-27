@@ -1,6 +1,7 @@
-from typing import List, Optional, Dict
-from pydantic import BaseModel, Field, validator
 from enum import Enum
+from typing import List, Optional
+
+from pydantic import BaseModel, Field, validator
 
 
 class GradingFlag(str, Enum):
@@ -71,7 +72,9 @@ class Rubric(BaseModel):
         None, description="General grading criteria applicable to all questions."
     )
     sub_rubrics: List[SubRubric] = Field(
-        ..., description="List of sub-rubrics specifying grading for individual questions."
+        ...,
+        description="List of sub-rubrics specifying grading for individual questions.",
+        exclude=True  # serialization handled separately
     )
 
     @validator("semester", "course_id", "assignment_id", pre=True, always=True)

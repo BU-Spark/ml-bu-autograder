@@ -6,7 +6,7 @@ import jwt
 from fastapi import HTTPException, Header
 from pydantic import FilePath, BaseModel, EmailStr
 
-from app.models import User, AccessToken
+from app.models import User
 from app.utils.azure_blob_service import AzureBlobService
 
 jwt_service: Optional["JWTService"] = None
