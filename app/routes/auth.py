@@ -21,9 +21,9 @@ oauth.register(
     name="google",
     client_id=client_secrets["web"]["client_id"],
     client_secret=client_secrets["web"]["client_secret"],
-    authorize_url=os.getenv("GOOGLE_AUTHORIZATION_URL", "https://accounts.google.com/o/oauth2/auth"),
-    token_url=os.getenv("GOOGLE_TOKEN_URL", "https://oauth2.googleapis.com/token"),
-    userinfo_endpoint=os.getenv("GOOGLE_USER_INFO_URL", "https://www.googleapis.com/oauth2/v3/userinfo"),
+    authorize_url=client_secrets("GOOGLE_AUTHORIZATION_URL", "https://accounts.google.com/o/oauth2/auth"),
+    token_url=client_secrets("GOOGLE_TOKEN_URL", "https://oauth2.googleapis.com/token"),
+    userinfo_endpoint=client_secrets("GOOGLE_USER_INFO_URL", "https://www.googleapis.com/oauth2/v3/userinfo"),
     client_kwargs={"scope": "openid email profile"},
 )
 

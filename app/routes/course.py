@@ -2,7 +2,6 @@ from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, status, Query, Depends
 from pydantic import EmailStr
-import os
 
 from app.models.course import Course
 from app.utils import JWTService, UserMeta
@@ -11,13 +10,6 @@ from app.utils.azure_blob_service import AzureBlobService
 router = APIRouter()
 user_from_authorization_header = JWTService.get_instance().from_authorization_header
 
-JWT_SECRETS_FILE = os.getenv("JWT_SECRETS_FILE", "path/to/jwt_secrets.json")
-
-# Ensure Azure Blob Service is initialized
-azure_blob_service = AzureBlobService.get_instance()
-
-# ✅ Initialize the JWTService singleton
-JWTService.init_singleton(JWT_SECRETS_FILE, azure_blob_service)
 
 
 @router.post(
