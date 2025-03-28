@@ -28,7 +28,7 @@ def generate_keys(algorithm: EncryptionAlgorithm):
 if __name__ == '__main__':
     # argparse the output directory
     arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument('--output', '-O', type=str, default='./jwt_secret.json')
+    arg_parser.add_argument('--output', '-O', type=str, default='./jwt_secrets.json')
     arg_parser.add_argument('--algorithm', '-A', type=EncryptionAlgorithm, choices=list(EncryptionAlgorithm), default=EncryptionAlgorithm.HS256)
     args = arg_parser.parse_args()
 
