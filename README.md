@@ -291,7 +291,7 @@ frontend
 
 | 👤 **First Name**  | **Last Name**  | ✉️ **Email Address**  | 🖥️ **GitHub Username**  |
 |:------------------|:--------------|:----------------------|:-----------------------|
-| Fahim            | Uddin         | fahuddin@bu.edu      | [fahimuddin/fahimuddin1](https://github.com/fahimuddin/fahimuddin1) |
+| Fahim            | Uddin         | fahuddin@bu.edu      | [fahuddin/fahimuddin1](https://github.com/fahimuddin/fahimuddin1) |
 | Zach             | Gentile       | zgentile@bu.edu      | [zgentile](https://github.com/zgentile) |
 | Josh             | Yip           | joshyjip@bu.edu      | [joshyipp](https://github.com/joshyipp) |
 | Muhammad Aseef   | Imran         | aseef@bu.edu         | [Aseeef](https://github.com/Aseeef) |
