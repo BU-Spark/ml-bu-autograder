@@ -178,3 +178,5 @@ __pycache__/
 /frontend/node_modules/
 *.json
 .env
+client_secrets.json
+*.env.local 
