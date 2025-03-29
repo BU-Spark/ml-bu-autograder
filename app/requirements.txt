@@ -7,3 +7,5 @@ azure-identity==1.21.0
 azure-ai-ml==1.26.0
 azure-search==1.0.0b2
 openai==1.69.0
+# Needed to run notebooks not required for prod
+notebook==7.3.3
