@@ -234,6 +234,19 @@ class LangchainRAGService:
         Processes PDF: Extracts text/images. Uses custom logic to chunk text,
         creating accurate page_map metadata.
 
+        AI generated. Prompt used:
+        Add an upload_pdf method using fitz. The method has the following requirements:
+        You should combine the text of the PDF and and chunk it up.
+        The method should also extract images in the pdf.
+        The metadata for the text should include a dict containing a mapping between the page number the text from the chunk was on and the text on that page. This is because a chunk may span multiple pages.
+        Similarly, each image should have a metadata indicating the page the image was on.
+        Remember to account for the fact that when we chunk images there may or may not be some overlap. Might that affect your solution?
+        ...
+        With your current approach, even if a page contains very little text, it gets its own entire chunk. This doesn't seem right.
+        ...
+        how about instead of trying to use RecursiveCharacterTextSplitter we create our own splitting logic as well. this is significantly simplify all challanges
+
+
         Args:
             doc_id: Unique identifier for the PDF document.
             pdf_path: Path to the PDF file.

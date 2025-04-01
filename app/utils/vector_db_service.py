@@ -1,3 +1,4 @@
+import fnmatch
 from typing import Optional, List, Dict, Mapping
 import chromadb
 import logging
