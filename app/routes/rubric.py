@@ -4,8 +4,17 @@ from fastapi import APIRouter, HTTPException, status, Query, Body
 from pydantic import Field, BaseModel
 
 from app.models.rubric import Rubric, SubRubric
+from app.utils import JWTService
+from app.utils.azure_blob_service import AzureBlobService
 
 router = APIRouter()
+user_from_authorization_header = None
+
+
+@router.on_event("startup")
+async def set_user_from_auth_header():
+    global user_from_authorization_header
+    user_from_authorization_header = JWTService.get_instance().from_authorization_header
 
 
 class EditSubRubricRequest(BaseModel):
@@ -39,6 +48,7 @@ dummy_rubrics = []
 async def create_rubric(
         rubric: Rubric = Body(..., description="Rubric object containing grading instructions and sub-rubrics.")
 ):
+    blob_uploader = AzureBlobService.get_instance()
     dummy_rubrics.append(rubric)
     return rubric
 
@@ -58,6 +68,7 @@ async def get_ai_rubric(
         assignment_id: str = Query(..., description="Identifier of the assignment."),
         instructions: Optional[str] = Query(None, description="Optional specific improvement instructions for the AI.")
 ):
+    blob_uploader = AzureBlobService.get_instance()
     dummy_rubric = Rubric(
         assignment_id=assignment_id,
         grading_flags=["IGNORE_SPELLINGS", "IGNORE_GRAMMAR"],
@@ -84,6 +95,7 @@ async def get_rubric(
         question_index: Optional[int] = Query(None,
                                               description="Optional question index to retrieve a specific sub-rubric.")
 ):
+    blob_uploader = AzureBlobService.get_instance()
     for rubric in dummy_rubrics:
         if rubric.assignment_id == assignment_id:
             return rubric

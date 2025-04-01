@@ -152,7 +152,7 @@ export const responseService = {
   deleteResponse: (studentIdentifier, assignmentId, questionIndex = null) =>
     api.delete('/response', {
       params: {
-        student_identifier: studentIdentifier,
+        student_id: studentIdentifier,
         assignment_id: assignmentId,
         question_index: questionIndex
       }
@@ -164,7 +164,7 @@ export const responseService = {
       params: {
         assignment_id: assignmentId,
         question_index: questionIndex,
-        student_identifier: studentIdentifier
+        student_id: studentIdentifier
       }
     }),
 
@@ -172,7 +172,7 @@ export const responseService = {
   gradeSpecific: (studentIdentifiers, assignmentId, questionIndex = null) =>
     api.post('/response/grade/specific', null, {
       params: {
-        student_identifiers: studentIdentifiers,
+        student_ids: studentIdentifiers,
         assignment_id: assignmentId,
         question_index: questionIndex
       }

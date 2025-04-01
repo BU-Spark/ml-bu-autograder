@@ -144,13 +144,13 @@ Contains the course material and its data_type.
 
 ### [student](#student)
 Contains basic student information.
-- **student_identifier** (Non-Null): Unique identifier (e.g., BU email).
+- **student_id** (Non-Null): Unique identifier (e.g., BU email).
 - **first_name** (Nullable): Student's first name.
 - **last_name** (Nullable): Student's last name.
 
 ### [student_response](#student_response)
 Represents a student’s answer to a question.
-- **student_identifier** (Non-Null): Student's unique identifier.
+- **student_id** (Non-Null): Student's unique identifier.
 - **assignment_id** (Non-Null): The unique title or ID the assignment is known by.
 - **question_index** (Non-Null): The question being answered.
 - **data** (Non-Null):
@@ -160,7 +160,7 @@ Represents a student’s answer to a question.
 
 ### [grade](#grade)
 Contains grading results for a student’s response.
-- **student_identifier** (Non-Null): Student's unique identifier.
+- **student_id** (Non-Null): Student's unique identifier.
 - **semester** (Non-Null): Semester during which the course is offered.
 - **course_id** (Non-Null): Associated course ID.
 - **assignment_id** (Non-Null): The unique title or ID the assignment is known by.
@@ -602,7 +602,7 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 **Description:** Deletes a [student_response](#student_response). If question_index is omitted, all responses for that assignment and student are deleted.
 
 - **Query Parameters:**
-  - **student_identifier** (Required)
+  - **student_id** (Required)
   - **assignment_id** (Required)
   - **question_index** (Optional)
 
@@ -624,7 +624,7 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 - **Query Parameters:**
   - **assignment_id** (Required)
   - **question_index** (Optional)
-  - **student_identifier** (Optional)
+  - **student_id** (Optional)
 
 - **Returns:**  
   - List of combined [student_response](#student_response) and [grade](#grade) objects (if graded).
@@ -642,7 +642,7 @@ Authentication can be performed using either an OAuth-obtained [personal_authent
 **Description:** Grades or regrades a specific student responses for an assignment.
 
 - **Query Parameters:**
-  - **student_identifiers** (Required): List of student identifiers whom to grade.
+  - **student_ids** (Required): List of student identifiers whom to grade.
   - **assignment_id** (Required)
   - **question_index** (Optional): Grades all questions for given assignment_id if omitted.
 

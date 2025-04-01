@@ -3,8 +3,18 @@ from typing import Optional, List
 from fastapi import APIRouter, HTTPException, status, Query, Body
 
 from app.models.student_response import StudentResponse, GradedStudentResponse
+from app.utils import JWTService
+from app.utils.azure_blob_service import AzureBlobService
 
 router = APIRouter()
+user_from_authorization_header = None
+
+
+@router.on_event("startup")
+async def set_user_from_auth_header():
+    global user_from_authorization_header
+    user_from_authorization_header = JWTService.get_instance().from_authorization_header
+
 
 # Dummy storage for student responses
 dummy_responses: List[StudentResponse] = []
@@ -24,6 +34,7 @@ dummy_responses: List[StudentResponse] = []
 async def upload_response(
         response: StudentResponse = Body(..., description="Student response object containing the answer data.")
 ):
+    blob_uploader = AzureBlobService.get_instance()
     dummy_responses.append(response)
     return {"message": "Response uploaded successfully."}
 
@@ -42,8 +53,9 @@ async def upload_response(
 async def replace_response(
         response: StudentResponse = Body(..., description="Student response object with the updated answer data.")
 ):
+    blob_uploader = AzureBlobService.get_instance()
     for idx, existing in enumerate(dummy_responses):
-        if (existing.student_identifier == response.student_identifier and
+        if (existing.student_id == response.student_id and
                 existing.assignment_id == response.assignment_id and
                 existing.question_index == response.question_index):
             dummy_responses[idx] = response
@@ -63,15 +75,18 @@ async def replace_response(
     }
 )
 async def delete_response(
-        student_identifier: str = Query(..., description="Unique identifier for the student."),
+        student_id: str = Query(..., description="Unique identifier for the student."),
+        semester: str = Query(..., description="Semester of the course."),
         assignment_id: str = Query(..., description="Identifier of the assignment."),
         question_index: Optional[int] = Query(None,
-                                              description="Optional index of the question. If omitted, all responses for the assignment are deleted.")
+                                              description="Optional index of the question. If omitted, all responses "
+                                                          "for the assignment are deleted.")
 ):
+    blob_uploader = AzureBlobService.get_instance()
     global dummy_responses
     if question_index is not None:
         for response in dummy_responses:
-            if (response.student_identifier == student_identifier and
+            if (response.student_id == student_id and
                     response.assignment_id == assignment_id and
                     response.question_index == question_index):
                 dummy_responses.remove(response)
@@ -79,7 +94,7 @@ async def delete_response(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Response not found.")
     else:
         dummy_responses = [r for r in dummy_responses if
-                           not (r.student_identifier == student_identifier and r.assignment_id == assignment_id)]
+                           not (r.student_id == student_id and r.assignment_id == assignment_id)]
         return {"message": "All responses for the assignment deleted successfully."}
 
 
@@ -96,16 +111,18 @@ async def delete_response(
     }
 )
 async def get_responses(
+        semester: str = Query(..., description="Semester of the course."),
         assignment_id: str = Query(..., description="Identifier of the assignment."),
         question_index: Optional[int] = Query(None, description="Optional index of the question."),
-        student_identifier: Optional[str] = Query(None, description="Optional unique identifier for the student.")
+        student_id: Optional[str] = Query(None, description="Optional unique identifier for the student.")
 ):
+    blob_uploader = AzureBlobService.get_instance()
     results = []
     for response in dummy_responses:
         if response.assignment_id == assignment_id:
             if question_index is not None and response.question_index != question_index:
                 continue
-            if student_identifier is not None and response.student_identifier != student_identifier:
+            if student_id is not None and response.student_id != student_id:
                 continue
             results.append(response)
     if results:

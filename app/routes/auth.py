@@ -4,12 +4,22 @@ from fastapi import APIRouter, HTTPException, status, Query
 
 from app.models.token import AccessToken
 from app.models.user import User, PersonalAuthenticationToken
+from app.utils import JWTService
+from app.utils.azure_blob_service import AzureBlobService
 
 router = APIRouter()
+user_from_authorization_header = None
+
+
+@router.on_event("startup")
+async def set_user_from_auth_header():
+    global user_from_authorization_header
+    user_from_authorization_header = JWTService.get_instance().from_authorization_header
+
 
 # Dummy in-memory storage for access tokens
 dummy_access_tokens = [
-    AccessToken(user_id="user123", token_name="token_1", token_id="abc123", token_expiry=None)
+    AccessToken(token_name="token_1", token_id="abc123", token_expiry=None)
 ]
 
 
@@ -17,17 +27,17 @@ dummy_access_tokens = [
     "/token",
     response_model=AccessToken,
     summary="Create Access Token",
-    description="Creates a new access token for programmatic API access.",
+    description="Creates a new access token for programmatic API access for the authenticated user.",
     responses={
         400: {"description": "Invalid parameters."},
         401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
     }
 )
 async def create_access_token(
-        token_name: str = Query(..., description="Friendly name for the token. Defaults to 'token_n' (where n is a number).")
+        token_name: str = Query(...,
+                                description="Friendly name for the token. Defaults to 'token_n' (where n is a number).")
 ):
-    new_token = AccessToken(user_id="user123", token_name=token_name, token_id="newtoken123", token_expiry=None)
+    new_token = AccessToken(token_name=token_name, token_id="newtoken123", token_expiry=None)
     dummy_access_tokens.append(new_token)
     return new_token
 
@@ -45,6 +55,7 @@ async def create_access_token(
 async def delete_access_token(
         token_id: str = Query(..., description="Unique identifier of the access token to delete.")
 ):
+    blob_uploader = AzureBlobService.get_instance()
     for token in dummy_access_tokens:
         if token.token_id == token_id:
             dummy_access_tokens.remove(token)
@@ -63,6 +74,7 @@ async def delete_access_token(
     }
 )
 async def list_access_tokens():
+    blob_uploader = AzureBlobService.get_instance()
     return dummy_access_tokens
 
 
@@ -83,8 +95,8 @@ async def google_oauth(
         token_type: str = Query(..., description="Type of the token, usually 'Bearer'."),
         id_token: str = Query(..., description="ID token provided by Google.")
 ):
-    dummy_user = User(user_id="user123", first_name="John", last_name="Doe", user_email="john.doe@example.com")
-    dummy_pat = PersonalAuthenticationToken(user_id="user123", authentication_token="dummy_jwt_token")
+    dummy_user = User(first_name="John", last_name="Doe", user_email="john.doe@example.com")
+    dummy_pat = PersonalAuthenticationToken(user_email="user123@example.com", authentication_token="dummy_jwt_token")
     return {"user": dummy_user, "personal_authentication_token": dummy_pat}
 
 
