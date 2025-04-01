@@ -48,6 +48,42 @@ class ChromaDBService(VectorDBService):
         # Convert results into
         return results
 
+    def delete_collection(self):
+        """
+        Deletes the entire collection.
+        """
+        try:
+            # Assuming the client provides a method to delete a collection by name.
+            self.client.delete_collection("ml-bu-autograder")
+            logging.info("Deleted entire collection 'ml-bu-autograder'.")
+        except Exception as e:
+            logging.error("Failed to delete collection", exc_info=True)
+
+    def delete_items_by_wildcard(self, pattern: str):
+        """
+        Deletes items from the collection whose IDs match a given wildcard pattern.
+
+        Args:
+            pattern: A wildcard pattern (e.g. "doc1:*:text") to match item IDs.
+        """
+        try:
+            # Retrieve all items from the collection.
+            results = self.collection.get()
+            all_ids = []
+            # The returned IDs might be a list of lists.
+            if "ids" in results:
+                for sublist in results["ids"]:
+                    all_ids.extend(sublist)
+            # Use fnmatch to filter the IDs by the provided wildcard pattern.
+            matching_ids = [id for id in all_ids if fnmatch.fnmatch(id, pattern)]
+            if matching_ids:
+                self.collection.delete(ids=matching_ids)
+                logging.info(f"Deleted items matching pattern '{pattern}': {matching_ids}")
+            else:
+                logging.info(f"No items matching pattern '{pattern}' were found.")
+        except Exception as e:
+            logging.error("Failed to delete items by wildcard", exc_info=True)
+
     @staticmethod
     def init_singleton(persist_directory: str = "./chroma.db"):
         """Initializes global singleton instance."""
