@@ -6,6 +6,11 @@ azure-storage-blob==12.25.0
 azure-identity==1.21.0
 azure-ai-ml==1.26.0
 azure-search==1.0.0b2
+azure-search-documents==11.5.2
+colorlog==6.9.0
+aflfs==2024.12.0
 openai==1.69.0
+langchain==0.3.22
+chromadb==0.6.3
 # Needed to run notebooks not required for prod
 notebook==7.3.3
