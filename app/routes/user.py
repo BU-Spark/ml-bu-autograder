@@ -15,7 +15,14 @@ class UserPreferencesUpdate(BaseModel):
 
 
 router = APIRouter()
-user_from_authorization_header = JWTService.get_instance().from_authorization_header
+user_from_authorization_header = None
+
+
+@router.on_event("startup")
+async def set_user_from_auth_header():
+    global user_from_authorization_header
+    user_from_authorization_header = JWTService.get_instance().from_authorization_header
+
 
 # Dummy storage for a user (simulate the currently authenticated user)
 dummy_user = User(

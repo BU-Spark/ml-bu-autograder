@@ -29,8 +29,6 @@ APPLICATION_VERSION = get_str_var("APPLICATION_VERSION")
 GOOGLE_OAUTH_CLIENT_FILE = get_str_var("GOOGLE_OAUTH_CLIENT_FILE")
 PRODUCTION = get_bool_var("PRODUCTION")
 JWT_ENCRYPTION_SECRET_FILE = FilePath(get_str_var("JWT_ENCRYPTION_SECRET_FILE"))
-PROMPT_FLOW_BASE_URL = get_str_var("PROMPT_FLOW_BASE_URL")
-PROMPT_FLOW_API_KEY = get_str_var("PROMPT_FLOW_API_KEY")
 
 # Setup logging level
 setup_loggers(production=PRODUCTION)
@@ -40,7 +38,6 @@ logging.info("Loading Azure services...")
 # AZURE_CLIENT_ID, AZURE_TENANT_ID, and AZURE_CLIENT_SECRET
 credential = DefaultAzureCredential()
 AzureBlobService.init_singleton(credential, AZURE_STORAGE_ACCOUNT_NAME, AZURE_CONTAINER_NAME)
-AzurePromptFlowService.init_singleton(PROMPT_FLOW_BASE_URL, PROMPT_FLOW_API_KEY)
 JWTService.init_singleton(JWT_ENCRYPTION_SECRET_FILE, AzureBlobService.get_instance())
 
 logging.info("Starting FastAPI server...")
