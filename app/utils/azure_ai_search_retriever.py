@@ -5,12 +5,14 @@ from azure.identity import ClientSecretCredential, DefaultAzureCredential  # Kee
 from azure.search.documents import SearchClient
 from azure.search.documents.models import VectorizedQuery
 from azure.core.exceptions import HttpResponseError
+from deprecated import deprecated
 from openai import AzureOpenAI, OpenAIError, OpenAI
 
 # Define credential types for type hinting
 SearchCredential = Union[AzureKeyCredential, ClientSecretCredential, DefaultAzureCredential]
 
 
+@deprecated
 class AzureAISearchRetriever:
     """
     A utility class to retrieve documents from Azure AI Search for RAG applications.

@@ -1,5 +1,7 @@
 import logging
 from typing import List, Dict, Optional, Tuple, Literal
+
+from deprecated import deprecated
 from openai import AzureOpenAI, OpenAIError, OpenAI
 
 # Assuming the refactored retriever is in the same directory or installable
@@ -10,6 +12,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 
+@deprecated
 class RAGOrchestrator:
     """
     Orchestrates the Retrieval-Augmented Generation (RAG) process using
