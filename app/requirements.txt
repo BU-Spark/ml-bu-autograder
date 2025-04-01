@@ -15,3 +15,4 @@ chromadb==0.6.3
 weave==0.51.39
 # Needed to run notebooks not required for prod
 notebook==7.3.3
+openpyxl==3.1.2
