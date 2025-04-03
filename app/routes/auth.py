@@ -49,8 +49,7 @@ async def create_access_token(
     dummy_access_tokens.append(new_token)
 
     # uploads the dummy data to Azure Blob Storage
-    blob_service.upload_data("tokens.json", json.dumps([t.model_dump() for t in dummy_access_tokens]))
-
+    blob_service.upload_token(user_email=PersonalAuthenticationToken.user_email, token=new_token.model_dump())
     return new_token
 
 
@@ -62,13 +61,12 @@ async def create_access_token(
 async def delete_access_token(
     token_id: str = Query(..., description="Unique identifier of the access token to delete.")
 ):
-    blob_uploader = AzureBlobService.get_instance()
     for token in dummy_access_tokens:
         if token.token_id == token_id:
             dummy_access_tokens.remove(token)
 
             # Upload Azure Blob Storage
-            #blob_service.upload_data("tokens.json", json.dumps([t.model_dump() for t in dummy_access_tokens]))
+            blob_service.delete_token(user_email=PersonalAuthenticationToken.user_email, token_id=token_id)
 
             return {"message": "Token deleted successfully."}
 
@@ -81,7 +79,6 @@ async def delete_access_token(
     description="Retrieves active access tokens for the authenticated user."
 )
 async def list_access_tokens():
-    blob_uploader = AzureBlobService.get_instance()
     return dummy_access_tokens
 
 @router.get(
@@ -162,7 +159,10 @@ async def google_oauth(
         "authentication_token": personal_auth_token.model_dump(),
         "google_tokens": tokens
     }
-    # We can go with the BlobUploader if you want 
-    blob_service.upload_data(f"auth/{user.user_email}.json", json.dumps(user_auth_data))
+    # Upload user data to Azure Blob Storage
+    blob_service.upload_user(user_auth_data.user)
 
     return user_auth_data
+
+
+
