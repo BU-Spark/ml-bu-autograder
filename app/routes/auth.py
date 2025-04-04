@@ -49,7 +49,6 @@ async def create_access_token(
     dummy_access_tokens.append(new_token)
 
     # uploads the dummy data to Azure Blob Storage
-    blob_service.upload_token(user_email=PersonalAuthenticationToken.user_email, token=new_token.model_dump())
     return new_token
 
 
@@ -66,7 +65,6 @@ async def delete_access_token(
             dummy_access_tokens.remove(token)
 
             # Upload Azure Blob Storage
-            blob_service.delete_token(user_email=PersonalAuthenticationToken.user_email, token_id=token_id)
 
             return {"message": "Token deleted successfully."}
 
@@ -160,7 +158,7 @@ async def google_oauth(
         "google_tokens": tokens
     }
     # Upload user data to Azure Blob Storage
-    blob_service.upload_user(user_auth_data.user)
+   #blob_service.upload_user(user_auth_data.user)
 
     return user_auth_data
 
