@@ -43,7 +43,9 @@ dummy_access_tokens = [
 )
 async def create_access_token(
         token_name: str = Query(...,
-                                description="Friendly name for the token. Defaults to 'token_n' (where n is a number).")
+                                description="Friendly name for the token.  "
+                                            "Only alphanumeric characters and underscores are allowed."
+                                            "Defaults to 'token_n' (where n is a number).")
 ):
     #create a new access token and stores it in the dummy_access_tokens list
 
