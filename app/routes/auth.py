@@ -1,6 +1,9 @@
+import json
+import os
+import requests
 from typing import List
 
-from fastapi import APIRouter, HTTPException, status, Query
+from fastapi import APIRouter, HTTPException, Query, status
 
 from app.models.token import AccessToken
 from app.models.user import User, PersonalAuthenticationToken
@@ -16,6 +19,17 @@ async def set_user_from_auth_header():
     global user_from_authorization_header
     user_from_authorization_header = JWTService.get_instance().from_authorization_header
 
+jwt_service = JWTService.get_instance()
+blob_service = AzureBlobService.get_instance()
+
+# Load Google OAuth client secrets
+with open(os.getenv("GOOGLE_OAUTH_CLIENT_FILE", "./client_secrets.json"), "r") as f:
+    google_oauth_config = json.load(f)
+
+GOOGLE_CLIENT_ID = google_oauth_config["web"]["client_id"]
+GOOGLE_CLIENT_SECRET = google_oauth_config["web"]["client_secret"]
+GOOGLE_REDIRECT_URI = google_oauth_config["web"]["redirect_uris"][0]
+GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 
 # Dummy in-memory storage for access tokens
 dummy_access_tokens = [
@@ -37,8 +51,18 @@ async def create_access_token(
         token_name: str = Query(...,
                                 description="Friendly name for the token. Defaults to 'token_n' (where n is a number).")
 ):
+    #create a new access token and stores it in the dummy_access_tokens list
+
+    #added checking for duplicate token names
+    if any(token.token_name == token_name for token in dummy_access_tokens):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Token name already exists."
+        )
     new_token = AccessToken(token_name=token_name, token_id="newtoken123", token_expiry=None)
     dummy_access_tokens.append(new_token)
+
+    # uploads the dummy data to Azure Blob Storage
     return new_token
 
 
@@ -95,10 +119,62 @@ async def google_oauth(
         token_type: str = Query(..., description="Type of the token, usually 'Bearer'."),
         id_token: str = Query(..., description="ID token provided by Google.")
 ):
-    dummy_user = User(first_name="John", last_name="Doe", user_email="john.doe@example.com")
-    dummy_pat = PersonalAuthenticationToken(user_email="user123@example.com", authentication_token="dummy_jwt_token")
-    return {"user": dummy_user, "personal_authentication_token": dummy_pat}
+    """
+    Exchanges the authorization code for an access token and ID token.
+    """
+    # Exchange authorization code for tokens
+    token_data = {
+        "code": code,
+        "client_id": GOOGLE_CLIENT_ID,
+        "client_secret": GOOGLE_CLIENT_SECRET,
+        "redirect_uri": GOOGLE_REDIRECT_URI,
+        "grant_type": "authorization_code"
+    }
 
+    response = requests.post(GOOGLE_TOKEN_URL, data=token_data)
+    if response.status_code != 200:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authorization code or token exchange failed."
+        )
+
+    tokens = response.json()
+    access_token = tokens["access_token"]
+    id_token = tokens.get("id_token")
+
+    # Decode ID token (JWT)
+    user_info = jwt_service.decode_jwt(id_token)
+    if not user_info:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Failed to verify ID token."
+        )
+
+    # Create user object
+    user = User(
+        first_name=user_info.get("given_name", ""),
+        last_name=user_info.get("family_name", ""),
+        user_email=user_info.get("email")
+    )
+
+    # Generate a JWT token for user authentication
+    jwt_token = jwt_service.create_jwt({"email": user.user_email})
+    personal_auth_token = PersonalAuthenticationToken(
+        user_email=user.user_email,
+        authentication_token=jwt_token
+    )
+
+    # Store user authentication details in Azure Blob Storage
+
+    user_auth_data = {
+        "user": user.model_dump(),
+        "authentication_token": personal_auth_token.model_dump(),
+        "google_tokens": tokens
+    }
+    # Upload user data to Azure Blob Storage
+    #blob_service.upload_user(user_auth_data.user)
+
+    return user_auth_data
 
 @router.get(
     "/google_oauth_url",
@@ -111,8 +187,8 @@ async def get_oauth_url():
     scope = "openid email profile"
     oauth_url = (
         f"https://accounts.google.com/o/oauth2/auth?"
-        f"client_id={client_id}&"
-        f"redirect_uri={redirect_uri}&"
+        f"client_id={GOOGLE_CLIENT_ID}&"
+        f"redirect_uri={GOOGLE_REDIRECT_URI}&"
         f"response_type=code&"
         f"scope={scope}&"
         f"access_type=offline&"
