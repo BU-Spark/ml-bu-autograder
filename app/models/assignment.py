@@ -3,18 +3,11 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 
 
-class FloatingQuestion(BaseModel):
+class Question(BaseModel):
     question_text: str = Field(..., description="The text of the question.")
     question_graphics_figures: Optional[str] = Field(
         None, description="Base64-encoded PNG image representing optional graphics/figures for the question."
     )
-
-
-class Question(FloatingQuestion):
-    """
-    Represents a question in an assignment.
-    """
-    question_index: int = Field(..., description="Index of the question in the assignment.")
 
 
 class Assignment(BaseModel):

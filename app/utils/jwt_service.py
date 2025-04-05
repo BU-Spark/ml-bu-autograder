@@ -3,33 +3,31 @@ import json
 from typing import Optional
 
 import jwt
-from fastapi import HTTPException, Header
+from fastapi import Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import FilePath, BaseModel, EmailStr
 
 from app.models import User
-from app.utils.azure_blob_service import AzureBlobService
 
 jwt_service: Optional["JWTService"] = None
 
 
-class UserMeta(BaseModel):
+class UserToken(BaseModel):
     user_email: EmailStr
-    token_id: Optional[str] = None
+    token_expiry: datetime.datetime
 
 
 class JWTService:
     _algorithm_: str
     _private_key_: str
     _public_key_: str
-    _azure_blob_service_: AzureBlobService
 
-    def __init__(self, jwt_secrets_file: FilePath, azure_blob_service: AzureBlobService):
+    def __init__(self, jwt_secrets_file: FilePath):
         with jwt_secrets_file.open('r') as f:
             jwt_secrets = json.load(f)
         self._algorithm_ = jwt_secrets['algorithm']
         self._private_key_ = jwt_secrets['private_key']
         self._public_key_ = jwt_secrets['public_key']
-        self._azure_blob_service_ = azure_blob_service
 
     def create_user_jwt(
             self,
@@ -44,7 +42,7 @@ class JWTService:
         """
         payload = {
             "user_email": user.user_email,
-            "exp": token_expiry,
+            "token_expiry": token_expiry,
         }
         token = jwt.encode(payload, self._private_key_, algorithm=self._algorithm_)
         return token
@@ -53,34 +51,35 @@ class JWTService:
         payload = {
             "user_email": user.user_email,
             "token_name": token_name,
-            "exp": token_expiry,
+            "token_expiry": token_expiry,
         }
         token = jwt.encode(payload, self._private_key_, algorithm=self._algorithm_)
         return token
 
-    def decode_jwt(self, token: str) -> Optional[UserMeta]:
+    def decode_jwt(self, token: str) -> Optional[UserToken]:
         decoded_json = jwt.decode(token, self._public_key_, algorithms=[self._algorithm_])
         if decoded_json.exp < datetime.datetime.now():
             return None
-        return UserMeta(user_email=decoded_json.user_email, token_id=decoded_json.token_id)
+        return UserToken(user_email=decoded_json.user_email, token_id=decoded_json.token_id)
 
-    def from_authorization_header(self, authorization_header: str = Header(None)) -> Optional[UserMeta]:
+    def from_authorization_header(self, credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer())) -> Optional[UserToken]:
         """
         Extracts the token from the authorization header and then figures out requesting
         user from it. The authorization header is expected to be in the format "Bearer <token>".
-        :param authorization_header: The raw authorization header
+        :param credentials: The bearer token
         :return: The user associated with the token
         """
-        parts = authorization_header.split()
-        if len(parts) != 2 or parts[0].lower() != "bearer":
-            raise HTTPException(status_code=401, detail="Invalid token format")
-        token = parts[1]
-        return self.decode_jwt(token)
+        # TODO, this was temp
+        return UserToken(
+            user_email="bobross@gmail.com",
+            token_expiry=datetime.datetime.now().__add__(datetime.timedelta(days=30)),
+        )
+        return self.decode_jwt(credentials.credentials)
 
     @staticmethod
-    def init_singleton(jwt_secrets_file: FilePath, azure_blob_service: AzureBlobService):
+    def init_singleton(jwt_secrets_file: FilePath):
         global jwt_service
-        jwt_service = JWTService(jwt_secrets_file, azure_blob_service)
+        jwt_service = JWTService(jwt_secrets_file)
 
     @staticmethod
     def get_instance() -> Optional["JWTService"]:

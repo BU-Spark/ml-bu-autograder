@@ -9,11 +9,7 @@ from app.utils import get_str_var, get_bool_var, setup_loggers, JWTService
 
 load_dotenv()  # Load environment variables first
 
-from app.utils.azure_prompt_flow_service import AzurePromptFlowService
 from app.utils.azure_blob_service import AzureBlobService
-from fastapi import FastAPI
-import os
-from app.routes import auth, course, assignment, student_response, grading, course_material, rubric, user
 
 if __name__ == "__main__":
     logging.critical("This application is not intended to be run directly. See README.md for instructions.")
@@ -38,9 +34,12 @@ logging.info("Loading Azure services...")
 # AZURE_CLIENT_ID, AZURE_TENANT_ID, and AZURE_CLIENT_SECRET
 credential = DefaultAzureCredential()
 AzureBlobService.init_singleton(credential, AZURE_STORAGE_ACCOUNT_NAME, AZURE_CONTAINER_NAME)
-JWTService.init_singleton(JWT_ENCRYPTION_SECRET_FILE, AzureBlobService.get_instance())
+JWTService.init_singleton(JWT_ENCRYPTION_SECRET_FILE)
 
 logging.info("Starting FastAPI server...")
+
+from fastapi import FastAPI
+from app.routes import auth, course, assignment, student_response, grading, course_material, rubric, user
 app = FastAPI(
     title="BU MET Autograder API",
     description="API for BU MET Autograder – an AI-based autograding tool. "

@@ -6,6 +6,7 @@ from typing import List, Dict, Optional
 
 import fsspec
 from azure.identity import ChainedTokenCredential
+from pydantic import EmailStr
 
 from app.models import Course, Assignment, Question, StudentResponse, Rubric, CourseMaterial, User, AccessToken, \
     SubRubric
@@ -119,6 +120,28 @@ class AzureBlobService:
         self.fs.rm(full_path)
         logging.info(f"Deleted blob: {blob_path}")
 
+    def move_blob(self, old_blob_path: str, new_blob_path: str):
+        """
+        Renames (moves) a blob from old_blob_path to new_blob_path by copying and deleting.
+        """
+        full_old_path = self._full_path(old_blob_path)
+        full_new_path = self._full_path(new_blob_path)
+
+        logging.debug(f"Attempting to move blob from {old_blob_path} to {new_blob_path}")
+
+        if not self.fs.exists(full_old_path):
+            logging.warning(f"Source blob does not exist: {old_blob_path}")
+            return
+
+        # Copy contents
+        with self.fs.open(full_old_path, 'rb') as src:
+            with self.fs.open(full_new_path, 'wb') as dst:
+                dst.write(src.read())
+
+        # Delete old blob
+        self.fs.rm(full_old_path)
+        logging.info(f"Moved blob from {old_blob_path} to {new_blob_path}")
+
     def list_files(self, prefix=None) -> List[str]:
         """
         Lists files in container with optional prefix filter.
@@ -161,9 +184,9 @@ class AzureBlobService:
         logging.debug(f"Uploading metadata for assignment {assignment.assignment_id}")
         self.upload_json(assignment, blob_path)
 
-    def upload_question_metadata(self, semester_key: str, course_id: str, assignment_id: str, question: Question):
+    def upload_question_metadata(self, semester_key: str, course_id: str, assignment_id: str, question_index: int, question: Question):
         """Uploads question metadata."""
-        blob_path = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/{question.question_index}/question.json"
+        blob_path = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/{question_index}/question.json"
         logging.debug(f"Uploading question {question.question_index} for assignment {assignment_id}")
         self.upload_json(question, blob_path)
 
@@ -277,7 +300,7 @@ class AzureBlobService:
         data = self.download_json(blob_path)
         return CourseMaterial(**data) if data else None
 
-    def get_user(self, user_email: str) -> Optional[User]:
+    def get_user(self, user_email: EmailStr) -> Optional[User]:
         """Retrieves user data if exists."""
         blob_path = f"user/{user_email}.json"
         logging.debug(f"Fetching user {user_email}")
@@ -319,21 +342,47 @@ class AzureBlobService:
             Number of blobs deleted.
         """
         prefix = f"course/{semester_key}/{course_id}/"
+        full_path = self._full_path(prefix)
+
         logging.debug(f"Starting recursive delete for course {course_id}")
-        files = self.fs.glob(self._full_path(prefix) + "**")
 
-        for file in files:
-            self.fs.rm(file)
-
-        deleted_count = len(files)
-        logging.info(f"Deleted {deleted_count} blobs for course {course_id}")
-        return deleted_count
+        try:
+            files = self.fs.glob(full_path + "**")
+            self.fs.rm(full_path, recursive=True)
+            logging.info(f"Deleted {len(files)} blobs for course {course_id}")
+            return len(files)
+        except Exception as e:
+            logging.error(f"Failed to delete course {course_id}: {e}")
+            return 0
 
     def delete_course_material(self, semester_key: str, course_id: str, material_id: str):
         """Deletes specific course material."""
         blob_path = f"course/{semester_key}/{course_id}/course_material/{material_id}.json"
         logging.debug(f"Deleting course material {material_id}")
         self.delete_blob(blob_path)
+
+    def delete_question_metadata(self, semester_key: str, course_id: str, assignment_id: str, question_index: int):
+        """
+        Deletes metadata for a specific question.
+        """
+        blob_path = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/{question_index}/question.json"
+        logging.debug(f"Deleting metadata for question {question_index}")
+        self.delete_blob(blob_path)
+        # re-order the succeeding indices
+        questions_cnt = self.count_questions(semester_key, course_id, assignment_id)
+        for question in range(question_index, questions_cnt):
+            current_path = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/{question_index}/question.json"
+            new_path = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/{question_index - 1}/question.json"
+            self.move_blob(current_path, new_path)
+
+    def delete_assignment(self, semester_key: str, course_id: str, assignment_id: str):
+        """
+        Deletes an entire assignment directory, including metadata, questions, rubrics, and other blobs.
+        """
+        assignment_prefix = f"course/{semester_key}/{course_id}/assignment/{assignment_id}"
+        full_path = self._full_path(assignment_prefix)
+        logging.debug(f"Recursively deleting all blobs under {assignment_prefix}")
+        self.fs.rm(full_path, recursive=True)
 
     def delete_user(self, user_email: str):
         """Deletes user data."""
@@ -346,6 +395,35 @@ class AzureBlobService:
         blob_path = f"user/{user_email}/tokens/{token_id}.json"
         logging.debug(f"Deleting token {token_id} for user {user_email}")
         self.delete_blob(blob_path)
+
+    def reorder_questions(self, semester_key: str, course_id: str, assignment_id: str, new_order: List[int]):
+        """
+        Reorders questions by moving their blobs and updating question indexes.
+        """
+        logging.debug(f"Reordering questions for assignment {assignment_id}: {new_order}")
+
+        for new_index, old_index in enumerate(new_order):
+            old_blob_path = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/{old_index}/question.json"
+            new_blob_path = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/{new_index}/question.json"
+
+            # Download and update the metadata first
+            data = self.download_json(old_blob_path)
+            if not data:
+                logging.warning(f"Skipping missing question metadata at index {old_index}")
+                continue
+
+            question = Question(**data)
+            question.question_index = str(new_index)
+
+            # Move the blob (rename on storage layer)
+            self.move_blob(old_blob_path, new_blob_path)
+
+            # Re-upload the updated metadata to the new location
+            self.upload_question_metadata(semester_key, course_id, assignment_id, question)
+
+            logging.info(f"Reordered question: {old_index} → {new_index}")
+
+        logging.info(f"Completed reordering of questions for assignment {assignment_id}")
 
     def list_courses(self, user: User, semester_key: Optional[str] = None) -> List[Course]:
         """
@@ -386,7 +464,7 @@ class AzureBlobService:
         return assignments
 
     def list_questions(self, semester_key: str, course_id: str, assignment_id: str) -> List[Question]:
-        """Lists all questions for an assignment."""
+        """Lists all questions for an assignment in order."""
         pattern = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/*/question.json"
         questions = []
         logging.debug(f"Listing questions for assignment {assignment_id}")
@@ -404,7 +482,7 @@ class AzureBlobService:
         return questions
 
     def list_student_responses(self, semester_key: str, course_id: str, assignment_id: str,
-                               question_index: Optional[str] = None) -> List[StudentResponse]:
+                               question_index: Optional[int] = None) -> List[StudentResponse]:
         """Lists student responses with optional question filter."""
         if question_index:
             pattern = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/{question_index}/student_response/*/response.json"

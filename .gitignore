@@ -178,3 +178,4 @@ __pycache__/
 /frontend/node_modules/
 *.json
 .env
+.ipynb_checkpoints

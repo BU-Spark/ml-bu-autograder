@@ -4,17 +4,11 @@ from fastapi import APIRouter, HTTPException, status, Query, Depends
 from pydantic import EmailStr
 
 from app.models.course import Course
-from app.utils import JWTService, UserMeta
+from app.utils import JWTService, UserToken
 from app.utils.azure_blob_service import AzureBlobService
 
 router = APIRouter()
-user_from_authorization_header = None
-
-
-@router.on_event("startup")
-async def set_user_from_auth_header():
-    global user_from_authorization_header
-    user_from_authorization_header = JWTService.get_instance().from_authorization_header
+user_from_auth = JWTService.get_instance().from_authorization_header
 
 
 @router.post(
@@ -29,7 +23,7 @@ async def set_user_from_auth_header():
 )
 async def create_course(
         course: Course,
-        user_meta: UserMeta = Depends(user_from_authorization_header),
+        user_meta: UserToken = Depends(user_from_auth),
 ):
     if user_meta is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="You are not authenticated.")
@@ -51,7 +45,7 @@ async def create_course(
 async def delete_course(
         semester: str = Query(..., description="Semester of the course to delete."),
         course_id: str = Query(..., description="Unique identifier of the course to delete."),
-        user_meta: UserMeta = Depends(user_from_authorization_header),
+        user_meta: UserToken = Depends(user_from_auth),
 ):
     if user_meta is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="You are not authenticated.")
@@ -88,6 +82,7 @@ async def transfer_course(
         current_course_id: str = Query(..., description="ID of the course being updated."),
         copy_from_course_semester: str = Query(..., description="Semester of the source course."),
         copy_from_course_id: str = Query(..., description="ID of the course to copy from."),
+        user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
     # normalize query params
@@ -115,7 +110,7 @@ async def transfer_course(
 async def get_course(
         semester: str = Query(..., description="Course semester."),
         course_id: str = Query(..., description="Unique identifier of the course."),
-        user_meta: UserMeta = Depends(user_from_authorization_header),
+        user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
 
@@ -141,16 +136,16 @@ async def get_course(
     }
 )
 async def list_courses(
-        user_meta: UserMeta = Depends(user_from_authorization_header),
         semester: Optional[str] = Query(None, description="The semester for which to list the courses for."),
+        user_meta: UserToken = Depends(user_from_auth),
 ):
     # TODO: this lists all courses
     #  It should instead list only the courses user has access to
     blob_uploader = AzureBlobService.get_instance()
-
-    semester = None if None else semester.strip().lower()
+    semester = None if semester is None else semester.strip().lower()
     user = ...  # TODO
-    return blob_uploader.list_courses(user, semester)
+    #return blob_uploader.list_courses(user, semester)
+    return []
 
 
 @router.post(
@@ -169,6 +164,7 @@ async def add_course_instructor(
         semester: str = Query(..., description="Semester of the course."),
         course_id: str = Query(..., description="Unique identifier of the course."),
         instructor: EmailStr = Query(..., description="Email of the instructor to add."),
+        user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
     # normalize query params
@@ -207,6 +203,7 @@ async def remove_course_instructor(
         course_id: str = Query(..., description="Unique identifier of the course."),
         semester: str = Query(..., description="Semester of the course."),
         instructor: str = Query(..., description="Email of the instructor to remove."),
+        user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
     # normalize query params
