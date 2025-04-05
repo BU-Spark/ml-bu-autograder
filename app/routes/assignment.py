@@ -4,6 +4,7 @@ from typing import List
 from fastapi import APIRouter, HTTPException, Query, Body, Depends
 from pydantic import BaseModel, Field, field_validator
 
+from app.models import Course
 from app.models.assignment import Assignment, Question
 from app.utils import JWTService, UserToken
 from app.utils.azure_blob_service import AzureBlobService
@@ -18,7 +19,7 @@ class EditQuestionRequest(BaseModel):
 
     @classmethod
     @field_validator("semester", mode='before')
-    def normalize_lowercase(cls, value: str) -> str:
+    def validate_semester(cls, value: str) -> str:
         """Converts to lowercase and trims spaces."""
         if re.fullmatch("[a-zA-Z]{1,12}[0-9]{4}", value) is not None:
             raise ValueError("Semester is in an invalid format. "
@@ -36,7 +37,7 @@ class AddQuestionRequest(BaseModel):
 
     @classmethod
     @field_validator("semester", mode='before')
-    def normalize_lowercase(cls, value: str) -> str:
+    def validate_semester(cls, value: str) -> str:
         """Converts to lowercase and trims spaces."""
         if re.fullmatch("[a-zA-Z]{1,12}[0-9]{4}", value) is not None:
             raise ValueError("Semester is in an invalid format. "
@@ -52,7 +53,7 @@ class ModifyOrderRequest(BaseModel):
 
     @classmethod
     @field_validator("semester", mode='before')
-    def normalize_lowercase(cls, value: str) -> str:
+    def validate_semester(cls, value: str) -> str:
         """Converts to lowercase and trims spaces."""
         if re.fullmatch("[a-zA-Z]{1,12}[0-9]{4}", value) is not None:
             raise ValueError("Semester is in an invalid format. "
@@ -175,6 +176,10 @@ async def remove_question(
         question_index: int = Query(..., description="Index of the question to remove."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
+    # validate params
+    semester = Course.validate_semester(semester)
+    course_id = Course.normalize_lowercase(course_id)
+
     blob_uploader = AzureBlobService.get_instance()
     # Check if the course exists
     course_exists = blob_uploader.course_exists(semester, course_id)
@@ -302,6 +307,10 @@ async def get_assignment(
         assignment_id: int = Query(..., description="Identifier of the assignment."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
+    # validate params
+    semester = Course.validate_semester(semester)
+    course_id = Course.normalize_lowercase(course_id)
+
     blob_uploader = AzureBlobService.get_instance()
     # Check if the course exists
     course_exists = blob_uploader.course_exists(semester, course_id)
@@ -330,6 +339,7 @@ async def get_assignment(
     summary="List Assignments",
     description="Retrieves all assignments associated with a course.",
     responses={
+        404: {"description": "Course not found."},
         401: {"description": "Requester is not authenticated."},
         403: {"description": "Authenticated but access is not allowed."}
     }
@@ -339,6 +349,10 @@ async def list_assignments(
         course_id: str = Query(..., description="Identifier of the course."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
+    # validate params
+    semester = Course.validate_semester(semester)
+    course_id = Course.normalize_lowercase(course_id)
+
     blob_uploader = AzureBlobService.get_instance()
     # Check if the course exists
     course_exists = blob_uploader.course_exists(semester, course_id)
@@ -376,6 +390,10 @@ async def delete_assignment(
         assignment_id: int = Query(..., description="Identifier of the assignment to delete."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
+    # validate params
+    semester = Course.validate_semester(semester)
+    course_id = Course.normalize_lowercase(course_id)
+
     blob_uploader = AzureBlobService.get_instance()
     # Check if the course exists
     course_exists = blob_uploader.course_exists(semester, course_id)

@@ -2,6 +2,7 @@ from typing import List
 
 from fastapi import APIRouter, HTTPException, Query, Body, Depends
 
+from app.models import Course
 from app.models.course_material import CourseMaterial
 from app.utils import JWTService, UserToken
 from app.utils.azure_blob_service import AzureBlobService
@@ -26,6 +27,10 @@ async def get_course_materials(
         course_id: str = Query(..., description="Identifier of the course."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
+    # validate params
+    semester = Course.validate_semester(semester)
+    course_id = Course.normalize_lowercase(course_id)
+
     blob_uploader = AzureBlobService.get_instance()
     
     # Check if the course exists
@@ -61,6 +66,10 @@ async def get_course_material(
         material_id: int = Query(..., description="Unique identifier of the specific material."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
+    # validate params
+    semester = Course.validate_semester(semester)
+    course_id = Course.normalize_lowercase(course_id)
+
     blob_uploader = AzureBlobService.get_instance()
     
     # Check if the course exists
@@ -136,6 +145,10 @@ async def delete_course_material(
         material_id: int = Query(..., description="Unique identifier of the material to delete."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
+    # validate params
+    semester = Course.validate_semester(semester)
+    course_id = Course.normalize_lowercase(course_id)
+
     blob_uploader = AzureBlobService.get_instance()
     
     # Check if the course exists

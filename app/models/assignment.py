@@ -36,7 +36,7 @@ class Assignment(BaseModel):
 
     @classmethod
     @field_validator("semester", mode='before')
-    def normalize_lowercase(cls, value: str) -> str:
+    def validate_semester(cls, value: str) -> str:
         """Converts to lowercase and trims spaces."""
         if re.fullmatch("[a-zA-Z]{1,12}[0-9]{4}", value) is not None:
             raise ValueError("Semester is in an invalid format. "

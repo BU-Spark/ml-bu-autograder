@@ -306,7 +306,7 @@ class AzureBlobService:
             rubric.sub_rubrics = self.list_sub_rubrics(semester_key, course_id, assignment_id)
         return rubric
 
-    def get_sub_rubric(self, semester_key: str, course_id: str, assignment_id: int, question_index: str) -> Optional[
+    def get_sub_rubric(self, semester_key: str, course_id: str, assignment_id: int, question_index: int) -> Optional[
         SubRubric]:
         """Retrieves specific sub-rubric if exists."""
         blob_path = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/rubrics/{question_index}.json"
@@ -328,10 +328,10 @@ class AzureBlobService:
         data = self.download_json(blob_path)
         return User(**data) if data else None
 
-    def get_token(self, user_email: str, token_id: str) -> Optional[AccessToken]:
+    def get_token(self, user_email: str, token_name: str) -> Optional[AccessToken]:
         """Retrieves access token if exists."""
-        blob_path = f"user/{user_email}/tokens/{token_id}.json"
-        logging.debug(f"Fetching token {token_id} for user {user_email}")
+        blob_path = f"user/{user_email}/tokens/{token_name}.json"
+        logging.debug(f"Fetching token {token_name} for user {user_email}")
         data = self.download_json(blob_path)
         return AccessToken(**data) if data else None
 
@@ -401,7 +401,7 @@ class AzureBlobService:
         logging.debug(f"Found {len(responses)} responses")
         return responses
 
-    def delete_grading_details(self, semester_key: str, course_id: str, assignment_id: int, question_index: str,
+    def delete_grading_details(self, semester_key: str, course_id: str, assignment_id: int, question_index: int,
                                student_id: str):
         """Deletes specific grading details."""
         blob_path = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/{question_index}/student_response/{student_id}/grade.json"
@@ -466,10 +466,10 @@ class AzureBlobService:
         logging.debug(f"Deleting user {user_email}")
         self.delete_blob(blob_path)
 
-    def delete_token(self, user_email: str, token_id: str):
+    def delete_token(self, user_email: str, token_name: str):
         """Deletes specific access token."""
-        blob_path = f"user/{user_email}/tokens/{token_id}.json"
-        logging.debug(f"Deleting token {token_id} for user {user_email}")
+        blob_path = f"user/{user_email}/tokens/{token_name}.json"
+        logging.debug(f"Deleting token {token_name} for user {user_email}")
         self.delete_blob(blob_path)
 
     def reorder_questions(self, semester_key: str, course_id: str, assignment_id: int, new_order: List[int]):

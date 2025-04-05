@@ -60,7 +60,7 @@ class JWTService:
         decoded_json = jwt.decode(token, self._public_key_, algorithms=[self._algorithm_])
         if decoded_json.exp < datetime.datetime.now():
             return None
-        return UserToken(user_email=decoded_json.user_email, token_id=decoded_json.token_id)
+        return UserToken(user_email=decoded_json.user_email, token_expiry=decoded_json.token_expiry)
 
     def from_authorization_header(self, credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer())) -> Optional[UserToken]:
         """

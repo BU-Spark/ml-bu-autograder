@@ -2,6 +2,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Query
 
+from app.models import StudentResponse, Course
 from app.models.grade import Grade
 from app.utils import JWTService
 from app.utils.azure_blob_service import AzureBlobService
@@ -23,12 +24,19 @@ user_from_auth = JWTService.get_instance().from_authorization_header
     }
 )
 async def grade_specific(
-        student_ids: List[str] = Query(..., description="List of student identifiers to grade."),
+        semester: str = Query(..., description="Course semester."),
+        course_id: str = Query(..., description="Unique identifier of the course."),
         assignment_id: int = Query(..., description="Identifier of the assignment."),
+        student_ids: List[str] = Query(..., description="List of student identifiers to grade."),
         question_index: Optional[int] = Query(None,
                                               description="Optional index of the question. Grades all questions if "
                                                           "omitted.")
 ):
+    # validate params
+    semester = Course.validate_semester(semester)
+    course_id = Course.normalize_lowercase(course_id)
+
+    # TODO normalize input emails
     blob_uploader = AzureBlobService.get_instance()
     return []
 
@@ -46,11 +54,17 @@ async def grade_specific(
     }
 )
 async def grade_ungraded(
+        semester: str = Query(..., description="Course semester."),
+        course_id: str = Query(..., description="Unique identifier of the course."),
         assignment_id: int = Query(..., description="Identifier of the assignment."),
         question_index: Optional[int] = Query(None,
                                               description="Optional index of the question to grade. Grades all "
                                                           "ungraded questions if omitted.")
 ):
+    # validate params
+    semester = Course.validate_semester(semester)
+    course_id = Course.normalize_lowercase(course_id)
+
     blob_uploader = AzureBlobService.get_instance()
     return []
 
@@ -68,10 +82,16 @@ async def grade_ungraded(
     }
 )
 async def grade_all(
+        semester: str = Query(..., description="Course semester."),
+        course_id: str = Query(..., description="Unique identifier of the course."),
         assignment_id: int = Query(..., description="Identifier of the assignment."),
         question_index: int = Query(None,
                                     description="Optional index of the question to grade or regrade. Grades all "
                                                 "questions if omitted.")
 ):
+    # validate params
+    semester = Course.validate_semester(semester)
+    course_id = Course.normalize_lowercase(course_id)
+
     blob_uploader = AzureBlobService.get_instance()
     return []

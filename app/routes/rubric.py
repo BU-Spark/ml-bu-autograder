@@ -4,7 +4,8 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, status, Query, Body
 from pydantic import Field, BaseModel, field_validator
 
-from app.models.rubric import Rubric, SubRubric
+from app.models import Course
+from app.models.rubric import Rubric, SubRubric, GradingFlag
 from app.utils import JWTService
 from app.utils.azure_blob_service import AzureBlobService
 
@@ -25,7 +26,7 @@ class EditSubRubricRequest(BaseModel):
 
     @classmethod
     @field_validator("semester", mode='before')
-    def normalize_lowercase(cls, value: str) -> str:
+    def validate_semester(cls, value: str) -> str:
         """Converts to lowercase and trims spaces."""
         if re.fullmatch("[a-zA-Z]{1,12}[0-9]{4}", value) is not None:
             raise ValueError("Semester is in an invalid format. "
@@ -69,15 +70,21 @@ async def create_rubric(
     }
 )
 async def get_ai_rubric(
+        semester: str = Field(..., description="Semester of the course."),
+        course_id: str = Field(..., description="Identifier of the course."),
         assignment_id: int = Query(..., description="Identifier of the assignment."),
         instructions: Optional[str] = Query(None, description="Optional specific improvement instructions for the AI.")
 ):
+    # validate params
+    semester = Course.validate_semester(semester)
+    course_id = Course.normalize_lowercase(course_id)
+
     blob_uploader = AzureBlobService.get_instance()
     dummy_rubric = Rubric(
         semester="spring2024",
         course_id="cs123",
         assignment_id=assignment_id,
-        grading_flags=["IGNORE_SPELLINGS", "IGNORE_GRAMMAR"],
+        grading_flags=[GradingFlag.IGNORE_SPELLINGS],
         leniency=4,
         overall_instructor_guidelines="Improved guidelines based on AI.",
         sub_rubrics=[]
@@ -97,10 +104,16 @@ async def get_ai_rubric(
     }
 )
 async def get_rubric(
+        semester: str = Field(..., description="Semester of the course."),
+        course_id: str = Field(..., description="Identifier of the course."),
         assignment_id: int = Query(..., description="Identifier of the assignment."),
         question_index: Optional[int] = Query(None,
                                               description="Optional question index to retrieve a specific sub-rubric.")
 ):
+    # validate params
+    semester = Course.validate_semester(semester)
+    course_id = Course.normalize_lowercase(course_id)
+
     blob_uploader = AzureBlobService.get_instance()
     for rubric in dummy_rubrics:
         if rubric.assignment_id == assignment_id:

@@ -27,10 +27,10 @@ GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 
 # Dummy in-memory storage for access tokens
 dummy_access_tokens = [
-    AccessToken(token_name="token_1", token_id="abc123", token_expiry=None)
+    AccessToken(token_name="token_1", token_expiry=None)
 ]
 
-
+#TODO
 @router.post(
     "/token",
     response_model=AccessToken,
@@ -53,7 +53,7 @@ async def create_access_token(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Token name already exists."
         )
-    new_token = AccessToken(token_name=token_name, token_id="newtoken123", token_expiry=None)
+    new_token = AccessToken(token_name=token_name, token_expiry=None)
     dummy_access_tokens.append(new_token)
 
     # uploads the dummy data to Azure Blob Storage
@@ -65,17 +65,17 @@ async def create_access_token(
     summary="Delete Access Token",
     description="Deletes an existing access token.",
     responses={
-        400: {"description": "token_id is missing or invalid."},
+        400: {"description": "token_name is missing or invalid."},
         404: {"description": "Token not found."},
         403: {"description": "Authenticated but access is not allowed."}
     }
 )
 async def delete_access_token(
-        token_id: str = Query(..., description="Unique identifier of the access token to delete.")
+        token_name: str = Query(..., description="Unique identifier of the access token to delete.")
 ):
     blob_uploader = AzureBlobService.get_instance()
     for token in dummy_access_tokens:
-        if token.token_id == token_id:
+        if token.token_name == token_name:
             dummy_access_tokens.remove(token)
             return {"message": "Token deleted successfully."}
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Token not found.")

@@ -47,12 +47,13 @@ async def delete_course(
         course_id: str = Query(..., description="Unique identifier of the course to delete."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
+    # validate params
+    semester = Course.validate_semester(semester)
+    course_id = Course.normalize_lowercase(course_id)
+
     if user_meta is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="You are not authenticated.")
     blob_uploader = AzureBlobService.get_instance()
-    # Normalize query params
-    semester = semester.strip().lower()
-    course_id = course_id.strip().lower()
     # Check if course exists
     course = blob_uploader.get_course(semester, course_id)
     if course is None:
@@ -88,10 +89,6 @@ async def transfer_course(
 ):
     blob_uploader = AzureBlobService.get_instance()
     # normalize query params
-    current_semester = current_semester.strip().lower()
-    current_semester = current_course_id.strip().lower()
-    copy_from_course_semester = copy_from_course_semester.strip().lower()
-    copy_from_course_id = copy_from_course_id.strip().lower()
 
     # TODO: not worth implementing rn
     raise NotImplementedError()
@@ -114,11 +111,12 @@ async def get_course(
         course_id: str = Query(..., description="Unique identifier of the course."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
+    # validate params
+    semester = Course.validate_semester(semester)
+    course_id = Course.normalize_lowercase(course_id)
+
     blob_uploader = AzureBlobService.get_instance()
 
-    # normalize query params
-    semester = semester.strip().lower()
-    course_id = course_id.strip().lower()
     # Get the course
     course = blob_uploader.get_course(semester, course_id)
     if course is None:
@@ -142,6 +140,9 @@ async def list_courses(
         semester: Optional[str] = Query(None, description="The semester for which to list the courses for."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
+    # validate params
+    semester = None if semester is None else Course.validate_semester(semester)
+
     blob_uploader = AzureBlobService.get_instance()
     semester = None if semester is None else semester.strip().lower()
     user = blob_uploader.get_user(user_meta.user_email)
@@ -166,6 +167,11 @@ async def add_course_instructor(
         instructor: EmailStr = Query(..., description="Email of the instructor to add."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
+    # validate params
+    semester = Course.validate_semester(semester)
+    course_id = Course.normalize_lowercase(course_id)
+    instructor = Course.normalize_instructor_email(instructor)
+
     blob_uploader = AzureBlobService.get_instance()
     # normalize query params
     semester = semester.strip().lower()

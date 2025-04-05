@@ -24,7 +24,7 @@ class Course(BaseModel):
 
     @classmethod
     @field_validator("semester", mode='before')
-    def normalize_lowercase(cls, value: str) -> str:
+    def validate_semester(cls, value: str) -> str:
         """Converts to lowercase and trims spaces."""
         if re.fullmatch("[a-zA-Z]{1,12}[0-9]{4}", value) is not None:
             raise ValueError("Semester is in an invalid format. "
@@ -36,3 +36,8 @@ class Course(BaseModel):
     def normalize_instructor_emails(cls, value: List[str]) -> List[str]:
         """Ensure all instructor emails are lowercased."""
         return [email.strip().lower() for email in value]
+
+    @classmethod
+    def normalize_instructor_email(cls, value: EmailStr) -> EmailStr:
+        """Ensure instructor email is lowercased."""
+        return value.strip().lower()
