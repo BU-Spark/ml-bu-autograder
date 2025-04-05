@@ -346,14 +346,10 @@ class AzureBlobService:
 
         logging.debug(f"Starting recursive delete for course {course_id}")
 
-        try:
-            files = self.fs.glob(full_path + "**")
-            self.fs.rm(full_path, recursive=True)
-            logging.info(f"Deleted {len(files)} blobs for course {course_id}")
-            return len(files)
-        except Exception as e:
-            logging.error(f"Failed to delete course {course_id}: {e}")
-            return 0
+        files = self.fs.glob(full_path + "**")
+        self.fs.rm(full_path, recursive=True)
+        logging.info(f"Deleted {len(files)} blobs for course {course_id}")
+        return len(files)
 
     def delete_course_material(self, semester_key: str, course_id: str, material_id: str):
         """Deletes specific course material."""
@@ -431,19 +427,33 @@ class AzureBlobService:
         """
         pattern = f"course/{semester_key}/*/course.json" if semester_key else "course/*/*/course.json"
         courses = []
-        try:
-            for file in self.fs.glob(self._full_path(pattern)):
-                # if user doesn't have access to this course, skip
-                if not user.authenticated_courses.__contains__(file.name):
-                    continue
-                # Remove the container prefix before passing to download_json
-                relative_path = file.split('/', 1)[1]
-                data = self.download_json(relative_path)
-                if data:
-                    courses.append(Course(**data))
-        except Exception as e:
-            logging.error(f"Failed to list courses: {e}")
+        for file in self.fs.glob(self._full_path(pattern)):
+            # if user doesn't have access to this course, skip
+            if not user.authenticated_courses.__contains__(file.name):
+                continue
+            # Remove the container prefix before passing to download_json
+            relative_path = file.split('/', 1)[1]
+            data = self.download_json(relative_path)
+            if data:
+                courses.append(Course(**data))
         return courses
+
+    def list_course_materials(self, semester_key: str, course_id: str) -> List[CourseMaterial]:
+        """
+        Lists all course materials for a given course.
+        """
+        pattern = f"course/{semester_key}/{course_id}/course_material/*.json"
+        materials = []
+        logging.debug(f"Listing course materials for course {course_id}")
+
+        for file in self.fs.glob(self._full_path(pattern)):
+            relative_path = file.split('/', 1)[1]
+            data = self.download_json(relative_path)
+            if data:
+                materials.append(CourseMaterial(**data))
+
+        logging.debug(f"Found {len(materials)} course materials")
+        return materials
 
     def list_assignments(self, semester_key: str, course_id: str) -> List[Assignment]:
         """Lists all assignments for a course."""
@@ -451,14 +461,11 @@ class AzureBlobService:
         assignments = []
         logging.debug(f"Listing assignments for course {course_id}")
 
-        try:
-            for file in self.fs.glob(self._full_path(pattern)):
-                relative_path = file.split('/', 1)[1]
-                data = self.download_json(relative_path)
-                if data:
-                    assignments.append(Assignment(**data))
-        except Exception as e:
-            logging.error(f"Assignment listing failed: {e}")
+        for file in self.fs.glob(self._full_path(pattern)):
+            relative_path = file.split('/', 1)[1]
+            data = self.download_json(relative_path)
+            if data:
+                assignments.append(Assignment(**data))
 
         logging.debug(f"Found {len(assignments)} assignments")
         return assignments
@@ -469,14 +476,11 @@ class AzureBlobService:
         questions = []
         logging.debug(f"Listing questions for assignment {assignment_id}")
 
-        try:
-            for file in self.fs.glob(self._full_path(pattern)):
-                relative_path = file.split('/', 1)[1]
-                data = self.download_json(relative_path)
-                if data:
-                    questions.append(Question(**data))
-        except Exception as e:
-            logging.error(f"Question listing failed: {e}")
+        for file in self.fs.glob(self._full_path(pattern)):
+            relative_path = file.split('/', 1)[1]
+            data = self.download_json(relative_path)
+            if data:
+                questions.append(Question(**data))
 
         logging.debug(f"Found {len(questions)} questions")
         return questions
@@ -492,14 +496,11 @@ class AzureBlobService:
         responses = []
         logging.debug(f"Listing student responses for assignment {assignment_id}")
 
-        try:
-            for file in self.fs.glob(self._full_path(pattern)):
-                relative_path = file.split('/', 1)[1]
-                data = self.download_json(relative_path)
-                if data:
-                    responses.append(StudentResponse(**data))
-        except Exception as e:
-            logging.error(f"Response listing failed: {e}")
+        for file in self.fs.glob(self._full_path(pattern)):
+            relative_path = file.split('/', 1)[1]
+            data = self.download_json(relative_path)
+            if data:
+                responses.append(StudentResponse(**data))
 
         logging.debug(f"Found {len(responses)} responses")
         return responses
