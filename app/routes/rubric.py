@@ -1,7 +1,8 @@
+import re
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, status, Query, Body
-from pydantic import Field, BaseModel
+from pydantic import Field, BaseModel, field_validator
 
 from app.models.rubric import Rubric, SubRubric
 from app.utils import JWTService
@@ -18,9 +19,18 @@ class EditSubRubricRequest(BaseModel):
     """
     semester: str = Field(..., description="Semester of the course.")
     course_id: str = Field(..., description="Identifier of the course.")
-    assignment_id: str = Field(..., description="Identifier of the assignment.")
+    assignment_id: int = Field(..., description="Identifier of the assignment.")
     sub_rubric: SubRubric = Field(...,
                                   description="Sub-rubric object containing grading instructions and criteria for that specific question.")
+
+    @classmethod
+    @field_validator("semester", mode='before')
+    def normalize_lowercase(cls, value: str) -> str:
+        """Converts to lowercase and trims spaces."""
+        if re.fullmatch("[a-zA-Z]{1,12}[0-9]{4}", value) is not None:
+            raise ValueError("Semester is in an invalid format. "
+                             "Correct format looks like: seasonYYYY. (e.g. spring2025)")
+        return value.strip().lower()
 
 
 # Dummy storage for rubrics
@@ -59,11 +69,13 @@ async def create_rubric(
     }
 )
 async def get_ai_rubric(
-        assignment_id: str = Query(..., description="Identifier of the assignment."),
+        assignment_id: int = Query(..., description="Identifier of the assignment."),
         instructions: Optional[str] = Query(None, description="Optional specific improvement instructions for the AI.")
 ):
     blob_uploader = AzureBlobService.get_instance()
     dummy_rubric = Rubric(
+        semester="spring2024",
+        course_id="cs123",
         assignment_id=assignment_id,
         grading_flags=["IGNORE_SPELLINGS", "IGNORE_GRAMMAR"],
         leniency=4,
@@ -85,7 +97,7 @@ async def get_ai_rubric(
     }
 )
 async def get_rubric(
-        assignment_id: str = Query(..., description="Identifier of the assignment."),
+        assignment_id: int = Query(..., description="Identifier of the assignment."),
         question_index: Optional[int] = Query(None,
                                               description="Optional question index to retrieve a specific sub-rubric.")
 ):

@@ -1,7 +1,8 @@
+import re
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class GradingFlag(str, Enum):
@@ -55,7 +56,7 @@ class Rubric(BaseModel):
     """
     semester: str = Field(..., description="The semester associated with the course.")
     course_id: str = Field(..., description="Associated course identifier.")
-    assignment_id: str = Field(..., description="Associated assignment's ID.")
+    assignment_id: int = Field(..., description="Associated assignment's ID.")
     grading_flags: Optional[List[GradingFlag]] = Field(
         None, description=(
             "List of grading flags that modify grading behavior. Options:\n"
@@ -77,7 +78,17 @@ class Rubric(BaseModel):
         exclude=True  # serialization handled separately
     )
 
-    @validator("semester", "course_id", "assignment_id", pre=True, always=True)
+    @classmethod
+    @field_validator("course_id", "assignment_id", mode="before")
     def normalize_lowercase(cls, value: str) -> str:
         """Converts course_id and semester to lowercase and trims spaces."""
+        return value.strip().lower()
+
+    @classmethod
+    @field_validator("semester", mode='before')
+    def normalize_lowercase(cls, value: str) -> str:
+        """Converts to lowercase and trims spaces."""
+        if re.fullmatch("[a-zA-Z]{1,12}[0-9]{4}", value) is not None:
+            raise ValueError("Semester is in an invalid format. "
+                             "Correct format looks like: seasonYYYY. (e.g. spring2025)")
         return value.strip().lower()

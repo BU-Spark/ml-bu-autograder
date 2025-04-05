@@ -58,7 +58,7 @@ async def get_course_materials(
 async def get_course_material(
         semester: str = Query(..., description="Semester of the course."),
         course_id: str = Query(..., description="Identifier of the course."),
-        material_id: str = Query(..., description="Unique identifier of the specific material."),
+        material_id: int = Query(..., description="Unique identifier of the specific material."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
@@ -133,7 +133,7 @@ async def upload_course_material(
 async def delete_course_material(
         semester: str = Query(..., description="Semester of the course."),
         course_id: str = Query(..., description="Identifier of the course."),
-        material_id: str = Query(..., description="Unique identifier of the material to delete."),
+        material_id: int = Query(..., description="Unique identifier of the material to delete."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()

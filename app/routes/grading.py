@@ -10,10 +10,6 @@ router = APIRouter()
 user_from_auth = JWTService.get_instance().from_authorization_header
 
 
-# Dummy storage for grades
-dummy_grades: List[Grade] = []
-
-
 @router.post(
     "/grade/specific",
     response_model=List[Grade],
@@ -28,18 +24,13 @@ dummy_grades: List[Grade] = []
 )
 async def grade_specific(
         student_ids: List[str] = Query(..., description="List of student identifiers to grade."),
-        assignment_id: str = Query(..., description="Identifier of the assignment."),
+        assignment_id: int = Query(..., description="Identifier of the assignment."),
         question_index: Optional[int] = Query(None,
-                                              description="Optional index of the question. Grades all questions if omitted.")
+                                              description="Optional index of the question. Grades all questions if "
+                                                          "omitted.")
 ):
     blob_uploader = AzureBlobService.get_instance()
-    grades = []
-    for student in student_ids:
-        grade_obj = Grade(student_id=student, assignment_id=assignment_id, question_index=question_index or 0,
-                          grade=90.0, explanation="Dummy grade.")
-        dummy_grades.append(grade_obj)
-        grades.append(grade_obj)
-    return grades
+    return []
 
 
 @router.post(
@@ -55,15 +46,13 @@ async def grade_specific(
     }
 )
 async def grade_ungraded(
-        assignment_id: str = Query(..., description="Identifier of the assignment."),
+        assignment_id: int = Query(..., description="Identifier of the assignment."),
         question_index: Optional[int] = Query(None,
-                                              description="Optional index of the question to grade. Grades all ungraded questions if omitted.")
+                                              description="Optional index of the question to grade. Grades all "
+                                                          "ungraded questions if omitted.")
 ):
     blob_uploader = AzureBlobService.get_instance()
-    grade_obj = Grade(student_id="student123", assignment_id=assignment_id, question_index=question_index or 0,
-                      grade=85.0, explanation="Dummy grade for ungraded response.")
-    dummy_grades.append(grade_obj)
-    return [grade_obj]
+    return []
 
 
 @router.post(
@@ -79,12 +68,10 @@ async def grade_ungraded(
     }
 )
 async def grade_all(
-        assignment_id: str = Query(..., description="Identifier of the assignment."),
+        assignment_id: int = Query(..., description="Identifier of the assignment."),
         question_index: int = Query(None,
-                                    description="Optional index of the question to grade or regrade. Grades all questions if omitted.")
+                                    description="Optional index of the question to grade or regrade. Grades all "
+                                                "questions if omitted.")
 ):
     blob_uploader = AzureBlobService.get_instance()
-    grade_obj = Grade(student_id="student123", assignment_id=assignment_id, question_index=question_index or 0,
-                      grade=88.0, explanation="Dummy grade for all responses.")
-    dummy_grades.append(grade_obj)
-    return [grade_obj]
+    return []

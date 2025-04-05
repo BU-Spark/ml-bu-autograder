@@ -103,10 +103,10 @@ async def replace_response(
     }
 )
 async def delete_response(
-        student_id: str = Query(..., description="Unique identifier for the student."),
+        student_id: str = Query(..., description="Student's unique identifier usually their email."),
         semester: str = Query(..., description="Semester of the course."),
         course_id: str = Query(..., description="Identifier of the course."),
-        assignment_id: str = Query(..., description="Identifier of the assignment."),
+        assignment_id: int = Query(..., description="Identifier of the assignment."),
         question_index: Optional[int] = Query(None, description="Optional index of the question. If omitted, all responses for the assignment are deleted."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
@@ -157,7 +157,7 @@ async def delete_response(
 async def get_responses(
         semester: str = Query(..., description="Semester of the course."),
         course_id: str = Query(..., description="Identifier of the course."),
-        assignment_id: str = Query(..., description="Identifier of the assignment."),
+        assignment_id: int = Query(..., description="Identifier of the assignment."),
         question_index: Optional[int] = Query(None, description="Optional index of the question."),
         student_id: Optional[str] = Query(None, description="Optional unique identifier for the student."),
         user_meta: UserToken = Depends(user_from_auth),
