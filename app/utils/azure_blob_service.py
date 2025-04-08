@@ -164,7 +164,7 @@ class AzureBlobService:
 
     def upload_user(self, user: User):
         """Uploads user metadata."""
-        blob_path = f"user/{user.user_email}.json"
+        blob_path = f"user/{user.user_email}/user.json"
         logging.debug(f"Uploading user {user.user_email}")
         self.upload_json(user, blob_path)
 
@@ -325,7 +325,7 @@ class AzureBlobService:
 
     def get_user(self, user_email: EmailStr) -> Optional[User]:
         """Retrieves user data if exists."""
-        blob_path = f"user/{user_email}.json"
+        blob_path = f"user/{user_email}/user.json"
         logging.debug(f"Fetching user {user_email}")
         data = self.download_json(blob_path)
         return User(**data) if data else None
@@ -504,9 +504,10 @@ class AzureBlobService:
 
     def delete_user(self, user_email: EmailStr):
         """Deletes user data."""
-        blob_path = f"user/{user_email}.json"
-        logging.debug(f"Deleting user {user_email}")
-        self.delete_blob(blob_path)
+        user_prefix = f"user/{user_email}"
+        full_path = self._full_path(user_prefix)
+        logging.debug(f"Recursively deleting all user data under {user_prefix}")
+        self.fs.rm(full_path, recursive=True)
 
     def delete_token(self, user_email: EmailStr, token_name: str):
         """Deletes specific access token."""
