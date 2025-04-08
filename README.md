@@ -143,6 +143,14 @@ pip install -r requirements.txt
 
 Copy the sample `.env-example` file to `.env`. Then provide or modify all environment variables as needed.
 
+To generate a secure JWT encryption secret, run the script located at the root of the repository:
+
+```bash
+python generate_jwt_secret.py
+```
+
+Then, set the `JWT_ENCRYPTION_SECRET_FILE` environment variable to the path of the generated secret file (output by the script).
+
 ### 🖥️ Start the Application
 
 Start the FastAPI application using Uvicorn with the auto-reload option for development:

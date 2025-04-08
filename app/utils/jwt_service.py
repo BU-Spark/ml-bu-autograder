@@ -1,5 +1,6 @@
 import datetime
 import json
+import logging
 from typing import Optional
 
 import jwt
@@ -7,14 +8,10 @@ from fastapi import Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import FilePath, BaseModel, EmailStr
 
-from app.models import User
+from app.models import User, PersonalAccessToken, WebsiteAccessToken
+from app.models.token import UserToken, TokenType
 
 jwt_service: Optional["JWTService"] = None
-
-
-class UserToken(BaseModel):
-    user_email: EmailStr
-    token_expiry: datetime.datetime
 
 
 class JWTService:
@@ -32,49 +29,149 @@ class JWTService:
     def create_user_jwt(
             self,
             user: User,
-            token_expiry: datetime.datetime = datetime.datetime.now() + datetime.timedelta(days=30)
+            token_expiry: datetime.datetime = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=30)
     ) -> str:
         """
-        Creates a JSON Web Token from the given user.
-        :param token_expiry:
-        :param user: the user for whom to create the JSON Web Token for
-        :return: the JWT token
+        Creates a JSON Web Token (JWT) for the given user using standard claims.
+
+        :param user: The user object containing user_email.
+        :param token_expiry: The absolute expiration time for the token (timezone-aware recommended).
+                               Defaults to 30 days from now.
+        :return: The encoded JWT string.
+        :raises jwt.PyJWTError: If encoding fails.
+        """
+        # Use standard JWT claims: 'exp' (expiration time), 'iat' (issued at), 'sub' (subject)
+        payload = {
+            "sub": user.user_email,  # Subject claim is standard for user identifier
+            "exp": token_expiry,
+            "iat": datetime.datetime.now(datetime.timezone.utc),
+            "type": TokenType.WEBSITE_ACCESS_TOKEN.value,
+        }
+        token = jwt.encode(payload, self._private_key_, algorithm=self._algorithm_)
+        return token
+
+    def create_access_token(
+            self,
+            user: User,
+            token_name: str,
+            # Use timezone-aware datetimes for expiry
+            token_expiry: datetime.datetime
+    ) -> str:
+        """
+        Creates a named access token (e.g., for API keys) for a user.
+
+        :param user: The user object containing user_email.
+        :param token_name: A name to identify the token's purpose.
+        :param token_expiry: The absolute expiration time for the token (timezone-aware recommended).
+        :return: The encoded JWT string.
+        :raises jwt.PyJWTError: If encoding fails.
         """
         payload = {
-            "user_email": user.user_email,
-            "token_expiry": token_expiry,
-        }
-        token = jwt.encode(payload, self._private_key_, algorithm=self._algorithm_)
-        return token
-
-    def create_access_token(self, user: User, token_name: str, token_expiry: datetime.datetime) -> str:
-        payload = {
-            "user_email": user.user_email,
+            # subject
+            "sub": user.user_email,
+            # expiry
+            "exp": token_expiry,
+            # issued at
+            "iat": datetime.datetime.now(datetime.timezone.utc),
+            # custom
+            "type": TokenType.PERSONAL_ACCESS_TOKEN.value,
             "token_name": token_name,
-            "token_expiry": token_expiry,
         }
         token = jwt.encode(payload, self._private_key_, algorithm=self._algorithm_)
         return token
 
-    def decode_jwt(self, token: str) -> Optional[UserToken]:
-        decoded_json = jwt.decode(token, self._public_key_, algorithms=[self._algorithm_])
-        if decoded_json.exp < datetime.datetime.now():
+    def decode_jwt(self, token: str) -> Optional[dict]:
+        """
+        Decodes and validates a JWT using the public key.
+
+        Validates signature, expiration ('exp'), not before ('nbf', if present),
+        issued at ('iat', if present).
+
+        :param token: The JWT string to decode.
+        :return: The decoded payload dictionary if the token is valid, otherwise None.
+        """
+        try:
+            payload = jwt.decode(
+                token,
+                self._public_key_,
+                algorithms=[self._algorithm_],
+                leeway=datetime.timedelta(seconds=30)  # Allow 30 seconds clock skew
+            )
+            return payload
+        except jwt.ExpiredSignatureError:
+            logging.warning("Token signature has expired.")
             return None
-        return UserToken(user_email=decoded_json.user_email, token_expiry=decoded_json.token_expiry)
+        except jwt.InvalidTokenError as e:
+            # Covers various issues: invalid signature, invalid claims, etc.
+            logging.warning(f"Invalid token received: {e}")
+            return None
+        except Exception as e:
+            # Catch unexpected errors during decoding
+            logging.error(f"Unexpected error decoding JWT: {e}", exc_info=True)
+            return None
+
+    def get_user_token_from_payload(self, payload: dict) -> Optional[UserToken]:
+        """
+        Extracts UserToken relevant information from a decoded JWT payload.
+        Assumes standard 'exp' claim and custom 'user_email' claim.
+        """
+        if not payload:
+            return None
+        try:
+            # Reconstruct the UserToken object based on the original structure
+            # Note: The original UserToken had token_expiry. PyJWT validates 'exp'.
+            # We extract 'exp' and 'user_email' (or 'sub') here.
+            expiry_timestamp = payload.get('exp')
+            user_email = payload.get('sub')
+            token_type = payload.get('type')
+
+            if not expiry_timestamp or not user_email:
+                logging.warning("Decoded payload missing 'exp' or 'user_email'/'sub'.")
+                return None
+
+            # Convert UNIX timestamp ('exp') back to datetime object (UTC)
+            token_expiry_dt = datetime.datetime.fromtimestamp(expiry_timestamp, tz=datetime.timezone.utc)
+
+            if token_type.lower() == TokenType.PERSONAL_ACCESS_TOKEN.value:
+                return PersonalAccessToken(
+                    user_email=user_email,
+                    token_expiry=token_expiry_dt,
+                    token_name=payload.get('token_name')
+                )
+            else:
+                return WebsiteAccessToken(
+                    user_email=user_email,
+                    token_expiry=token_expiry_dt
+                )
+        except (KeyError, ValueError, TypeError) as e:
+            logging.error(f"Error extracting UserToken data from payload: {e}", exc_info=True)
+            return None
 
     def from_authorization_header(self, credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer())) -> Optional[UserToken]:
         """
-        Extracts the token from the authorization header and then figures out requesting
-        user from it. The authorization header is expected to be in the format "Bearer <token>".
-        :param credentials: The bearer token
-        :return: The user associated with the token
+        FastAPI dependency to extract, decode, and validate a JWT from the
+        'Authorization: Bearer <token>' header, returning a UserToken object.
+
+        :param credentials: The HTTPAuthorizationCredentials injected by FastAPI.
+        :return: A UserToken object if the token is valid and contains necessary info, otherwise None.
+                 Returning None typically results in a 401/403 response in FastAPI.
         """
-        # TODO, this was temp
-        return UserToken(
-            user_email="bobross@gmail.com",
-            token_expiry=datetime.datetime.now().__add__(datetime.timedelta(days=30)),
-        )
-        return self.decode_jwt(credentials.credentials)
+        if not credentials or credentials.scheme.lower() != "bearer":
+            logging.debug("Missing or invalid Authorization header scheme (not Bearer).")
+            return None  # Will cause FastAPI to return 401/403 Unauthorized
+
+        token = credentials.credentials
+        decoded_payload = self.decode_jwt(token)
+
+        if decoded_payload is None:
+            return None   # Will cause FastAPI to return 401/403 Unauthorized
+
+        # Extract user info from the valid payload
+        user_token = self.get_user_token_from_payload(decoded_payload)
+        if user_token is None:
+            return None  # Payload structure issue
+
+        return user_token
 
     @staticmethod
     def init_singleton(jwt_secrets_file: FilePath):

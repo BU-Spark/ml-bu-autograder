@@ -33,15 +33,3 @@ class User(BaseModel):
         Ensure email is lowercased before being parsed/validated.
         """
         return value.strip().lower()
-
-
-class PersonalAuthenticationToken(BaseModel):
-    """
-    JWT for interactive sessions on the official front end.
-    """
-    user_email: EmailStr = Field(
-        ..., description="Instructor’s email address and user id."
-    )
-    authentication_token: str = Field(
-        ..., description="The JSON Web Token (JWT) string used for authentication."
-    )

@@ -8,7 +8,7 @@ import fsspec
 from azure.identity import ChainedTokenCredential
 from pydantic import EmailStr
 
-from app.models import Course, Assignment, Question, StudentResponse, Rubric, CourseMaterial, User, AccessToken, \
+from app.models import Course, Assignment, Question, StudentResponse, Rubric, CourseMaterial, User, PersonalAccessToken, \
     SubRubric, Grade
 from app.models.student_response import GradedStudentResponse
 
@@ -166,7 +166,7 @@ class AzureBlobService:
         logging.debug(f"Uploading user {user.user_email}")
         self.upload_json(user, blob_path)
 
-    def upload_token(self, user_email: str, token: AccessToken):
+    def upload_token(self, user_email: EmailStr, token: PersonalAccessToken):
         """Uploads access token for specified user."""
         blob_path = f"user/{user_email}/tokens/{token.token_name}.json"
         logging.debug(f"Uploading token {token.token_name} for user {user_email}")
@@ -328,12 +328,12 @@ class AzureBlobService:
         data = self.download_json(blob_path)
         return User(**data) if data else None
 
-    def get_token(self, user_email: str, token_name: str) -> Optional[AccessToken]:
+    def get_token(self, user_email: EmailStr, token_name: str) -> Optional[PersonalAccessToken]:
         """Retrieves access token if exists."""
         blob_path = f"user/{user_email}/tokens/{token_name}.json"
         logging.debug(f"Fetching token {token_name} for user {user_email}")
         data = self.download_json(blob_path)
-        return AccessToken(**data) if data else None
+        return PersonalAccessToken(**data) if data else None
 
     def delete_student_response(self, semester: str, course_id: str, assignment_id: int, question_index: int, student_id: str):
         """Deletes a specific student response."""
@@ -366,6 +366,32 @@ class AzureBlobService:
         for file in self.fs.glob(self._full_path(pattern)):
             relative_path = file.split('/', 1)[1]
             self.delete_blob(relative_path)
+
+    def list_personal_access_tokens(self, user_email: EmailStr) -> List[PersonalAccessToken]:
+        """
+        Lists all personal access tokens for a given user.
+
+        Args:
+            user_email: Email of the user.
+
+        Returns:
+            List of PersonalAccessToken objects.
+        """
+        pattern = f"user/{user_email}/tokens/*.json"
+        tokens = []
+        logging.debug(f"Listing tokens for user {user_email}")
+
+        for file in self.fs.glob(self._full_path(pattern)):
+            relative_path = file.split('/', 1)[1]
+            data = self.download_json(relative_path)
+            if data:
+                try:
+                    tokens.append(PersonalAccessToken(**data))
+                except Exception as e:
+                    logging.warning(f"Failed to parse token at {relative_path}: {e}")
+
+        logging.debug(f"Found {len(tokens)} tokens for user {user_email}")
+        return tokens
 
     def list_student_responses(self, semester: str, course_id: str, assignment_id: int,
                              question_index: Optional[int] = None) -> List[StudentResponse]:
@@ -460,13 +486,13 @@ class AzureBlobService:
         logging.debug(f"Recursively deleting all blobs under {assignment_prefix}")
         self.fs.rm(full_path, recursive=True)
 
-    def delete_user(self, user_email: str):
+    def delete_user(self, user_email: EmailStr):
         """Deletes user data."""
         blob_path = f"user/{user_email}.json"
         logging.debug(f"Deleting user {user_email}")
         self.delete_blob(blob_path)
 
-    def delete_token(self, user_email: str, token_name: str):
+    def delete_token(self, user_email: EmailStr, token_name: str):
         """Deletes specific access token."""
         blob_path = f"user/{user_email}/tokens/{token_name}.json"
         logging.debug(f"Deleting token {token_name} for user {user_email}")
@@ -588,6 +614,13 @@ class AzureBlobService:
         full_path = self._full_path(blob_path)
         exists = self.fs.exists(full_path)
         logging.debug(f"Assignment existence check for {assignment_id}: {exists}")
+        return exists
+
+    def token_exists(self, user_email: EmailStr, token_name: str) -> bool:
+        blob_path = f"user/{user_email}/tokens/{token_name}.json"
+        full_path = self._full_path(blob_path)
+        exists = self.fs.exists(full_path)
+        logging.debug(f"Token existence check for {user_email}: {exists}")
         return exists
 
     def count_questions(self, semester_key: str, course_id: str, assignment_id: int) -> int:
