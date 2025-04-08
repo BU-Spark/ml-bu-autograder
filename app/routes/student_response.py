@@ -47,7 +47,7 @@ async def upload_response(
 
     # Upload the response
     blob_uploader.upload_student_response(response)
-    return {"message": "Response uploaded successfully."}
+    return {"detail":  "Response uploaded successfully."}
 
 
 @router.put(
@@ -89,7 +89,7 @@ async def replace_response(
 
     # Upload the updated response
     blob_uploader.upload_student_response(response)
-    return {"message": "Response replaced successfully."}
+    return {"detail":  "Response replaced successfully."}
 
 
 @router.delete(
@@ -141,11 +141,11 @@ async def delete_response(
 
         # Delete specific response
         blob_uploader.delete_student_response(semester, course_id, assignment_id, question_index, student_id)
-        return {"message": "Response deleted successfully."}
+        return {"detail":  "Response deleted successfully."}
     else:
         # Delete all responses for the student in this assignment
         blob_uploader.delete_student_responses(semester, course_id, assignment_id, student_id)
-        return {"message": "All responses for the assignment deleted successfully."}
+        return {"detail":  "All responses for the assignment deleted successfully."}
 
 
 @router.get(

@@ -28,17 +28,16 @@ class Assignment(BaseModel):
         ..., description="List of questions in order.", exclude=True  # exclude from serialization, stored separately
     )
 
-    @classmethod
     @field_validator("assignment_id", "course_id", mode='before')
     def normalize_lowercase(cls, value: str) -> str:
         """Converts to lowercase and trims spaces."""
         return value.strip().lower()
 
-    @classmethod
+    
     @field_validator("semester", mode='before')
     def validate_semester(cls, value: str) -> str:
         """Converts to lowercase and trims spaces."""
-        if re.fullmatch("[a-zA-Z]{1,12}[0-9]{4}", value) is not None:
+        if re.fullmatch("[a-z]{1,12}[0-9]{4}", value) is None:
             raise ValueError("Semester is in an invalid format. "
-                             "Correct format looks like: seasonYYYY. (e.g. spring2025)")
+                             "Correct format (case-sensetive) looks like: seasonYYYY. (e.g. spring2025)")
         return value.strip().lower()

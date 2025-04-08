@@ -119,7 +119,7 @@ async def delete_access_token(
 
     blob_uploader.delete_token(user_meta.user_email, token_name)
 
-    return {"message": "The access token has been deleted."}
+    return {"detail":  "The access token has been deleted."}
 
 
 @router.get(

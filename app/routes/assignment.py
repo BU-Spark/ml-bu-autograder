@@ -201,7 +201,7 @@ async def remove_question(
     # Remove the question
     blob_uploader.delete_question_metadata(semester, course_id, assignment_id, question_index)
     
-    return {"message": "Question removed successfully"}
+    return {"detail":  "Question removed successfully"}
 
 
 @router.patch(
@@ -287,7 +287,7 @@ async def modify_order(
     # Reorder questions
     blob_uploader.reorder_questions(reorder_request.semester, reorder_request.course_id, reorder_request.assignment_id, reorder_request.list_of_question_indexes)
     
-    return {"message": "Question order updated successfully"}
+    return {"detail":  "Question order updated successfully"}
 
 
 @router.get(
@@ -412,4 +412,4 @@ async def delete_assignment(
     # Delete assignment metadata
     blob_uploader.delete_assignment(semester, course_id, assignment_id)
     
-    return {"message": "Assignment deleted successfully"}
+    return {"detail":  "Assignment deleted successfully"}

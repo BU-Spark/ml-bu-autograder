@@ -28,6 +28,13 @@ async def create_course(
     if user_meta is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="You are not authenticated.")
     blob_uploader = AzureBlobService.get_instance()
+
+    # if already exists stop
+    if blob_uploader.course_exists(course.semester, course.course_id):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="That course already exists!")
+
+    if user_meta.user_email not in course.instructors:
+        course.instructors.append(user_meta.user_email)
     blob_uploader.upload_course_metadata(course)
     return course
 
@@ -66,7 +73,7 @@ async def delete_course(
     if blobs_deleted == 0:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
 
-    return {"message": "The course was successfully deleted."}
+    return {"detail":  "The course was successfully deleted."}
 
 
 @router.patch(
@@ -197,7 +204,7 @@ async def add_course_instructor(
     instructor_user.authenticated_courses.append((semester, course_id))
     blob_uploader.upload_user(instructor_user)
 
-    return {"message": "The instructor was successfully added to the course!"}
+    return {"detail":  "The instructor was successfully added to the course!"}
 
 
 @router.delete(
@@ -247,4 +254,4 @@ async def remove_course_instructor(
     instructor_user.authenticated_courses.remove((semester, course_id))
     blob_uploader.upload_user(instructor_user)
 
-    return {"message": "The instructor was successfully removed from the course!"}
+    return {"detail":  "The instructor was successfully removed from the course!"}

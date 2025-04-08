@@ -169,7 +169,7 @@ async def delete_course_material(
     # Delete the material
     blob_uploader.delete_course_material(semester, course_id, material_id)
     
-    return {"message": "Course material deleted successfully."}
+    return {"detail":  "Course material deleted successfully."}
 
 
 @router.patch(

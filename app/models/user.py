@@ -26,7 +26,7 @@ class User(BaseModel):
     def is_authorized_to_course(self, semester, course_id: str) -> bool:
         return self.authenticated_courses.__contains__((semester, course_id))
 
-    @classmethod
+    
     @field_validator('user_email', mode='before')
     def normalize_email(cls, value: str) -> str:
         """
