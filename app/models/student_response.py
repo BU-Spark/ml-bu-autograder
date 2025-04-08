@@ -1,6 +1,7 @@
+import re
 from typing import Union, Optional
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 from app.models import Grade
 from app.models.uploaded_file import UploadedFileData, UploadedFileReference
@@ -19,7 +20,7 @@ class StudentResponse(BaseModel):
     course_id: str = Field(
         ..., description="The course identifier."
     )
-    assignment_id: str = Field(
+    assignment_id: int = Field(
         ..., description="Identifier of the assignment the response belongs to."
     )
     question_index: int = Field(
@@ -29,9 +30,19 @@ class StudentResponse(BaseModel):
         ..., description="Either the uploaded file content or a reference to a previously stored file."
     )
 
-    @validator("student_id", "semester", "course_id", "assignment_id", pre=True, always=True)
+    @classmethod
+    @field_validator("student_id", "course_id", "assignment_id", mode="before")
     def normalize_lowercase(cls, value: str) -> str:
         """Converts course_id and semester to lowercase and trims spaces."""
+        return value.strip().lower()
+
+    @classmethod
+    @field_validator("semester", mode='before')
+    def validate_semester(cls, value: str) -> str:
+        """Converts to lowercase and trims spaces."""
+        if re.fullmatch("[a-zA-Z]{1,12}[0-9]{4}", value) is not None:
+            raise ValueError("Semester is in an invalid format. "
+                             "Correct format looks like: seasonYYYY. (e.g. spring2025)")
         return value.strip().lower()
 
 

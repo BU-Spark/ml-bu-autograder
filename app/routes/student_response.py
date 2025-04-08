@@ -1,19 +1,14 @@
 from typing import Optional, List
 
-from fastapi import APIRouter, HTTPException, status, Query, Body
+from fastapi import APIRouter, HTTPException, status, Query, Body, Depends
 
+from app.models import Course
 from app.models.student_response import StudentResponse, GradedStudentResponse
-from app.utils import JWTService
+from app.utils import JWTService, UserToken
 from app.utils.azure_blob_service import AzureBlobService
 
 router = APIRouter()
-user_from_authorization_header = None
-
-
-@router.on_event("startup")
-async def set_user_from_auth_header():
-    global user_from_authorization_header
-    user_from_authorization_header = JWTService.get_instance().from_authorization_header
+user_from_auth = JWTService.get_instance().from_authorization_header
 
 
 # Dummy storage for student responses
@@ -32,10 +27,26 @@ dummy_responses: List[StudentResponse] = []
     }
 )
 async def upload_response(
-        response: StudentResponse = Body(..., description="Student response object containing the answer data.")
+        response: StudentResponse = Body(..., description="Student response object containing the answer data."),
+        user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
-    dummy_responses.append(response)
+
+    # Check if course exists
+    if not blob_uploader.course_exists(response.semester, response.course_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course does not exist.")
+
+    # Check if user has permissions on course
+    user = blob_uploader.get_user(user_meta.user_email)
+    if not user.authenticated_courses.__contains__((response.semester, response.course_id)):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Authenticated but access is not allowed.")
+
+    # Check if assignment exists
+    if not blob_uploader.assignment_exists(response.semester, response.course_id, response.assignment_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment does not exist.")
+
+    # Upload the response
+    blob_uploader.upload_student_response(response)
     return {"message": "Response uploaded successfully."}
 
 
@@ -51,16 +62,34 @@ async def upload_response(
     }
 )
 async def replace_response(
-        response: StudentResponse = Body(..., description="Student response object with the updated answer data.")
+        response: StudentResponse = Body(..., description="Student response object with the updated answer data."),
+        user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
-    for idx, existing in enumerate(dummy_responses):
-        if (existing.student_id == response.student_id and
-                existing.assignment_id == response.assignment_id and
-                existing.question_index == response.question_index):
-            dummy_responses[idx] = response
-            return {"message": "Response replaced successfully."}
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Response not found.")
+
+    # Check if course exists
+    if not blob_uploader.course_exists(response.semester, response.course_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course does not exist.")
+
+    # Check if user has permissions on course
+    user = blob_uploader.get_user(user_meta.user_email)
+    if not user.authenticated_courses.__contains__((response.semester, response.course_id)):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Authenticated but access is not allowed.")
+
+    # Check if assignment exists
+    if not blob_uploader.assignment_exists(response.semester, response.course_id, response.assignment_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment does not exist.")
+
+    # Check if response exists
+    existing_response = blob_uploader.get_student_response(
+        response.semester, response.course_id, response.assignment_id, response.question_index, response.student_id
+    )
+    if not existing_response:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Response not found.")
+
+    # Upload the updated response
+    blob_uploader.upload_student_response(response)
+    return {"message": "Response replaced successfully."}
 
 
 @router.delete(
@@ -75,26 +104,47 @@ async def replace_response(
     }
 )
 async def delete_response(
-        student_id: str = Query(..., description="Unique identifier for the student."),
+        student_id: str = Query(..., description="Student's unique identifier usually their email."),
         semester: str = Query(..., description="Semester of the course."),
-        assignment_id: str = Query(..., description="Identifier of the assignment."),
+        course_id: str = Query(..., description="Identifier of the course."),
+        assignment_id: int = Query(..., description="Identifier of the assignment."),
         question_index: Optional[int] = Query(None,
-                                              description="Optional index of the question. If omitted, all responses "
-                                                          "for the assignment are deleted.")
+                                              description="Optional index of the question. If omitted, all responses for the assignment are deleted."),
+        user_meta: UserToken = Depends(user_from_auth),
 ):
+    # validate params
+    semester = Course.validate_semester(semester)
+    course_id = Course.normalize_lowercase(course_id)
+
     blob_uploader = AzureBlobService.get_instance()
-    global dummy_responses
+
+    # Check if course exists
+    if not blob_uploader.course_exists(semester, course_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course does not exist.")
+
+    # Check if user has permissions on course
+    user = blob_uploader.get_user(user_meta.user_email)
+    if not user.authenticated_courses.__contains__((semester, course_id)):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Authenticated but access is not allowed.")
+
+    # Check if assignment exists
+    if not blob_uploader.assignment_exists(semester, course_id, assignment_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment does not exist.")
+
     if question_index is not None:
-        for response in dummy_responses:
-            if (response.student_id == student_id and
-                    response.assignment_id == assignment_id and
-                    response.question_index == question_index):
-                dummy_responses.remove(response)
-                return {"message": "Response deleted successfully."}
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Response not found.")
+        # Check if specific response exists
+        existing_response = blob_uploader.get_student_response(
+            semester, course_id, assignment_id, question_index, student_id
+        )
+        if not existing_response:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Response not found.")
+
+        # Delete specific response
+        blob_uploader.delete_student_response(semester, course_id, assignment_id, question_index, student_id)
+        return {"message": "Response deleted successfully."}
     else:
-        dummy_responses = [r for r in dummy_responses if
-                           not (r.student_id == student_id and r.assignment_id == assignment_id)]
+        # Delete all responses for the student in this assignment
+        blob_uploader.delete_student_responses(semester, course_id, assignment_id, student_id)
         return {"message": "All responses for the assignment deleted successfully."}
 
 
@@ -112,19 +162,45 @@ async def delete_response(
 )
 async def get_responses(
         semester: str = Query(..., description="Semester of the course."),
-        assignment_id: str = Query(..., description="Identifier of the assignment."),
+        course_id: str = Query(..., description="Identifier of the course."),
+        assignment_id: int = Query(..., description="Identifier of the assignment."),
         question_index: Optional[int] = Query(None, description="Optional index of the question."),
-        student_id: Optional[str] = Query(None, description="Optional unique identifier for the student.")
+        student_id: Optional[str] = Query(None, description="Optional unique identifier for the student."),
+        user_meta: UserToken = Depends(user_from_auth),
 ):
+    # validate params
+    semester = Course.validate_semester(semester)
+    course_id = Course.normalize_lowercase(course_id)
+
     blob_uploader = AzureBlobService.get_instance()
-    results = []
-    for response in dummy_responses:
-        if response.assignment_id == assignment_id:
-            if question_index is not None and response.question_index != question_index:
-                continue
-            if student_id is not None and response.student_id != student_id:
-                continue
-            results.append(response)
-    if results:
-        return results
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No matching responses found.")
+
+    # Check if course exists
+    if not blob_uploader.course_exists(semester, course_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course does not exist.")
+
+    # Check if user has permissions on course
+    user = blob_uploader.get_user(user_meta.user_email)
+    if not user.authenticated_courses.__contains__((semester, course_id)):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Authenticated but access is not allowed.")
+
+    # Check if assignment exists
+    if not blob_uploader.assignment_exists(semester, course_id, assignment_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment does not exist.")
+
+    # Get all responses for the assignment
+    responses = blob_uploader.list_student_responses(semester, course_id, assignment_id, question_index)
+
+    # Filter by student_id if provided
+    if student_id is not None:
+        responses = [r for r in responses if r.student_id == student_id]
+
+    if not responses:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No matching responses found.")
+
+    graded_responses = []
+    for response in responses:
+        graded_response = blob_uploader.get_student_response(semester, course_id, assignment_id,
+                                                             response.question_index, student_id)
+        graded_responses.append(graded_response)
+
+    return graded_responses

@@ -1,6 +1,6 @@
 from typing import Optional, List, Tuple
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class User(BaseModel):
@@ -23,14 +23,13 @@ class User(BaseModel):
         False, description="User's preference for dark mode. Defaults to `False`.",
     )
 
+    def is_authorized_to_course(self, semester, course_id: str) -> bool:
+        return self.authenticated_courses.__contains__((semester, course_id))
 
-class PersonalAuthenticationToken(BaseModel):
-    """
-    JWT for interactive sessions on the official front end.
-    """
-    user_email: EmailStr = Field(
-        ..., description="Instructor’s email address and user id."
-    )
-    authentication_token: str = Field(
-        ..., description="The JSON Web Token (JWT) string used for authentication."
-    )
+    @classmethod
+    @field_validator('user_email', mode='before')
+    def normalize_email(cls, value: str) -> str:
+        """
+        Ensure email is lowercased before being parsed/validated.
+        """
+        return value.strip().lower()

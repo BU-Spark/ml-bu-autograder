@@ -4,17 +4,11 @@ from fastapi import APIRouter, HTTPException, status, Query, Depends
 from pydantic import EmailStr
 
 from app.models.course import Course
-from app.utils import JWTService, UserMeta
+from app.utils import JWTService, UserToken
 from app.utils.azure_blob_service import AzureBlobService
 
 router = APIRouter()
-user_from_authorization_header = None
-
-
-@router.on_event("startup")
-async def set_user_from_auth_header():
-    global user_from_authorization_header
-    user_from_authorization_header = JWTService.get_instance().from_authorization_header
+user_from_auth = JWTService.get_instance().from_authorization_header
 
 
 @router.post(
@@ -29,7 +23,7 @@ async def set_user_from_auth_header():
 )
 async def create_course(
         course: Course,
-        user_meta: UserMeta = Depends(user_from_authorization_header),
+        user_meta: UserToken = Depends(user_from_auth),
 ):
     if user_meta is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="You are not authenticated.")
@@ -51,14 +45,15 @@ async def create_course(
 async def delete_course(
         semester: str = Query(..., description="Semester of the course to delete."),
         course_id: str = Query(..., description="Unique identifier of the course to delete."),
-        user_meta: UserMeta = Depends(user_from_authorization_header),
+        user_meta: UserToken = Depends(user_from_auth),
 ):
+    # validate params
+    semester = Course.validate_semester(semester)
+    course_id = Course.normalize_lowercase(course_id)
+
     if user_meta is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="You are not authenticated.")
     blob_uploader = AzureBlobService.get_instance()
-    # Normalize query params
-    semester = semester.strip().lower()
-    course_id = course_id.strip().lower()
     # Check if course exists
     course = blob_uploader.get_course(semester, course_id)
     if course is None:
@@ -70,6 +65,8 @@ async def delete_course(
     blobs_deleted = blob_uploader.delete_course(semester, course_id)
     if blobs_deleted == 0:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
+
+    return {"message": "The course was successfully deleted."}
 
 
 @router.patch(
@@ -88,13 +85,10 @@ async def transfer_course(
         current_course_id: str = Query(..., description="ID of the course being updated."),
         copy_from_course_semester: str = Query(..., description="Semester of the source course."),
         copy_from_course_id: str = Query(..., description="ID of the course to copy from."),
+        user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
     # normalize query params
-    current_semester = current_semester.strip().lower()
-    current_semester = current_course_id.strip().lower()
-    copy_from_course_semester = copy_from_course_semester.strip().lower()
-    copy_from_course_id = copy_from_course_id.strip().lower()
 
     # TODO: not worth implementing rn
     raise NotImplementedError()
@@ -115,17 +109,19 @@ async def transfer_course(
 async def get_course(
         semester: str = Query(..., description="Course semester."),
         course_id: str = Query(..., description="Unique identifier of the course."),
-        user_meta: UserMeta = Depends(user_from_authorization_header),
+        user_meta: UserToken = Depends(user_from_auth),
 ):
+    # validate params
+    semester = Course.validate_semester(semester)
+    course_id = Course.normalize_lowercase(course_id)
+
     blob_uploader = AzureBlobService.get_instance()
 
-    # normalize query params
-    semester = semester.strip().lower()
-    course_id = course_id.strip().lower()
     # Get the course
     course = blob_uploader.get_course(semester, course_id)
     if course is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
+    # Make sure user is authorized on the course
     if user_meta.user_email not in course.instructors:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not authorized on this course.")
     return course
@@ -141,15 +137,15 @@ async def get_course(
     }
 )
 async def list_courses(
-        user_meta: UserMeta = Depends(user_from_authorization_header),
         semester: Optional[str] = Query(None, description="The semester for which to list the courses for."),
+        user_meta: UserToken = Depends(user_from_auth),
 ):
-    # TODO: this lists all courses
-    #  It should instead list only the courses user has access to
-    blob_uploader = AzureBlobService.get_instance()
+    # validate params
+    semester = None if semester is None else Course.validate_semester(semester)
 
-    semester = None if None else semester.strip().lower()
-    user = ...  # TODO
+    blob_uploader = AzureBlobService.get_instance()
+    semester = None if semester is None else semester.strip().lower()
+    user = blob_uploader.get_user(user_meta.user_email)
     return blob_uploader.list_courses(user, semester)
 
 
@@ -169,27 +165,39 @@ async def add_course_instructor(
         semester: str = Query(..., description="Semester of the course."),
         course_id: str = Query(..., description="Unique identifier of the course."),
         instructor: EmailStr = Query(..., description="Email of the instructor to add."),
+        user_meta: UserToken = Depends(user_from_auth),
 ):
+    # validate params
+    semester = Course.validate_semester(semester)
+    course_id = Course.normalize_lowercase(course_id)
+    instructor = Course.normalize_instructor_email(instructor)
+
     blob_uploader = AzureBlobService.get_instance()
     # normalize query params
     semester = semester.strip().lower()
     course_id = course_id.strip().lower()
     instructor = instructor.strip().lower()
 
-    instructors = blob_uploader.get_instructors(semester, course_id)
-    if instructors is None:
+    course = blob_uploader.get_course(semester, course_id)
+    if course is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
 
-    if instructors.__contains__(instructor):
+    # Check if user has perms
+    if user_meta.user_email not in course.instructors:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not authorized on this course.")
+
+    if course.instructors.__contains__(instructor):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
                             detail="Instructor is already assigned to the course.")
 
-    instructors.append(instructor)
-    blob_uploader.upload_instructors(semester, course_id, instructors)
+    course.instructors.append(instructor)
+    blob_uploader.upload_course_metadata(course)
 
     instructor_user = blob_uploader.get_user(instructor)
     instructor_user.authenticated_courses.append((semester, course_id))
     blob_uploader.upload_user(instructor_user)
+
+    return {"message": "The instructor was successfully added to the course!"}
 
 
 @router.delete(
@@ -206,7 +214,8 @@ async def add_course_instructor(
 async def remove_course_instructor(
         course_id: str = Query(..., description="Unique identifier of the course."),
         semester: str = Query(..., description="Semester of the course."),
-        instructor: str = Query(..., description="Email of the instructor to remove."),
+        instructor: EmailStr = Query(..., description="Email of the instructor to remove."),
+        user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
     # normalize query params
@@ -214,20 +223,28 @@ async def remove_course_instructor(
     course_id = course_id.strip().lower()
     instructor = instructor.strip().lower()
 
-    instructors = blob_uploader.get_instructors(semester, course_id)
-    if instructors is None:
+    course = blob_uploader.get_course(semester, course_id)
+    if course is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
 
-    if not instructors.__contains__(instructor):
+    # Check if user has perms
+    if user_meta.user_email not in course.instructors:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not authorized on this course.")
+
+    # Check if this instructor is even assigned to this course
+    if not course.__contains__(instructor):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Instructor not assigned to the course.")
 
-    if instructor == "TODO":
+    # Cant remove self from course!
+    if instructor == user_meta.user_email:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                             detail="You cannot remove yourself from the course.")
 
-    instructors.remove(instructor)
-    blob_uploader.upload_instructors(semester, course_id, instructors)
+    course.instructors.remove(instructor)
+    blob_uploader.upload_course_metadata(course)
 
     instructor_user = blob_uploader.get_user(instructor)
     instructor_user.authenticated_courses.remove((semester, course_id))
     blob_uploader.upload_user(instructor_user)
+
+    return {"message": "The instructor was successfully removed from the course!"}

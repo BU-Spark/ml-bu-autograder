@@ -1,31 +1,41 @@
+import json
+import os
+import requests
 from typing import List
 
-from fastapi import APIRouter, HTTPException, status, Query
+from fastapi import APIRouter, HTTPException, Query, status, Depends
+from pydantic import EmailStr
 
-from app.models.token import AccessToken
-from app.models.user import User, PersonalAuthenticationToken
+from app.models.token import PersonalAccessToken, UserToken, WebsiteAccessToken
+from app.models.user import User
 from app.utils import JWTService
 from app.utils.azure_blob_service import AzureBlobService
 
 router = APIRouter()
-user_from_authorization_header = None
+user_from_auth = JWTService.get_instance().from_authorization_header
 
+jwt_service = JWTService.get_instance()
+blob_service = AzureBlobService.get_instance()
 
-@router.on_event("startup")
-async def set_user_from_auth_header():
-    global user_from_authorization_header
-    user_from_authorization_header = JWTService.get_instance().from_authorization_header
+# TODO FAHIM: USE ENVIRONMENT VARIABLES DONT HARDCODE
+# Load Google OAuth client secrets
+with open(os.getenv("GOOGLE_OAUTH_CLIENT_FILE", "client_secret.json"), "r") as f:
+    google_oauth_config = json.load(f)
 
+GOOGLE_CLIENT_ID = google_oauth_config["web"]["client_id"]
+GOOGLE_CLIENT_SECRET = google_oauth_config["web"]["client_secret"]
+GOOGLE_REDIRECT_URI = google_oauth_config["web"]["redirect_uris"][0]
+GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 
 # Dummy in-memory storage for access tokens
 dummy_access_tokens = [
-    AccessToken(token_name="token_1", token_id="abc123", token_expiry=None)
+    PersonalAccessToken(token_name="token_1", token_expiry=None)
 ]
 
-
+#TODO
 @router.post(
     "/token",
-    response_model=AccessToken,
+    response_model=PersonalAccessToken,
     summary="Create Access Token",
     description="Creates a new access token for programmatic API access for the authenticated user.",
     responses={
@@ -35,11 +45,26 @@ dummy_access_tokens = [
 )
 async def create_access_token(
         token_name: str = Query(...,
-                                description="Friendly name for the token. Defaults to 'token_n' (where n is a number).")
+                                description="Friendly name for the token.  "
+                                            "Only alphanumeric characters and underscores are allowed."
+                                            "Defaults to 'token_n' (where n is a number).")
 ):
-    new_token = AccessToken(token_name=token_name, token_id="newtoken123", token_expiry=None)
+    #create a new access token and stores it in the dummy_access_tokens list
+
+    #added checking for duplicate token names
+    if any(token.token_name == token_name for token in dummy_access_tokens):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Token name already exists."
+        )
+    new_token = PersonalAccessToken(token_name=token_name, token_expiry=None)
     dummy_access_tokens.append(new_token)
-    return new_token
+
+    # uploads the dummy data to Azure Blob Storage
+    return {
+        **new_token,
+        "secret": "AJTWSecretThatWillNeverBeShownAgain"
+    }
 
 
 @router.delete(
@@ -47,25 +72,33 @@ async def create_access_token(
     summary="Delete Access Token",
     description="Deletes an existing access token.",
     responses={
-        400: {"description": "token_id is missing or invalid."},
+        400: {"description": "token_name is missing or invalid."},
         404: {"description": "Token not found."},
         403: {"description": "Authenticated but access is not allowed."}
     }
 )
 async def delete_access_token(
-        token_id: str = Query(..., description="Unique identifier of the access token to delete.")
+        token_name: str = Query(..., description="Unique identifier of the access token to delete."),
+        user_meta: UserToken = Depends(user_from_auth),
 ):
+    if isinstance(user_meta, WebsiteAccessToken):
+        ...  # good
+    elif isinstance(user_meta, PersonalAccessToken):
+        # not allowed
+        raise HTTPException(status_code=403, detail="Personal Access Tokens are not permitted to access this endpoint.")
     blob_uploader = AzureBlobService.get_instance()
-    for token in dummy_access_tokens:
-        if token.token_id == token_id:
-            dummy_access_tokens.remove(token)
-            return {"message": "Token deleted successfully."}
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Token not found.")
+
+    if not blob_uploader.token_exists(user_meta.user_email, token_name):
+        raise HTTPException(status_code=404, detail="Token not found.")
+
+    blob_uploader.delete_token(user_meta.user_email, token_name)
+
+    return {"message": "The access token has been deleted."}
 
 
 @router.get(
     "/tokens",
-    response_model=List[AccessToken],
+    response_model=List[PersonalAccessToken],
     summary="List Access Tokens",
     description="Retrieves active access tokens for the authenticated user.",
     responses={
@@ -73,9 +106,14 @@ async def delete_access_token(
         403: {"description": "Authenticated but access is not allowed."}
     }
 )
-async def list_access_tokens():
+async def list_access_tokens(user_meta: UserToken = Depends(user_from_auth)):
+    if isinstance(user_meta, WebsiteAccessToken):
+        ...  # good
+    elif isinstance(user_meta, PersonalAccessToken):
+        # not allowed
+        raise HTTPException(status_code=403, detail="Personal Access Tokens are not permitted to access this endpoint.")
     blob_uploader = AzureBlobService.get_instance()
-    return dummy_access_tokens
+    return blob_uploader.list_personal_access_tokens(user_meta.user_email)
 
 
 @router.get(
@@ -95,10 +133,52 @@ async def google_oauth(
         token_type: str = Query(..., description="Type of the token, usually 'Bearer'."),
         id_token: str = Query(..., description="ID token provided by Google.")
 ):
-    dummy_user = User(first_name="John", last_name="Doe", user_email="john.doe@example.com")
-    dummy_pat = PersonalAuthenticationToken(user_email="user123@example.com", authentication_token="dummy_jwt_token")
-    return {"user": dummy_user, "personal_authentication_token": dummy_pat}
+    """
+    Exchanges the authorization code for an access token and ID token.
+    """
+    # TODO FAHIM: make sure this code works too
+    #  Exchange authorization code for tokens
+    token_data = {
+        "code": code,
+        "client_id": GOOGLE_CLIENT_ID,
+        "client_secret": GOOGLE_CLIENT_SECRET,
+        "redirect_uri": GOOGLE_REDIRECT_URI,
+        "grant_type": "authorization_code"
+    }
 
+    response = requests.post(GOOGLE_TOKEN_URL, data=token_data)
+    if response.status_code != 200:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authorization code or token exchange failed."
+        )
+
+    tokens = response.json()
+    access_token = tokens["access_token"]
+    id_token = tokens.get("id_token")
+
+    # TODO FAHIM: query google api to get their email
+    #  make sure to handle any errors properly
+    email: EmailStr = ...
+
+    azure_blob_uploader = AzureBlobService.get_instance().get_instance()
+    user = azure_blob_uploader.get_user(email)
+
+    if user is None:
+        # TODO FAHIM: get user's first and last name from google api
+        #  make sure to handle any errors properly
+        first_name = ...
+        last_name = ...
+        user = User(
+            user_email=email,
+            first_name=first_name,
+            last_name=last_name,
+        )
+
+    # Generate a JWT token for user authentication
+    jwt_token = jwt_service.create_user_jwt(user)
+
+    return {"authentication_token": jwt_token, "user": user}
 
 @router.get(
     "/google_oauth_url",
@@ -106,13 +186,14 @@ async def google_oauth(
     description="Returns the Google OAuth URL for redirecting users to authentication.",
 )
 async def get_oauth_url():
+    # TODO FAHIM: complete this
     client_id = "your_google_client_id"
     redirect_uri = "your_redirect_uri"
     scope = "openid email profile"
     oauth_url = (
         f"https://accounts.google.com/o/oauth2/auth?"
-        f"client_id={client_id}&"
-        f"redirect_uri={redirect_uri}&"
+        f"client_id={GOOGLE_CLIENT_ID}&"
+        f"redirect_uri={GOOGLE_REDIRECT_URI}&"
         f"response_type=code&"
         f"scope={scope}&"
         f"access_type=offline&"

@@ -1,23 +1,14 @@
 from typing import List
 
-from fastapi import APIRouter, HTTPException, status, Query, Body
+from fastapi import APIRouter, HTTPException, Query, Body, Depends
 
+from app.models import Course
 from app.models.course_material import CourseMaterial
-from app.utils import JWTService
+from app.utils import JWTService, UserToken
 from app.utils.azure_blob_service import AzureBlobService
 
 router = APIRouter()
-user_from_authorization_header = None
-
-
-@router.on_event("startup")
-async def set_user_from_auth_header():
-    global user_from_authorization_header
-    user_from_authorization_header = JWTService.get_instance().from_authorization_header
-
-
-# Dummy storage for course materials
-dummy_materials: List[CourseMaterial] = []
+user_from_auth = JWTService.get_instance().from_authorization_header
 
 
 @router.get(
@@ -26,25 +17,36 @@ dummy_materials: List[CourseMaterial] = []
     summary="Get All Course Materials",
     description="Retrieves all course materials for the specified course.",
     responses={
-        404: {"description": "No matching course found."},
+        404: {"description": "Course does not exist."},
         401: {"description": "Requester is not authenticated."},
         403: {"description": "Authenticated but access is not allowed."}
     }
 )
 async def get_course_materials(
-        semester: str = Query(..., description="Semester of the course material."),
+        semester: str = Query(..., description="Semester of the course."),
         course_id: str = Query(..., description="Identifier of the course."),
+        user_meta: UserToken = Depends(user_from_auth),
 ):
+    # validate params
+    semester = Course.validate_semester(semester)
+    course_id = Course.normalize_lowercase(course_id)
+
     blob_uploader = AzureBlobService.get_instance()
-    results = [material for material in dummy_materials if material.course_id == course_id]
-
-    if not results:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No matching course found."
-        )
-
-    return results
+    
+    # Check if the course exists
+    course_exists = blob_uploader.course_exists(semester, course_id)
+    if not course_exists:
+        raise HTTPException(status_code=404, detail="Course does not exist.")
+    
+    # Check if user has perms on course
+    user = blob_uploader.get_user(user_meta.user_email)
+    if not user.authenticated_courses.__contains__((semester, course_id)):
+        raise HTTPException(status_code=403, detail="Authenticated but access is not allowed.")
+    
+    # Get all course materials
+    materials = blob_uploader.list_course_materials(semester, course_id)
+    
+    return materials
 
 
 @router.get(
@@ -53,25 +55,39 @@ async def get_course_materials(
     summary="Get Specific Course Material",
     description="Retrieves a specific course material for the specified course.",
     responses={
-        404: {"description": "No matching course or course material found."},
+        404: {"description": "Course or material does not exist."},
         401: {"description": "Requester is not authenticated."},
         403: {"description": "Authenticated but access is not allowed."}
     }
 )
 async def get_course_material(
-        semester: str = Query(..., description="Semester of the course material."),
+        semester: str = Query(..., description="Semester of the course."),
         course_id: str = Query(..., description="Identifier of the course."),
-        material_id: str = Query(..., description="Unique identifier of the specific material."),
+        material_id: int = Query(..., description="Unique identifier of the specific material."),
+        user_meta: UserToken = Depends(user_from_auth),
 ):
-    blob_uploader = AzureBlobService.get_instance()
-    for material in dummy_materials:
-        if material.course_id == course_id and material.material_id == material_id:
-            return material
+    # validate params
+    semester = Course.validate_semester(semester)
+    course_id = Course.normalize_lowercase(course_id)
 
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="No matching course or course material found."
-    )
+    blob_uploader = AzureBlobService.get_instance()
+    
+    # Check if the course exists
+    course_exists = blob_uploader.course_exists(semester, course_id)
+    if not course_exists:
+        raise HTTPException(status_code=404, detail="Course does not exist.")
+    
+    # Check if user has perms on course
+    user = blob_uploader.get_user(user_meta.user_email)
+    if not user.authenticated_courses.__contains__((semester, course_id)):
+        raise HTTPException(status_code=403, detail="Authenticated but access is not allowed.")
+    
+    # Get specific course material
+    material = blob_uploader.get_course_material(semester, course_id, material_id)
+    if not material:
+        raise HTTPException(status_code=404, detail="Course material does not exist.")
+    
+    return material
 
 
 @router.post(
@@ -88,9 +104,28 @@ async def get_course_material(
 )
 async def upload_course_material(
         material: CourseMaterial = Body(..., description="Course material object containing details and file data."),
+        user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
-    dummy_materials.append(material)
+    
+    # Check if the course exists
+    course_exists = blob_uploader.course_exists(material.semester, material.course_id)
+    if not course_exists:
+        raise HTTPException(status_code=404, detail="Course does not exist.")
+    
+    # Check if user has perms on course
+    user = blob_uploader.get_user(user_meta.user_email)
+    if not user.authenticated_courses.__contains__((material.semester, material.course_id)):
+        raise HTTPException(status_code=403, detail="Authenticated but access is not allowed.")
+    
+    # Check if material already exists
+    existing_material = blob_uploader.get_course_material(material.semester, material.course_id, material.material_id)
+    if existing_material:
+        raise HTTPException(status_code=409, detail="Material with this ID already exists.")
+    
+    # Upload the material
+    blob_uploader.upload_course_material(material)
+    
     return material
 
 
@@ -99,22 +134,42 @@ async def upload_course_material(
     summary="Delete Course Material",
     description="Deletes specified course material.",
     responses={
-        404: {"description": "Material not found."},
+        404: {"description": "Course or material does not exist."},
         401: {"description": "Requester is not authenticated."},
         403: {"description": "Authenticated but access is not allowed."}
     }
 )
 async def delete_course_material(
-        semester: str = Query(..., description="Semester of the course material."),
+        semester: str = Query(..., description="Semester of the course."),
         course_id: str = Query(..., description="Identifier of the course."),
-        material_id: str = Query(..., description="Unique identifier of the material to delete.")
+        material_id: int = Query(..., description="Unique identifier of the material to delete."),
+        user_meta: UserToken = Depends(user_from_auth),
 ):
+    # validate params
+    semester = Course.validate_semester(semester)
+    course_id = Course.normalize_lowercase(course_id)
+
     blob_uploader = AzureBlobService.get_instance()
-    for material in dummy_materials:
-        if material.course_id == course_id and material.material_id == material_id:
-            dummy_materials.remove(material)
-            return {"message": "Course material deleted successfully."}
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Material not found.")
+    
+    # Check if the course exists
+    course_exists = blob_uploader.course_exists(semester, course_id)
+    if not course_exists:
+        raise HTTPException(status_code=404, detail="Course does not exist.")
+    
+    # Check if user has perms on course
+    user = blob_uploader.get_user(user_meta.user_email)
+    if not user.authenticated_courses.__contains__((semester, course_id)):
+        raise HTTPException(status_code=403, detail="Authenticated but access is not allowed.")
+    
+    # Check if material exists
+    material = blob_uploader.get_course_material(semester, course_id, material_id)
+    if not material:
+        raise HTTPException(status_code=404, detail="Course material does not exist.")
+    
+    # Delete the material
+    blob_uploader.delete_course_material(semester, course_id, material_id)
+    
+    return {"message": "Course material deleted successfully."}
 
 
 @router.patch(
@@ -124,17 +179,33 @@ async def delete_course_material(
     description="Updates existing course material. The size of the data must be below a certain threshold.",
     responses={
         400: {"description": "Missing or invalid parameters."},
-        404: {"description": "Material to update not found."},
+        404: {"description": "Course or material does not exist."},
         401: {"description": "Requester is not authenticated."},
         403: {"description": "Authenticated but access is not allowed."}
     }
 )
 async def update_course_material(
         material: CourseMaterial = Body(..., description="Course material object with updated data."),
+        user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
-    for idx, existing in enumerate(dummy_materials):
-        if existing.course_id == material.course_id and existing.material_id == material.material_id:
-            dummy_materials[idx] = material
-            return material
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Material not found.")
+    
+    # Check if the course exists
+    course_exists = blob_uploader.course_exists(material.semester, material.course_id)
+    if not course_exists:
+        raise HTTPException(status_code=404, detail="Course does not exist.")
+    
+    # Check if user has perms on course
+    user = blob_uploader.get_user(user_meta.user_email)
+    if not user.authenticated_courses.__contains__((material.semester, material.course_id)):
+        raise HTTPException(status_code=403, detail="Authenticated but access is not allowed.")
+    
+    # Check if material exists
+    existing_material = blob_uploader.get_course_material(material.semester, material.course_id, material.material_id)
+    if not existing_material:
+        raise HTTPException(status_code=404, detail="Course material does not exist.")
+    
+    # Update the material
+    blob_uploader.upload_course_material(material)
+    
+    return material

@@ -8,7 +8,7 @@ azure-ai-ml==1.26.0
 azure-search==1.0.0b2
 azure-search-documents==11.5.2
 colorlog==6.9.0
-aflfs==2024.12.0
+adlfs==2024.12.0
 openai==1.69.0
 langchain==0.3.22
 chromadb==0.6.3
@@ -16,3 +16,5 @@ weave==0.51.39
 # Needed to run notebooks not required for prod
 notebook==7.3.3
 openpyxl==3.1.2
+pymupdf==1.25.5
+azure-ai-inference==1.0.0b9
