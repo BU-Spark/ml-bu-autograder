@@ -1,7 +1,8 @@
+import datetime
 import json
 import os
 import requests
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Query, status, Depends
 from pydantic import EmailStr
@@ -27,11 +28,6 @@ GOOGLE_CLIENT_SECRET = google_oauth_config["web"]["client_secret"]
 GOOGLE_REDIRECT_URI = google_oauth_config["web"]["redirect_uris"][0]
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 
-# Dummy in-memory storage for access tokens
-dummy_access_tokens = [
-    PersonalAccessToken(token_name="token_1", token_expiry=None)
-]
-
 #TODO
 @router.post(
     "/token",
@@ -44,26 +40,56 @@ dummy_access_tokens = [
     }
 )
 async def create_access_token(
-        token_name: str = Query(...,
+        token_name: Optional[str] = Query(...,
                                 description="Friendly name for the token.  "
                                             "Only alphanumeric characters and underscores are allowed."
-                                            "Defaults to 'token_n' (where n is a number).")
+                                            "Defaults to 'token_n' (where n is a number)."),
+        token_expiry: Optional[datetime.datetime] = Query(...),
+        user_meta: UserToken = Depends(user_from_auth),
 ):
-    #create a new access token and stores it in the dummy_access_tokens list
+    if isinstance(user_meta, WebsiteAccessToken):
+        ...  # good
+    elif isinstance(user_meta, PersonalAccessToken):
+        # not allowed
+        raise HTTPException(status_code=403, detail="Personal Access Tokens are not permitted to access this endpoint.")
 
-    #added checking for duplicate token names
-    if any(token.token_name == token_name for token in dummy_access_tokens):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Token name already exists."
-        )
-    new_token = PersonalAccessToken(token_name=token_name, token_expiry=None)
-    dummy_access_tokens.append(new_token)
+    # normalize token name
+    token_name = PersonalAccessToken.validate_identifier(token_name) if token_name is not None else token_name
 
-    # uploads the dummy data to Azure Blob Storage
+    # get blob service
+    blob_uploader = AzureBlobService.get_instance()
+    # get jwt service
+    jwt_service = JWTService.get_instance()
+
+    if token_expiry is None:
+        token_expiry = datetime.datetime.max
+
+    # Added checking for duplicate token names OR create a unique token name
+    existing_tokens = blob_uploader.list_personal_access_tokens(user_meta.user_email)
+    if token_name is not None:
+        if any(token.token_name == token_name for token in existing_tokens):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Token name already exists."
+            )
+    else:
+        # generate a unique token name
+        i = 0
+        while True:
+            token_name = 'token_{}'.format(i)
+            # yeah yeah, this is kinda inefficient but computers are
+            # fast and WHOSE GONNA HAVE 1000 tokens??
+            if token_name not in existing_tokens:
+                break
+
+    new_token = PersonalAccessToken(user_email=user_meta.user_email, token_name=token_name, token_expiry=token_expiry)
+    blob_uploader.upload_token(user_meta.user_email, new_token)
+
+    jwt_secret = jwt_service.create_access_token(new_token)
+
     return {
-        **new_token,
-        "secret": "AJTWSecretThatWillNeverBeShownAgain"
+        "access_token": new_token,
+        "secret": jwt_secret
     }
 
 

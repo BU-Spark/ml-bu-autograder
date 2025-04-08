@@ -55,30 +55,25 @@ class JWTService:
 
     def create_access_token(
             self,
-            user: User,
-            token_name: str,
-            # Use timezone-aware datetimes for expiry
-            token_expiry: datetime.datetime
+            access_token: PersonalAccessToken,
     ) -> str:
         """
         Creates a named access token (e.g., for API keys) for a user.
 
-        :param user: The user object containing user_email.
-        :param token_name: A name to identify the token's purpose.
-        :param token_expiry: The absolute expiration time for the token (timezone-aware recommended).
+        :param access_token: the personal access token
         :return: The encoded JWT string.
         :raises jwt.PyJWTError: If encoding fails.
         """
         payload = {
             # subject
-            "sub": user.user_email,
+            "sub": access_token.user_email,
             # expiry
-            "exp": token_expiry,
+            "exp": access_token.token_expiry,
             # issued at
             "iat": datetime.datetime.now(datetime.timezone.utc),
             # custom
             "type": TokenType.PERSONAL_ACCESS_TOKEN.value,
-            "token_name": token_name,
+            "token_name": access_token.token_name,
         }
         token = jwt.encode(payload, self._private_key_, algorithm=self._algorithm_)
         return token
