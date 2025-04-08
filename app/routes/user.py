@@ -1,8 +1,9 @@
 from typing import Optional
 
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, Depends
 from pydantic import BaseModel
 
+from app.models import UserToken
 from app.models.user import User
 from app.utils import JWTService
 from app.utils.azure_blob_service import AzureBlobService
@@ -17,16 +18,6 @@ class UserPreferencesUpdate(BaseModel):
 router = APIRouter()
 user_from_auth = JWTService.get_instance().from_authorization_header
 
-
-# Dummy storage for a user (simulate the currently authenticated user)
-dummy_user = User(
-    first_name="John",
-    last_name="Doe",
-    dark_mode=False,
-    user_email="john.doe@example.com"
-)
-
-
 @router.patch(
     "/user",
     response_model=User,
@@ -34,24 +25,23 @@ dummy_user = User(
     description="Updates the authenticated user's profile preferences, including first name, last name, and dark mode "
                 "settings.",
     responses={
-        400: {"description": "Missing or invalid parameters."},
         401: {"description": "Requester is not authenticated."},
     }
 )
 async def update_user_preferences(
-        preferences: UserPreferencesUpdate = Body(..., description="User preferences to update.")
+        preferences: UserPreferencesUpdate = Body(..., description="User preferences to update."),
+        user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
-    # In a real-world scenario, you'd retrieve the authenticated user from the request context
-    # and update their record in your persistent datastore.
-    if preferences.first_name is not None:
-        dummy_user.first_name = preferences.first_name
-    if preferences.last_name is not None:
-        dummy_user.last_name = preferences.last_name
+    user = AzureBlobService.get_instance().get_user(user_meta.user_email)
     if preferences.dark_mode is not None:
-        dummy_user.dark_mode = preferences.dark_mode
-
-    return dummy_user
+        user.dark_mode = preferences.dark_mode
+    if preferences.first_name is not None:
+        user.first_name = preferences.first_name
+    if preferences.last_name is not None:
+        user.last_name = preferences.last_name
+    blob_uploader.upload_user(user)
+    return user
 
 
 @router.get(
@@ -63,6 +53,8 @@ async def update_user_preferences(
         401: {"description": "Requester is not authenticated."},
     }
 )
-async def get_user() -> User:
+async def get_user(
+    user_meta: UserToken = Depends(user_from_auth),
+):
     blob_uploader = AzureBlobService.get_instance()
-    return dummy_user
+    return blob_uploader.get_user(user_meta.user_email)
