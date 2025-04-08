@@ -12,49 +12,6 @@ router = APIRouter()
 user_from_auth = JWTService.get_instance().from_authorization_header
 
 
-class GradeBaseParams(BaseModel):
-    """Base parameters for grading operations."""
-    semester: str = Field(..., description="Course semester.")
-    course_id: str = Field(..., description="Unique identifier of the course.")
-    assignment_id: int = Field(..., description="Identifier of the assignment.")
-    question_index: Optional[int] = Field(None, description="Optional index of the question.")
-
-    @field_validator("course_id")
-    def validate_course_id(cls, value: str) -> str:
-        """Ensures course_id contains only lowercase letters, digits, and underscores."""
-        if not re.fullmatch("[a-z0-9_]+", value):
-            raise ValueError("Course ID must contain only lowercase letters, digits, and underscores")
-        return value.strip().lower()
-
-    @field_validator("semester")
-    def validate_semester(cls, value: str) -> str:
-        """Ensures semester follows format seasonYYYY (e.g., spring2025)."""
-        if not re.fullmatch("[a-z]{1,12}[0-9]{4}", value):
-            raise ValueError("Semester must follow format seasonYYYY (e.g., spring2025)")
-        return value.strip().lower()
-
-    @field_validator("question_index")
-    def validate_question_index(cls, value: Optional[int]) -> Optional[int]:
-        """Ensures question_index is non-negative if provided."""
-        if value is not None and value < 0:
-            raise ValueError("Question index must be non-negative")
-        return value
-
-
-class GradeSpecificParams(GradeBaseParams):
-    """Parameters for grading specific student responses."""
-    student_ids: List[str] = Field(..., description="List of student identifiers to grade.")
-
-    @field_validator("student_ids")
-    def validate_student_ids(cls, value: List[str]) -> List[str]:
-        """Ensures all student IDs are lowercase."""
-        return [id.strip().lower() for id in value]
-
-
-class GradeParams(GradeBaseParams):
-    """Parameters for grading all responses."""
-    pass
-
 def do_grading(r):
     ...  # TODO
 
@@ -73,51 +30,58 @@ def do_grading(r):
     }
 )
 async def grade_specific(
-        params: GradeSpecificParams = Depends(),
+        semester: str = Query(..., description="Course semester."),
+        course_id: str = Query(..., description="Unique identifier of the course."),
+        assignment_id: int = Query(..., description="Identifier of the assignment."),
+        student_ids: List[str] = Query(..., description="List of student identifiers to grade."),
+        question_index: Optional[int] = Query(None, description="Optional index of the question. Grades all questions if omitted."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
 
+    # validate params
+    semester = Course.validate_semester(semester)
+    course_id = Course.normalize_lowercase(course_id)
+
     # Check if course exists
-    if not blob_uploader.course_exists(params.semester, params.course_id):
+    if not blob_uploader.course_exists(semester, course_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course does not exist.")
 
     # Check if user has permissions on course
     user = blob_uploader.get_user(user_meta.user_email)
-    if not user.authenticated_courses.__contains__((params.semester, params.course_id)):
+    if not user.authenticated_courses.__contains__((semester, course_id)):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Authenticated but access is not allowed.")
 
     # Check if assignment exists
-    if not blob_uploader.assignment_exists(params.semester, params.course_id, params.assignment_id):
+    if not blob_uploader.assignment_exists(semester, course_id, assignment_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment does not exist.")
 
     # Check if the rubric exists
     rubric = None
-    if params.question_index is not None:
-        rubric = blob_uploader.get_sub_rubric(params.semester, params.course_id, params.assignment_id, params.question_index)
+    if question_index is not None:
+        rubric = blob_uploader.get_sub_rubric(semester, course_id, assignment_id, question_index)
     else:
-        rubric = blob_uploader.get_rubric(params.semester, params.course_id, params.assignment_id, params.question_index)
+        rubric = blob_uploader.get_rubric(semester, course_id, assignment_id)
 
     if rubric is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Grading rubric does not exist.")
 
     # Get all responses for the specified students
     grades = []
-    for student_id in params.student_ids:
-        if params.question_index is not None:
+    for student_id in student_ids:
+        if question_index is not None:
             # Grade specific question
             response = blob_uploader.get_student_response(
-                params.semester, params.course_id, params.assignment_id,
-                params.question_index, student_id
+                semester, course_id, assignment_id,
+                question_index, student_id
             )
             if response:
-                # TODO
                 grade = do_grading(response)  # This is a placeholder for the actual grading logic
                 grades.append(grade)
         else:
             # Grade all questions
             responses = blob_uploader.list_student_responses(
-                params.semester, params.course_id, params.assignment_id
+                semester, course_id, assignment_id
             )
             student_responses = [r for r in responses if r.student_id == student_id]
             for response in student_responses:
@@ -144,45 +108,51 @@ async def grade_specific(
     }
 )
 async def grade_ungraded(
-        params: GradeParams = Depends(),
+        semester: str = Query(..., description="Course semester."),
+        course_id: str = Query(..., description="Unique identifier of the course."),
+        assignment_id: int = Query(..., description="Identifier of the assignment."),
+        question_index: Optional[int] = Query(None, description="Optional index of the question to grade. Grades all ungraded questions if omitted."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
 
+    # validate params
+    semester = Course.validate_semester(semester)
+    course_id = Course.normalize_lowercase(course_id)
+
     # Check if course exists
-    if not blob_uploader.course_exists(params.semester, params.course_id):
+    if not blob_uploader.course_exists(semester, course_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course does not exist.")
 
     # Check if user has permissions on course
     user = blob_uploader.get_user(user_meta.user_email)
-    if not user.authenticated_courses.__contains__((params.semester, params.course_id)):
+    if not user.authenticated_courses.__contains__((semester, course_id)):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Authenticated but access is not allowed.")
 
     # Check if assignment exists
-    if not blob_uploader.assignment_exists(params.semester, params.course_id, params.assignment_id):
+    if not blob_uploader.assignment_exists(semester, course_id, assignment_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment does not exist.")
 
     # Check if the rubric exists
     rubric = None
-    if params.question_index is not None:
-        rubric = blob_uploader.get_sub_rubric(params.semester, params.course_id, params.assignment_id,
-                                              params.question_index)
+    if question_index is not None:
+        rubric = blob_uploader.get_sub_rubric(semester, course_id, assignment_id, question_index)
     else:
-        rubric = blob_uploader.get_rubric(params.semester, params.course_id, params.assignment_id,
-                                          params.question_index)
+        rubric = blob_uploader.get_rubric(semester, course_id, assignment_id)
+
     if rubric is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Grading rubric does not exist.")
 
     # Get all responses
     responses = blob_uploader.list_student_responses(
-        params.semester, params.course_id, params.assignment_id, params.question_index
+        semester, course_id, assignment_id, question_index
     )
 
     # Filter out already graded responses
     ungraded_responses = []
     for response in responses:
         grade = blob_uploader.get_grading_details(
-            params.semester, params.course_id, params.assignment_id,
+            semester, course_id, assignment_id,
             response.question_index, response.student_id
         )
         if not grade:
@@ -194,7 +164,7 @@ async def grade_ungraded(
     # Grade ungraded responses
     grades = []
     for response in ungraded_responses:
-        grade = do_grading(response)
+        grade = do_grading(response)  # This is a placeholder for the actual grading logic
         grades.append(grade)
 
     return grades
@@ -214,38 +184,44 @@ async def grade_ungraded(
     }
 )
 async def grade_all(
-        params: GradeParams = Depends(),
+        semester: str = Query(..., description="Course semester."),
+        course_id: str = Query(..., description="Unique identifier of the course."),
+        assignment_id: int = Query(..., description="Identifier of the assignment."),
+        question_index: Optional[int] = Query(None, description="Optional index of the question to grade or regrade. Grades all questions if omitted."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
 
+    # validate params
+    semester = Course.validate_semester(semester)
+    course_id = Course.normalize_lowercase(course_id)
+
     # Check if course exists
-    if not blob_uploader.course_exists(params.semester, params.course_id):
+    if not blob_uploader.course_exists(semester, course_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course does not exist.")
 
     # Check if user has permissions on course
     user = blob_uploader.get_user(user_meta.user_email)
-    if not user.authenticated_courses.__contains__((params.semester, params.course_id)):
+    if not user.authenticated_courses.__contains__((semester, course_id)):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Authenticated but access is not allowed.")
 
     # Check if assignment exists
-    if not blob_uploader.assignment_exists(params.semester, params.course_id, params.assignment_id):
+    if not blob_uploader.assignment_exists(semester, course_id, assignment_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment does not exist.")
 
     # Check if the rubric exists
     rubric = None
-    if params.question_index is not None:
-        rubric = blob_uploader.get_sub_rubric(params.semester, params.course_id, params.assignment_id,
-                                              params.question_index)
+    if question_index is not None:
+        rubric = blob_uploader.get_sub_rubric(semester, course_id, assignment_id, question_index)
     else:
-        rubric = blob_uploader.get_rubric(params.semester, params.course_id, params.assignment_id,
-                                          params.question_index)
+        rubric = blob_uploader.get_rubric(semester, course_id, assignment_id)
+
     if rubric is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Grading rubric does not exist.")
 
     # Get all responses
     responses = blob_uploader.list_student_responses(
-        params.semester, params.course_id, params.assignment_id, params.question_index
+        semester, course_id, assignment_id, question_index
     )
 
     if not responses:
@@ -254,7 +230,7 @@ async def grade_all(
     # Grade all responses
     grades = []
     for response in responses:
-        grade = do_grading(response)
+        grade = do_grading(response)  # This is a placeholder for the actual grading logic
         grades.append(grade)
 
     return grades
