@@ -1,52 +1,56 @@
 import os
 
 
-def get_str_var(var_name, default=None) -> str:
+def get_str_var(var_name, default=None, allow_none=False) -> str:
     """
     Get a string environment variable value or return a default value if not found.
     If no default value is specified or the default value is None this method
     will raise an exception.
     :param var_name: Name of the environment variable
     :param default: Default value to return if the environment variable is not found
+    :param allow_none: whether "none" values are ok
     :return: The environment variable value or the default value
     """
     ret = os.getenv(var_name, default)
-    if ret is None or ret == '':
+    if (ret is None or ret == '') and not allow_none:
         raise Exception("Environment variable '{}' not found.".format(var_name))
     return ret
 
 
-def get_int_var(var_name, default=None) -> int:
+def get_int_var(var_name, default=None, allow_none=False) -> int:
     """
     Get an integer environment variable value or return a default value if not found
     If no default value is specified or the default value is None this method
     will raise an exception.
     :param var_name: Name of the environment variable
     :param default: Default value to return if the environment variable is not found
+    :param allow_none: whether "none" values are ok
     :return: The environment variable value or the default value
     """
-    return int(get_str_var(var_name, default))
+    return int(get_str_var(var_name, default, allow_none))
 
 
-def get_float_var(var_name, default=None) -> float:
+def get_float_var(var_name, default=None, allow_none=False) -> float:
     """
     Get a float environment variable value or return a default value if not found
     If no default value is specified or the default value is None this method
     will raise an exception.
     :param var_name: Name of the environment variable
     :param default: Default value to return if the environment variable is not found
+    :param allow_none: whether "none" values are ok
     :return: The environment variable value or the default value
     """
-    return float(get_str_var(var_name, default))
+    return float(get_str_var(var_name, default, allow_none))
 
 
-def get_bool_var(var_name, default=None) -> bool:
+def get_bool_var(var_name, default=None, allow_none=False) -> bool:
     """
     Get a boolean environment variable value or return a default value if not found
     If no default value is specified or the default value is None this method
     will raise an exception.
     :param var_name: Name of the environment variable
     :param default: Default value to return if the environment variable is not found
+    :param allow_none: whether "none" values are ok
     :return: The environment variable value or the default value
     """
-    return get_str_var(var_name, default).lower() in ['true', '1', 't', 'y', 'yes']
+    return get_str_var(var_name, default, allow_none).lower() in ['true', '1', 't', 'y', 'yes']

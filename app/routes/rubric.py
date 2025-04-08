@@ -85,7 +85,8 @@ async def get_ai_rubric(
         semester: str = Query(..., description="Semester of the course."),
         course_id: str = Query(..., description="Identifier of the course."),
         assignment_id: int = Query(..., description="Identifier of the assignment."),
-        instructions: Optional[str] = Query(None, description="Optional specific improvement instructions for the AI.")
+        instructions: Optional[str] = Query(None, description="Optional specific improvement instructions for the AI."),
+        user_meta: UserToken = Depends(user_from_auth),
 ):
     # validate params
     semester = Course.validate_semester(semester)

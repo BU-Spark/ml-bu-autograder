@@ -77,7 +77,7 @@ class AzureBlobService:
             metadata: Optional blob metadata.
         """
         logging.debug(f"Serializing JSON data for {blob_path}")
-        json_data = data.json(indent=4)  # Requires Pydantic model
+        json_data = json.dumps(data.model_dump(), indent=4)  # Requires Pydantic model
         full_path = self._full_path(blob_path)
 
         logging.debug(f"Uploading JSON to {blob_path}")
@@ -106,6 +106,8 @@ class AzureBlobService:
             return data
         except json.JSONDecodeError:
             logging.warning(f"Invalid JSON in {blob_path}")
+            return None
+        except FileNotFoundError:
             return None
 
     def delete_blob(self, blob_path: str):
@@ -328,6 +330,20 @@ class AzureBlobService:
         data = self.download_json(blob_path)
         return User(**data) if data else None
 
+    # a default user that always exists
+    def get_default_user(self) -> User:
+        default_user: Optional[User] = AzureBlobService.get_instance().get_user("admin@autograder.com")
+        if default_user is None:
+            default_user: User = User(
+                user_email="admin@autograder.com",
+                first_name="Admin",
+                last_name="",
+                authenticated_courses=[],
+                dark_mode=False,
+            )
+            AzureBlobService.get_instance().upload_user(default_user)
+        return default_user
+
     def get_token(self, user_email: EmailStr, token_name: str) -> Optional[PersonalAccessToken]:
         """Retrieves access token if exists."""
         blob_path = f"user/{user_email}/tokens/{token_name}.json"
@@ -529,7 +545,7 @@ class AzureBlobService:
         courses = []
         for file in self.fs.glob(self._full_path(pattern)):
             # if user doesn't have access to this course, skip
-            if not user.authenticated_courses.__contains__(file.name):
+            if not user.authenticated_courses.__contains__(file):
                 continue
             # Remove the container prefix before passing to download_json
             relative_path = file.split('/', 1)[1]

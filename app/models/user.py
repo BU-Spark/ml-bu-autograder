@@ -17,7 +17,7 @@ class User(BaseModel):
         None, description="Instructor’s last name (optional)."
     )
     authenticated_courses: List[Tuple[str, str]] = Field(
-        [], description="List of semester and course IDs tuples of courses that the instructor has access to.",
+        lambda: [], description="List of semester and course IDs tuples of courses that the instructor has access to.",
     )
     dark_mode: bool = Field(
         False, description="User's preference for dark mode. Defaults to `False`.",
@@ -33,3 +33,4 @@ class User(BaseModel):
         Ensure email is lowercased before being parsed/validated.
         """
         return value.strip().lower()
+
