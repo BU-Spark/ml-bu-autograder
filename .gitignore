@@ -179,3 +179,4 @@ __pycache__/
 *.json
 .env
 .ipynb_checkpoints
+app.log
