@@ -25,6 +25,7 @@ APPLICATION_VERSION = get_str_var("APPLICATION_VERSION")
 GOOGLE_OAUTH_CLIENT_FILE = get_str_var("GOOGLE_OAUTH_CLIENT_FILE")
 PRODUCTION = get_bool_var("PRODUCTION")
 JWT_ENCRYPTION_SECRET_FILE = FilePath(get_str_var("JWT_ENCRYPTION_SECRET_FILE"))
+AZURE_BLOB_CACHE_DIR = FilePath(get_str_var("AZURE_BLOB_CACHE_DIR"))
 ENV_TEST_API_KEY = get_str_var("ENV_TEST_API_KEY")
 
 # Setup logging level
@@ -34,7 +35,7 @@ logging.info("Loading Azure services...")
 # Credentials are automatically recognized based of the values of these env variables:
 # AZURE_CLIENT_ID, AZURE_TENANT_ID, and AZURE_CLIENT_SECRET
 credential = DefaultAzureCredential()
-AzureBlobService.init_singleton(credential, AZURE_STORAGE_ACCOUNT_NAME, AZURE_CONTAINER_NAME)
+AzureBlobService.init_singleton(credential, AZURE_STORAGE_ACCOUNT_NAME, AZURE_CONTAINER_NAME, AZURE_BLOB_CACHE_DIR)
 JWTService.init_singleton(JWT_ENCRYPTION_SECRET_FILE, ENV_TEST_API_KEY)
 
 logging.info("Starting FastAPI server...")

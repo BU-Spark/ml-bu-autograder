@@ -75,11 +75,10 @@ class Rubric(BaseModel):
     sub_rubrics: List[SubRubric] = Field(
         ...,
         description="List of sub-rubrics specifying grading for individual questions.",
-        exclude=True  # serialization handled separately
     )
 
     
-    @field_validator("course_id", "assignment_id", mode="before")
+    @field_validator("course_id", mode="before")
     def normalize_lowercase(cls, value: str) -> str:
         """Converts course_id and semester to lowercase and trims spaces."""
         return value.strip().lower()

@@ -25,10 +25,10 @@ class Assignment(BaseModel):
         None, description="General instructions or formatting requirements."
     )
     questions: List[Question] = Field(
-        ..., description="List of questions in order.", exclude=True  # exclude from serialization, stored separately
+        [], description="List of questions in order."
     )
 
-    @field_validator("assignment_id", "course_id", mode='before')
+    @field_validator("course_id", mode='before')
     def normalize_lowercase(cls, value: str) -> str:
         """Converts to lowercase and trims spaces."""
         return value.strip().lower()

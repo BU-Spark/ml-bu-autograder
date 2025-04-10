@@ -2,11 +2,11 @@ import base64
 import json
 import logging
 import mimetypes
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Set
 
 import fsspec
 from azure.identity import ChainedTokenCredential
-from pydantic import EmailStr
+from pydantic import EmailStr, FilePath
 
 from app.models import Course, Assignment, Question, StudentResponse, Rubric, CourseMaterial, User, PersonalAccessToken, \
     SubRubric, Grade
@@ -16,8 +16,13 @@ azure_blob_uploader: Optional["AzureBlobService"] = None
 
 
 class AzureBlobService:
-    def __init__(self, credential: ChainedTokenCredential, storage_account_name: str, container_name: str, cache_expiry: int = 3600,
-                 cache_storage: str = "/tmp/blob_cache"):
+    def __init__(self,
+                 credential: ChainedTokenCredential,
+                 storage_account_name: str,
+                 container_name: str,
+                 azure_blob_cache_dir: FilePath,
+                 cache_expiry: int = 3600,
+                 ):
         """
         Initializes Azure Blob Storage service with configurable caching.
 
@@ -25,18 +30,19 @@ class AzureBlobService:
             credential: Azure credential (account key, SAS token).
             storage_account_name: Azure storage account name.
             container_name: Target container name.
+            azure_blob_cache_dir: Local cache directory.
             cache_expiry: Cache TTL in seconds (default: 1 hour).
-            cache_storage: Local cache directory (default: /tmp/blob_cache).
         """
         azure_fs_options = {
             "account_name": storage_account_name,
             "credential": credential,
         }
+        azure_blob_cache_dir.mkdir(parents=True, exist_ok=True)
         self.fs = fsspec.filesystem(
             "filecache",
             target_protocol="abfs",
             target_options=azure_fs_options,
-            cache_storage=cache_storage,
+            cache_storage=str(azure_blob_cache_dir),
             expiry_time=cache_expiry
         )
         self.container = container_name
@@ -67,7 +73,7 @@ class AzureBlobService:
             f.write(file_data)
         logging.debug(f"Uploaded {len(file_data)} bytes to {blob_path}")
 
-    def upload_json(self, data, blob_path, metadata: Dict[str, str] = None):
+    def upload_json(self, data, blob_path, exclude: Set[str] = None, metadata: Dict[str, str] = None):
         """
         Uploads JSON data from a Pydantic model.
 
@@ -77,7 +83,7 @@ class AzureBlobService:
             metadata: Optional blob metadata.
         """
         logging.debug(f"Serializing JSON data for {blob_path}")
-        json_data = json.dumps(data.model_dump(), indent=4)  # Requires Pydantic model
+        json_data = data.model_dump_json(indent=4, exclude=exclude)  # Requires Pydantic model
         full_path = self._full_path(blob_path)
 
         logging.debug(f"Uploading JSON to {blob_path}")
@@ -184,7 +190,7 @@ class AzureBlobService:
         """Uploads assignment metadata."""
         blob_path = f"course/{assignment.semester}/{assignment.course_id}/assignment/{assignment.assignment_id}/assignment.json"
         logging.debug(f"Uploading metadata for assignment {assignment.assignment_id}")
-        self.upload_json(assignment, blob_path)
+        self.upload_json(assignment, blob_path, exclude={"questions"})
 
     def upload_question_metadata(self, semester_key: str, course_id: str, assignment_id: int, question_index: int, question: Question):
         """Uploads question metadata."""
@@ -237,7 +243,7 @@ class AzureBlobService:
             for sub_rubric in rubric.sub_rubrics:
                 self.upload_sub_rubric(semester_key, course_id, assignment_id, sub_rubric)
 
-        self.upload_json(rubric, blob_path)
+        self.upload_json(rubric, blob_path, exclude={"sub_rubrics"})
 
     def upload_sub_rubric(self, semester_key: str, course_id: str, assignment_id: int, sub_rubric: SubRubric):
         """Uploads individual sub-rubric."""
@@ -658,10 +664,11 @@ class AzureBlobService:
         return content_type
 
     @staticmethod
-    def init_singleton(credential: ChainedTokenCredential, storage_account_name: str, container_name: str):
+    def init_singleton(credential: ChainedTokenCredential, storage_account_name: str,
+                       container_name: str, azure_blob_cache_dir: FilePath):
         """Initializes global singleton instance."""
         global azure_blob_uploader
-        azure_blob_uploader = AzureBlobService(credential, storage_account_name, container_name)
+        azure_blob_uploader = AzureBlobService(credential, storage_account_name, container_name, azure_blob_cache_dir)
 
     @staticmethod
     def get_instance() -> Optional["AzureBlobService"]:

@@ -90,7 +90,7 @@ async def create_assignment(
     if not user.authenticated_courses.__contains__((assignment.semester, assignment.course_id)):
         raise HTTPException(status_code=403, detail="Authenticated but access is not allowed.")
     # Check if this assignment id already exists
-    if not blob_uploader.assignment_exists(assignment.semester, assignment.course_id, assignment.assignment_id):
+    if blob_uploader.assignment_exists(assignment.semester, assignment.course_id, assignment.assignment_id):
         raise HTTPException(status_code=409, detail="Assignment already exists.")
     # If the user did not specify an assignment title, figure one out now
     if assignment.assignment_title is None:
@@ -305,6 +305,7 @@ async def get_assignment(
         semester: str = Query(..., description="Semester of the course."),
         course_id: str = Query(..., description="Identifier of the course."),
         assignment_id: int = Query(..., description="Identifier of the assignment."),
+        include_questions: bool = Query(False, description="Whether to include questions in the response."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
     # validate params
@@ -328,8 +329,10 @@ async def get_assignment(
     
     # Get assignment metadata and questions
     assignment = blob_uploader.get_assignment_metadata(semester, course_id, assignment_id)
-    assignment.questions = blob_uploader.list_questions(semester, course_id, assignment_id)
-    
+
+    if include_questions:
+        assignment.questions = blob_uploader.list_questions(semester, course_id, assignment_id)
+
     return assignment
 
 
@@ -347,6 +350,7 @@ async def get_assignment(
 async def list_assignments(
         semester: str = Query(..., description="Semester of the course."),
         course_id: str = Query(..., description="Identifier of the course."),
+        include_questions: bool = Query(False, description="Whether to include questions in the response."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
     # validate params
@@ -368,9 +372,10 @@ async def list_assignments(
     assignments = blob_uploader.list_assignments(semester, course_id)
     
     # For each assignment, get its questions
-    for assignment in assignments:
-        assignment.questions = blob_uploader.list_questions(semester, course_id, assignment.assignment_id)
-    
+    if include_questions:
+        for assignment in assignments:
+            assignment.questions = blob_uploader.list_questions(semester, course_id, assignment.assignment_id)
+
     return assignments
 
 

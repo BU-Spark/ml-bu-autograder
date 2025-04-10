@@ -34,7 +34,16 @@ async def create_course(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="That course already exists!")
 
     if user_meta.user_email not in course.instructors:
-        course.instructors.append(user_meta.user_email)
+        course.instructors.add(user_meta.user_email)
+
+    for instructor in course.instructors:
+        instructor_user = blob_uploader.get_user(instructor)
+        if instructor_user is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail=f"Instructor {instructor} does not exist.")
+        instructor_user.authenticated_courses.add((course.semester, course.course_id))
+        blob_uploader.upload_user(instructor_user)
+
     blob_uploader.upload_course_metadata(course)
     return course
 
@@ -68,7 +77,14 @@ async def delete_course(
     # Check if user has perms
     if user_meta.user_email not in course.instructors:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not authorized on this course.")
-    # Carry out the operation
+    # Delete course from user's lists
+    for instructor in course.instructors:
+        instructor_user = blob_uploader.get_user(instructor)
+        if instructor_user is None:
+            continue
+        instructor_user.authenticated_courses.remove((semester, course_id))
+        blob_uploader.upload_user(instructor_user)
+    # Carry out delete the operation
     blobs_deleted = blob_uploader.delete_course(semester, course_id)
     if blobs_deleted == 0:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
@@ -197,11 +213,11 @@ async def add_course_instructor(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
                             detail="Instructor is already assigned to the course.")
 
-    course.instructors.append(instructor)
+    course.instructors.add(instructor)
     blob_uploader.upload_course_metadata(course)
 
     instructor_user = blob_uploader.get_user(instructor)
-    instructor_user.authenticated_courses.append((semester, course_id))
+    instructor_user.authenticated_courses.add((semester, course_id))
     blob_uploader.upload_user(instructor_user)
 
     return {"detail":  "The instructor was successfully added to the course!"}
