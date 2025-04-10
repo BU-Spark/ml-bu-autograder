@@ -40,10 +40,10 @@ class EditSubRubricRequest(BaseModel):
     summary="Create Rubric",
     description="Manually creates a new rubric for an assignment.",
     responses={
-        400: {"description": "Missing or invalid parameters."},
-        404: {"description": "Assignment not found."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        400: {"detail": "Missing or invalid parameters."},
+        404: {"detail": "Assignment not found."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def create_rubric(
@@ -76,9 +76,9 @@ async def create_rubric(
     summary="Enhance Rubric with AI",
     description="Enhances an existing rubric using AI-based improvements. If a rubric does not exist for the given assignment, a new one is generated. Note: This only proposes a new rubric and does not modify an existing one.",
     responses={
-        502: {"description": "External LLM API call failure."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        502: {"detail": "External LLM API call failure."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def get_ai_rubric(
@@ -114,9 +114,9 @@ async def get_ai_rubric(
     summary="Get Rubric",
     description="Retrieves the rubric for a specified assignment (or for a specific question).",
     responses={
-        404: {"description": "Rubric or specified question not found."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        404: {"detail": "Rubric or specified question not found."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def get_rubric(

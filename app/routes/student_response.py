@@ -20,10 +20,10 @@ dummy_responses: List[StudentResponse] = []
     summary="Upload Student Response",
     description="Uploads a student response for an assignment question. The size of the data must be below a certain threshold.",
     responses={
-        400: {"description": "Missing or invalid parameters."},
-        404: {"description": "Assignment or question not found."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        400: {"detail": "Missing or invalid parameters."},
+        404: {"detail": "Assignment or question not found."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def upload_response(
@@ -55,10 +55,10 @@ async def upload_response(
     summary="Replace Student Response",
     description="Replaces an existing student response. The size of the data must be below a certain threshold.",
     responses={
-        400: {"description": "Missing or invalid parameters."},
-        404: {"description": "Existing response not found."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        400: {"detail": "Missing or invalid parameters."},
+        404: {"detail": "Existing response not found."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def replace_response(
@@ -97,10 +97,10 @@ async def replace_response(
     summary="Delete Student Response",
     description="Deletes a student response. If question_index is omitted, deletes all responses for that assignment and student.",
     responses={
-        400: {"description": "Missing required parameters."},
-        404: {"description": "Specified response not found."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        400: {"detail": "Missing required parameters."},
+        404: {"detail": "Specified response not found."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def delete_response(
@@ -154,10 +154,10 @@ async def delete_response(
     description="Retrieves student responses (possibly including grade information) based on criteria.",
     response_model=List[GradedStudentResponse],
     responses={
-        400: {"description": "Missing assignment_id."},
-        404: {"description": "No matching responses found."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        400: {"detail": "Missing assignment_id."},
+        404: {"detail": "No matching responses found."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def get_responses(

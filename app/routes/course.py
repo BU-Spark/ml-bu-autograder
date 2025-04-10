@@ -17,8 +17,8 @@ user_from_auth = JWTService.get_instance().from_authorization_header
     summary="Create Course",
     description="Creates a new course.",
     responses={
-        400: {"description": "Missing or invalid parameters."},
-        409: {"description": "A course with the same name and semester already exists."}
+        400: {"detail": "Missing or invalid parameters."},
+        409: {"detail": "A course with the same name and semester already exists."}
     }
 )
 async def create_course(
@@ -44,9 +44,9 @@ async def create_course(
     summary="Delete Course",
     description="Deletes an existing course.",
     responses={
-        404: {"description": "Course does not exist."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        404: {"detail": "Course does not exist."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def delete_course(
@@ -81,10 +81,10 @@ async def delete_course(
     summary="Transfer Course Materials",
     description="Transfers course materials and rubric data from a previous semester to a new one.",
     responses={
-        404: {"description": "Source or destination course not found."},
-        400: {"description": "Invalid parameters."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        404: {"detail": "Source or destination course not found."},
+        400: {"detail": "Invalid parameters."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def transfer_course(
@@ -107,10 +107,10 @@ async def transfer_course(
     summary="Get Specific Course",
     description="Retrieves a specific course object based on course_id and semester.",
     responses={
-        404: {"description": "Course not found."},
-        400: {"description": "Invalid parameters."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        404: {"detail": "Course not found."},
+        400: {"detail": "Invalid parameters."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def get_course(
@@ -140,7 +140,7 @@ async def get_course(
     summary="List Courses",
     description="Retrieves all courses accessible by the authenticated user optionally filtered by semester.",
     responses={
-        401: {"description": "Requester is not authenticated."}
+        401: {"detail": "Requester is not authenticated."}
     }
 )
 async def list_courses(
@@ -161,11 +161,11 @@ async def list_courses(
     summary="Add Instructor to Course",
     description="Adds an instructor to a course.",
     responses={
-        400: {"description": "Missing or invalid parameters."},
-        404: {"description": "Course not found."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."},
-        409: {"description": "Instructor is already assigned to the course."}
+        400: {"detail": "Missing or invalid parameters."},
+        404: {"detail": "Course not found."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."},
+        409: {"detail": "Instructor is already assigned to the course."}
     }
 )
 async def add_course_instructor(
@@ -212,10 +212,10 @@ async def add_course_instructor(
     summary="Remove Instructor from Course",
     description="Removes an instructor from a course.",
     responses={
-        400: {"description": "Missing or invalid parameters (i.e. can't remove yourself)."},
-        404: {"description": "Course or instructor assignment not found."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        400: {"detail": "Missing or invalid parameters (i.e. can't remove yourself)."},
+        404: {"detail": "Course or instructor assignment not found."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def remove_course_instructor(

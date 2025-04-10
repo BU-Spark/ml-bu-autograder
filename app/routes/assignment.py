@@ -70,10 +70,10 @@ user_from_auth = JWTService.get_instance().from_authorization_header
     summary="Create Assignment",
     description="Creates a new assignment with questions and guidelines.",
     responses={
-        400: {"description": "Missing or invalid parameters."},
-        404: {"description": "Course does not exist."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        400: {"detail": "Missing or invalid parameters."},
+        404: {"detail": "Course does not exist."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def create_assignment(
@@ -122,10 +122,10 @@ async def create_assignment(
     summary="Add Question",
     description="Adds a new question to an assignment.",
     responses={
-        400: {"description": "Missing or invalid parameters."},
-        404: {"description": "Assignment not found."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        400: {"detail": "Missing or invalid parameters."},
+        404: {"detail": "Assignment not found."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def add_question(
@@ -163,10 +163,10 @@ async def add_question(
     summary="Remove Question",
     description="Removes a question from an assignment.",
     responses={
-        400: {"description": "Missing or invalid parameters."},
-        404: {"description": "Assignment or question not found."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        400: {"detail": "Missing or invalid parameters."},
+        404: {"detail": "Assignment or question not found."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def remove_question(
@@ -209,10 +209,10 @@ async def remove_question(
     summary="Edit Question",
     description="Edits an existing question in an assignment.",
     responses={
-        400: {"description": "Missing or invalid parameters."},
-        404: {"description": "Assignment or question not found."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        400: {"detail": "Missing or invalid parameters."},
+        404: {"detail": "Assignment or question not found."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def edit_question(
@@ -250,10 +250,10 @@ async def edit_question(
     summary="Modify Question Order",
     description="Modifies the order of questions in an assignment.",
     responses={
-        400: {"description": "Missing or invalid parameters."},
-        404: {"description": "Assignment not found."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        400: {"detail": "Missing or invalid parameters."},
+        404: {"detail": "Assignment not found."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def modify_order(
@@ -296,9 +296,9 @@ async def modify_order(
     summary="Get Assignment",
     description="Retrieves a specific assignment by course and assignment ID.",
     responses={
-        404: {"description": "Assignment not found."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        404: {"detail": "Assignment not found."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def get_assignment(
@@ -339,9 +339,9 @@ async def get_assignment(
     summary="List Assignments",
     description="Retrieves all assignments associated with a course.",
     responses={
-        404: {"description": "Course not found."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        404: {"detail": "Course not found."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def list_assignments(
@@ -379,9 +379,9 @@ async def list_assignments(
     summary="Delete Assignment",
     description="Deletes a specified assignment.",
     responses={
-        404: {"description": "Assignment not found."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        404: {"detail": "Assignment not found."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def delete_assignment(
