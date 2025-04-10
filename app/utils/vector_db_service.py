@@ -6,7 +6,111 @@ import logging
 from chromadb import QueryResult
 from chromadb.errors import InvalidCollectionException
 
+from azure.core.credentials import AzureKeyCredential
+from azure.search.documents import SearchClient
+
 chroma_instance: Optional["ChromaDBService"] = None
+
+# azure_instance: Optional["AzureVectorService"] = None
+
+
+# class AzureVectorService:
+#     def __init__(self, service_endpoint: str, index_name: str, api_key: str):
+#         """
+#         Initializes Azure Cognitive Search client.
+
+#         Args:
+#             service_endpoint: Azure Search endpoint.
+#             index_name: Name of the Azure Search index.
+#             api_key: Admin API key.
+#         """
+#         self.service_endpoint = service_endpoint
+#         self.index_name = index_name
+#         self.api_key = api_key
+
+#         try:
+#             self.client = SearchClient(
+#                 endpoint=service_endpoint,
+#                 index_name=index_name,
+#                 credential=AzureKeyCredential(api_key)
+#             )
+#             logging.debug(f"Initialized AzureVectorService with index '{index_name}'")
+#         except Exception as e:
+#             logging.error("Failed to initialize AzureVectorService", exc_info=True)
+#             raise
+
+#     def add_vectors(self, documents: List[Dict]):
+#         """
+#         Uploads documents (with vectors) to Azure Cognitive Search.
+
+#         Args:
+#             documents: List of documents with 'id', 'vector', and other metadata.
+#         """
+#         try:
+#             result = self.client.upload_documents(documents=documents)
+#             logging.info(f"Uploaded {len(result)} documents to Azure Search.")
+#         except Exception as e:
+#             logging.error("Failed to upload vectors", exc_info=True)
+#             raise
+
+#     def search(self, query_vector: List[float], top_k: int = 3, vector_field_name: str = "vector") -> List[Dict]:
+#         """
+#         Runs a vector similarity search on the index.
+
+#         Args:
+#             query_vector: The input query vector.
+#             top_k: Number of top results to return.
+#             vector_field_name: The name of the vector field in the index.
+
+#         Returns:
+#             List of documents matching the query vector.
+#         """
+#         try:
+#             results = self.client.search(
+#             search_text="",
+#             vectors=[
+#                 {
+#                     "value": query_vector,
+#                     "k": top_k,
+#                     "fields": vector_field_name
+#                 }
+#             ]
+#         )
+#             return [doc for doc in results]
+#         except Exception as e:
+#             logging.error("Vector search failed", exc_info=True)
+#             return []
+
+#     def delete_documents_by_ids(self, ids: List[str]):
+#         """
+#         Deletes documents from the index by their IDs.
+
+#         Args:
+#             ids: List of document IDs to delete.
+#         """
+#         try:
+#             documents = [{"id": doc_id} for doc_id in ids]
+#             self.client.delete_documents(documents)
+#             logging.info(f"Deleted {len(ids)} documents from Azure Search.")
+#         except Exception as e:
+#             logging.error("Failed to delete documents by ID", exc_info=True)
+
+#     @staticmethod
+#     def init_singleton(service_endpoint: str, index_name: str, api_key: str):
+#         """Initializes global singleton instance."""
+#         global azure_instance
+#         if azure_instance is None:
+#             azure_instance = AzureVectorService(service_endpoint, index_name, api_key)
+#         else:
+#             logging.warning("AzureVectorService singleton is already initialized.")
+
+#     @staticmethod
+#     def get_instance() -> Optional["AzureVectorService"]:
+#         """Retrieves global singleton instance."""
+#         global azure_instance
+#         if azure_instance is None:
+#             logging.error("AzureVectorService instance is not initialized. Call init_singleton first.")
+#         return azure_instance
 
 
 class VectorDBService:
