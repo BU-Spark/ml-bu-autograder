@@ -17,9 +17,9 @@ user_from_auth = JWTService.get_instance().from_authorization_header
     summary="Get All Course Materials",
     description="Retrieves all course materials for the specified course.",
     responses={
-        404: {"description": "Course does not exist."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        404: {"detail": "Course does not exist."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def get_course_materials(
@@ -55,9 +55,9 @@ async def get_course_materials(
     summary="Get Specific Course Material",
     description="Retrieves a specific course material for the specified course.",
     responses={
-        404: {"description": "Course or material does not exist."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        404: {"detail": "Course or material does not exist."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def get_course_material(
@@ -96,10 +96,10 @@ async def get_course_material(
     summary="Upload Course Material",
     description="Uploads new course material. The size of the data must be below a certain threshold.",
     responses={
-        400: {"description": "Missing or invalid parameters."},
-        409: {"description": "Material with the same identifier already exists."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        400: {"detail": "Missing or invalid parameters."},
+        409: {"detail": "Material with the same identifier already exists."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def upload_course_material(
@@ -134,9 +134,9 @@ async def upload_course_material(
     summary="Delete Course Material",
     description="Deletes specified course material.",
     responses={
-        404: {"description": "Course or material does not exist."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        404: {"detail": "Course or material does not exist."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def delete_course_material(
@@ -178,10 +178,10 @@ async def delete_course_material(
     summary="Update Course Material",
     description="Updates existing course material. The size of the data must be below a certain threshold.",
     responses={
-        400: {"description": "Missing or invalid parameters."},
-        404: {"description": "Course or material does not exist."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        400: {"detail": "Missing or invalid parameters."},
+        404: {"detail": "Course or material does not exist."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def update_course_material(

@@ -31,7 +31,7 @@ class StudentResponse(BaseModel):
     )
 
     
-    @field_validator("student_id", "course_id", "assignment_id", mode="before")
+    @field_validator("student_id", "course_id", mode="before")
     def normalize_lowercase(cls, value: str) -> str:
         """Converts course_id and semester to lowercase and trims spaces."""
         return value.strip().lower()

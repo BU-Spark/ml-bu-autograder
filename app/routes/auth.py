@@ -35,8 +35,8 @@ GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
     summary="Create Access Token",
     description="Creates a new access token for programmatic API access for the authenticated user.",
     responses={
-        400: {"description": "Invalid parameters."},
-        401: {"description": "Requester is not authenticated."},
+        400: {"detail": "Invalid parameters."},
+        401: {"detail": "Requester is not authenticated."},
     }
 )
 async def create_access_token(
@@ -98,9 +98,9 @@ async def create_access_token(
     summary="Delete Access Token",
     description="Deletes an existing access token.",
     responses={
-        400: {"description": "token_name is missing or invalid."},
-        404: {"description": "Token not found."},
-        403: {"description": "Authenticated but access is not allowed."}
+        400: {"detail": "token_name is missing or invalid."},
+        404: {"detail": "Token not found."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def delete_access_token(
@@ -128,8 +128,8 @@ async def delete_access_token(
     summary="List Access Tokens",
     description="Retrieves active access tokens for the authenticated user.",
     responses={
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def list_access_tokens(user_meta: UserToken = Depends(user_from_auth)):
@@ -147,8 +147,8 @@ async def list_access_tokens(user_meta: UserToken = Depends(user_from_auth)):
     summary="Google OAuth Callback",
     description="Callback endpoint for processing Google OAuth and extracting the authentication token.",
     responses={
-        400: {"description": "Missing required OAuth parameters."},
-        401: {"description": "Invalid OAuth parameters or unauthorized access to Google authentication endpoints."}
+        400: {"detail": "Missing required OAuth parameters."},
+        401: {"detail": "Invalid OAuth parameters or unauthorized access to Google authentication endpoints."}
     }
 )
 async def google_oauth(

@@ -25,7 +25,7 @@ user_from_auth = JWTService.get_instance().from_authorization_header
     description="Updates the authenticated user's profile preferences, including first name, last name, and dark mode "
                 "settings.",
     responses={
-        401: {"description": "Requester is not authenticated."},
+        401: {"detail": "Requester is not authenticated."},
     }
 )
 async def update_user_preferences(
@@ -50,7 +50,7 @@ async def update_user_preferences(
     description="Retrieves the authenticated user's profile information.",
     response_model=User,
     responses={
-        401: {"description": "Requester is not authenticated."},
+        401: {"detail": "Requester is not authenticated."},
     }
 )
 async def get_user(

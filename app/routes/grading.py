@@ -22,11 +22,11 @@ def do_grading(r):
     summary="Grade Specific Responses",
     description="Grades or regrades a specific student responses for an assignment.",
     responses={
-        400: {"description": "Missing or invalid parameters."},
-        404: {"description": "Course, assignment, rubric, or student responses not found."},
-        502: {"description": "External LLM API call failure."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        400: {"detail": "Missing or invalid parameters."},
+        404: {"detail": "Course, assignment, rubric, or student responses not found."},
+        502: {"detail": "External LLM API call failure."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def grade_specific(
@@ -100,11 +100,11 @@ async def grade_specific(
     summary="Grade Ungraded Responses",
     description="Grades all ungraded responses for a specific assignment (optionally for a specific question).",
     responses={
-        400: {"description": "Missing or invalid parameters."},
-        404: {"description": "Course or assignment not found."},
-        502: {"description": "External LLM API call failure."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        400: {"detail": "Missing or invalid parameters."},
+        404: {"detail": "Course or assignment not found."},
+        502: {"detail": "External LLM API call failure."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def grade_ungraded(
@@ -176,11 +176,11 @@ async def grade_ungraded(
     summary="Grade/Regrade All Responses",
     description="Grades or regrades all student responses for a specific assignment (optionally for a specific question).",
     responses={
-        400: {"description": "Missing or invalid parameters."},
-        404: {"description": "Course or assignment not found."},
-        502: {"description": "External LLM API call failure."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        400: {"detail": "Missing or invalid parameters."},
+        404: {"detail": "Course or assignment not found."},
+        502: {"detail": "External LLM API call failure."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def grade_all(
