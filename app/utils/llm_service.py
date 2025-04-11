@@ -12,12 +12,6 @@ from app.models import Rubric, SubRubric
 from app.models.rubric import GradingCriteria
 
 
-class ModelType(Enum):
-    BIG = "gpt-4.5"
-    MEDIUM = "gpt-4o"
-    SMALL = "gpt-4o-mini"
-
-
 class PromptType(Enum):
     TEXT_INPUT = 1, "text"
     IMAGE_BYTES_INPUT = 2, "image_url"
@@ -171,12 +165,22 @@ class PromptBuilder:
         return PromptBuilder()
 
 
+llm_service: Optional["LLMService"] = None
+
+
 # https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/responses?tabs=python-secure
 class LLMService:
     client: AzureOpenAI
     T = TypeVar('T', bound=BaseModel)
 
-    def __init__(self, api_version: str, endpoint_url: HttpUrl, api_key: str):
+    def __init__(self, endpoint_url: HttpUrl, api_key: str):
+        api_version = None
+        for param in endpoint_url.query_params():
+            if param[0] == "api-version":
+                api_version = param[1]
+                break
+        if api_version is None:
+            raise ValueError("api-version is required in the endpoint URL")
         self.client = AzureOpenAI(
             api_version=api_version,
             azure_endpoint=endpoint_url.encoded_string(),
@@ -203,25 +207,21 @@ class LLMService:
         return completion.choices[0].message.parsed
 
     @staticmethod
-    def init_singleton(api_version: str, endpoint_url: HttpUrl, api_key: str):
-        global jwt_service
-        jwt_service = LLMService(api_version, endpoint, api_key)
+    def init_singleton(endpoint_url: HttpUrl, api_key: str):
+        global llm_service
+        llm_service = LLMService(endpoint_url, api_key)
 
     @staticmethod
     def get_instance() -> Optional["LLMService"]:
-        global jwt_service
-        return jwt_service
+        global llm_service
+        return llm_service
 
-
+# TODO: delete me
 if __name__ == '__main__':
-    endpoint = HttpUrl("https://autograde-openai-connection.openai.azure.com/openai/deployments/gpt-4o-mini/chat/completions?api-version=2025-01-01-preview")
-    model_name = "gpt-4o-mini"
-    deployment = "gpt-4o-mini"
+    endpoint = HttpUrl("[REDACTED]")
+    subscription_key = "[REDACTED]"
 
-    subscription_key = "FBeIHa8OZ6qpZYQz7eOz92udMcEBQeRSnIVMiZTnLco8gTIon7AcJQQJ99BBACYeBjFXJ3w3AAAAACOGwNt2"
-    api_version = "2024-12-01-preview"
-
-    LLMService.init_singleton(api_version, endpoint, subscription_key)
+    LLMService.init_singleton(endpoint, subscription_key)
     llm = LLMService.get_instance()
 
     file_path = r"C:\Users\aseef\Downloads\image.png"
@@ -241,33 +241,31 @@ if __name__ == '__main__':
 
     res = (PromptBuilder.builder()
            .add_message(PromptRole.USER, "Improve this rubric.")
-            .add_json_input(PromptRole.USER, Rubric(
-                semester="fall2024",
-                course_id="CS101",
-                assignment_id=1,
-                grading_flags=None,
-                leniency=3,
-                overall_instructor_guidelines="Be more strict.",
-                sub_rubrics=[
-                    SubRubric(
-                        question_index=1,
-                        max_points=10,
-                        grading_criteria=[],
-                        leniency=2,
-                        instructor_guideline="Check spellings",
-                    ),
-                    SubRubric(
-                        question_index=2,
-                        max_points=10,
-                        grading_criteria=[
-                            GradingCriteria(
-                            criteria_id="grammer", criteria="how gud is grammer", points=5)
-                        ],
-                    leniency=2, instructor_guideline=None, )
+           .add_json_input(PromptRole.USER, Rubric(
+        semester="fall2024",
+        course_id="CS101",
+        assignment_id=1,
+        grading_flags=None,
+        leniency=3,
+        overall_instructor_guidelines="Be more strict.",
+        sub_rubrics=[
+            SubRubric(
+                question_index=1,
+                max_points=10,
+                grading_criteria=[],
+                leniency=2,
+                instructor_guideline="Check spellings",
+            ),
+            SubRubric(
+                question_index=2,
+                max_points=10,
+                grading_criteria=[
+                    GradingCriteria(
+                        criteria_id="grammer", criteria="how gud is grammer", points=5)
+                ],
+                leniency=2, instructor_guideline=None, )
 
-                ]
-            ))
+        ]
+    ))
            .build())
     print(llm.generate_structured_response(res, Rubric).model_dump_json(indent=4))
-
-
