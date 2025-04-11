@@ -119,12 +119,13 @@ async def upload_course_material(
         raise HTTPException(status_code=403, detail="Authenticated but access is not allowed.")
     
     # Check if material already exists
-    existing_material = blob_uploader.get_course_material(material.semester, material.course_id, material.material_id)
-    if existing_material:
+    if blob_uploader.course_material_exists(material.semester, material.course_id, material.material_id):
         raise HTTPException(status_code=409, detail="Material with this ID already exists.")
     
     # Upload the material
     blob_uploader.upload_course_material(material)
+
+    # TODO: chunk up the material and upload it to rag db
     
     return material
 
@@ -201,7 +202,7 @@ async def update_course_material(
         raise HTTPException(status_code=403, detail="Authenticated but access is not allowed.")
     
     # Check if material exists
-    existing_material = blob_uploader.get_course_material(material.semester, material.course_id, material.material_id)
+    existing_material = blob_uploader.course_material_exists(material.semester, material.course_id, material.material_id)
     if not existing_material:
         raise HTTPException(status_code=404, detail="Course material does not exist.")
     

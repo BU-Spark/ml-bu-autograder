@@ -22,7 +22,7 @@ class CourseMaterial(BaseModel):
     )
 
     
-    @field_validator("course_id", "material_id", mode="before")
+    @field_validator("course_id", mode="before")
     def normalize_lowercase(cls, value: str) -> str:
         """Converts course_id and semester to lowercase and trims spaces."""
         return value.strip().lower()

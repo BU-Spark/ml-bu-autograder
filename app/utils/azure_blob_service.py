@@ -11,6 +11,7 @@ from pydantic import EmailStr, FilePath
 from app.models import Course, Assignment, Question, StudentResponse, Rubric, CourseMaterial, User, PersonalAccessToken, \
     SubRubric, Grade
 from app.models.student_response import GradedStudentResponse
+from app.models.uploaded_file import UploadedFileData, DataType
 
 azure_blob_uploader: Optional["AzureBlobService"] = None
 
@@ -214,7 +215,6 @@ class AzureBlobService:
         self.upload_base64_file(
             student_response.data.content,
             blob_path,
-            student_response.data.metadata
         )
 
     def upload_student_grade(self, graded_student_response: GradedStudentResponse):
@@ -272,10 +272,12 @@ class AzureBlobService:
             f"{material.semester}/"
             f"{material.course_id}/"
             f"course_material/"
-            f"{material.material_id}.{material.data.data_type}"
+            f"{material.material_id}.{material.data.data_type.value}"
         )
         logging.debug(f"Uploading course material {material.material_id}")
-        self.upload_base64_file(material.data.content, blob_path, material.data.metadata)
+        self.upload_base64_file(material.data.content, blob_path, {
+            "additional_notes": material.additional_notes
+        })
 
     def get_student_response(self, semester_key: str, course_id: str, assignment_id: int, question_index: int,
                              student_id: str, retrieve_grades=True) -> Optional[GradedStudentResponse]:
@@ -323,11 +325,73 @@ class AzureBlobService:
         return SubRubric(**data) if data else None
 
     def get_course_material(self, semester_key: str, course_id: str, material_id: int) -> Optional[CourseMaterial]:
-        """Retrieves course material if exists."""
-        blob_path = f"course/{semester_key}/{course_id}/course_material/{material_id}.json"
-        logging.debug(f"Fetching course material {material_id}")
-        data = self.download_json(blob_path)
-        return CourseMaterial(**data) if data else None
+        """Retrieves course material if it exists."""
+        # Construct the search pattern with a wildcard extension.
+        pattern = f"course/{semester_key}/{course_id}/course_material/{material_id}.*"
+        full_pattern = self._full_path(pattern)
+        logging.debug(f"Searching for course material with pattern: {full_pattern}")
+
+        # List files that match the pattern.
+        files = self.fs.glob(full_pattern)
+        if not files:
+            logging.debug(f"No course material found for material_id {material_id} in course {course_id}")
+            return None
+
+        # Assume the first matching file is the correct one.
+        file_path = files[0]
+        logging.debug(f"Found course material file: {file_path}")
+
+        # Extract file extension (the part after the last dot) to determine the data type.
+        filename = file_path.split('/')[-1]
+        parts = filename.split('.')
+        if len(parts) < 2:
+            extension = ""  # Fallback if no extension was found.
+        else:
+            extension = parts[-1]
+
+        # Open and read the file as binary.
+        try:
+            with self.fs.open(file_path, 'rb') as f:
+                file_bytes = f.read()
+            logging.debug(f"Read {len(file_bytes)} bytes from course material file {file_path}")
+        except Exception as e:
+            logging.error(f"Error reading course material from {file_path}: {e}")
+            return None
+
+        # Convert the binary data back to a base64-encoded string.
+        encoded_content = base64.b64encode(file_bytes).decode('utf-8')
+
+        # Attempt to retrieve metadata such as additional_notes.
+        additional_notes = ""
+        try:
+            info = self.fs.info(file_path)
+            # fsspec's info() method may return a dict with a 'metadata' key.
+            # TODO: metadata not being recovered
+            metadata = info.get('metadata', {})
+            additional_notes = metadata.get('additional_notes', '')
+            logging.debug(f"Retrieved metadata for course material: {metadata}")
+        except Exception as e:
+            logging.warning(f"Could not retrieve metadata for {file_path}: {e}")
+
+        # Construct the CourseMaterial instance.
+        # Here we assume that CourseMaterial takes the following parameters:
+        #   semester, course_id, material_id, additional_notes, and a 'data' dictionary with keys 'data_type' and 'content'.
+        file_data = UploadedFileData(data_type=DataType.from_value(extension), content=encoded_content)
+        try:
+            material = CourseMaterial(
+                semester=semester_key,
+                course_id=course_id,
+                material_id=material_id,
+                material_name=filename,
+                additional_notes=additional_notes,
+                data=file_data
+            )
+        except Exception as e:
+            logging.error(f"Error constructing CourseMaterial: {e}")
+            return None
+
+        logging.debug(f"Successfully retrieved course material: {material}")
+        return material
 
     def get_user(self, user_email: EmailStr) -> Optional[User]:
         """Retrieves user data if exists."""
@@ -481,9 +545,23 @@ class AzureBlobService:
 
     def delete_course_material(self, semester_key: str, course_id: str, material_id: int):
         """Deletes specific course material."""
-        blob_path = f"course/{semester_key}/{course_id}/course_material/{material_id}.json"
-        logging.debug(f"Deleting course material {material_id}")
-        self.delete_blob(blob_path)
+        pattern = f"course/{semester_key}/{course_id}/course_material/{material_id}.*"
+        full_pattern = self._full_path(pattern)
+        logging.debug(f"Deleting course material using pattern: {full_pattern}")
+
+        # Expect exactly one matching file.
+        matching_files = self.fs.glob(full_pattern)
+        if not matching_files:
+            logging.debug(f"No course material found for material_id {material_id} in course {course_id}")
+            return
+
+        # As we expect only one file, delete the first (and only) match.
+        file_path = matching_files[0]
+        relative_path = file_path.split('/', 1)[1] if '/' in file_path else file_path
+        logging.debug(f"Deleting file: {relative_path}")
+        self.delete_blob(relative_path)
+
+        logging.info(f"Deleted course material {material_id} for course {course_id}")
 
     def delete_question_metadata(self, semester_key: str, course_id: str, assignment_id: int, question_index: int):
         """
@@ -565,17 +643,73 @@ class AzureBlobService:
         """
         Lists all course materials for a given course.
         """
-        pattern = f"course/{semester_key}/{course_id}/course_material/*.json"
+        pattern = f"course/{semester_key}/{course_id}/course_material/*.*"
         materials = []
-        logging.debug(f"Listing course materials for course {course_id}")
+        full_pattern = self._full_path(pattern)
+        logging.debug(f"Listing course materials for course {course_id} using pattern: {full_pattern}")
 
-        for file in self.fs.glob(self._full_path(pattern)):
-            relative_path = file.split('/', 1)[1]
-            data = self.download_json(relative_path)
-            if data:
-                materials.append(CourseMaterial(**data))
+        for file_path in self.fs.glob(full_pattern):
+            logging.debug(f"Found course material file: {file_path}")
+            # Convert full path to relative path if necessary.
+            relative_path = file_path.split('/', 1)[1] if '/' in file_path else file_path
+            # Get the file name from the relative path.
+            filename = relative_path.split('/')[-1]  # e.g., "123.pdf"
+            parts = filename.split('.')
+            if len(parts) < 2:
+                logging.warning(f"File {file_path} does not have a valid material id and extension.")
+                continue
 
-        logging.debug(f"Found {len(materials)} course materials")
+            material_id_str = parts[0]
+            try:
+                material_id = int(material_id_str)
+            except ValueError:
+                logging.warning(f"Invalid material id in filename {filename}.")
+                continue
+
+            data_type = parts[-1]
+            # Read the binary data from storage.
+            try:
+                with self.fs.open(file_path, 'rb') as f:
+                    file_bytes = f.read()
+                logging.debug(f"Read {len(file_bytes)} bytes from course material file {file_path}")
+            except Exception as e:
+                logging.error(f"Error reading course material file {file_path}: {e}")
+                continue
+
+            # Re-encode the binary content to base64.
+            encoded_content = base64.b64encode(file_bytes).decode('utf-8')
+
+            # Retrieve any file metadata (e.g., additional_notes).
+            additional_notes = ""
+            try:
+                info = self.fs.info(file_path)
+                metadata = info.get("metadata", {})
+                additional_notes = metadata.get("additional_notes", "")
+                logging.debug(f"Retrieved metadata for {file_path}: {metadata}")
+            except Exception as e:
+                logging.warning(f"Could not retrieve metadata for {file_path}: {e}")
+
+            # Prepare the file data dictionary.
+            file_data = UploadedFileData(
+                data_type= DataType.from_value(data_type),
+                content= encoded_content
+            )
+
+            # Construct the CourseMaterial object.
+            try:
+                material = CourseMaterial(
+                    semester=semester_key,
+                    course_id=course_id,
+                    material_id=material_id,
+                    material_name=filename,
+                    additional_notes=additional_notes,
+                    data=file_data
+                )
+                materials.append(material)
+            except Exception as e:
+                logging.error(f"Error constructing CourseMaterial for file {file_path}: {e}")
+
+        logging.debug(f"Found {len(materials)} course materials for course {course_id}")
         return materials
 
     def list_assignments(self, semester_key: str, course_id: str) -> List[Assignment]:
@@ -644,6 +778,19 @@ class AzureBlobService:
         full_path = self._full_path(blob_path)
         exists = self.fs.exists(full_path)
         logging.debug(f"Token existence check for {user_email}: {exists}")
+        return exists
+
+    def course_material_exists(self, semester_key: str, course_id: str, material_id: int) -> bool:
+        """
+        Checks if course material exists for the given semester, course, and material_id.
+        """
+        pattern = f"course/{semester_key}/{course_id}/course_material/{material_id}.*"
+        full_pattern = self._full_path(pattern)
+        logging.debug(f"Checking existence of course material with pattern: {full_pattern}")
+
+        matching_files = self.fs.glob(full_pattern)
+        exists = len(matching_files) > 0
+        logging.debug(f"Course material existence check for material_id {material_id}: {exists}")
         return exists
 
     def count_questions(self, semester_key: str, course_id: str, assignment_id: int) -> int:

@@ -20,6 +20,16 @@ class DataType(Enum):
     JSON = "json"
     MP4 = "mp4"
 
+    @classmethod
+    def from_value(cls, val: str) -> Optional["DataType"]:
+        """
+        Converts a string value to the corresponding DataType enum member.
+        """
+        for member in cls:
+            if member.value == val:
+                return member
+        return None
+
 
 class UploadedFileData(BaseModel):
     """
@@ -31,7 +41,7 @@ class UploadedFileData(BaseModel):
     - **content**: A string representing the binary content of the file encoded in Base64.
     """
     data_type: DataType = Field(..., description="The data type which 'content' should be interpret as.")
-    metadata: Optional[Dict[str, str]] = Field(None, description="Optional metadata as key-value pairs.")
+    #metadata: Optional[Dict[str, str]] = Field(None, description="Optional metadata as key-value pairs.")
     content: str = Field(..., description="Binary content of the file encoded in Base64.")
 
 
@@ -45,6 +55,6 @@ class UploadedFileReference(BaseModel):
     - **url**: The URL for where this file can be accessed.
     """
     data_type: str = Field(..., description="The file type or extension (e.g., '.png', '.pdf', '.doc', URL).")
-    metadata: Optional[Dict[str, str]] = Field(None,
-                                               description="Optional metadata as key-value pairs (e.g., {'size': '2MB', 'dimensions': '1024x768'}).")
+    # metadata: Optional[Dict[str, str]] = Field(None,
+    #                                            description="Optional metadata as key-value pairs (e.g., {'size': '2MB', 'dimensions': '1024x768'}).")
     url: str = Field(..., description="The URL for where this file can be accessed.")
