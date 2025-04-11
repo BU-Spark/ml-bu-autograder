@@ -8,120 +8,92 @@ from chromadb.errors import InvalidCollectionException
 
 from azure.core.credentials import AzureKeyCredential
 from azure.search.documents import SearchClient
+from azure.search.documents.indexes import SearchIndexClient
+from azure.search.documents.indexes.models import SearchIndex
 
 chroma_instance: Optional["ChromaDBService"] = None
 
 # azure_instance: Optional["AzureVectorService"] = None
 
 
-# class AzureVectorService:
-#     def __init__(self, service_endpoint: str, index_name: str, api_key: str):
-#         """
-#         Initializes Azure Cognitive Search client.
-
-#         Args:
-#             service_endpoint: Azure Search endpoint.
-#             index_name: Name of the Azure Search index.
-#             api_key: Admin API key.
-#         """
-#         self.service_endpoint = service_endpoint
-#         self.index_name = index_name
-#         self.api_key = api_key
-
-#         try:
-#             self.client = SearchClient(
-#                 endpoint=service_endpoint,
-#                 index_name=index_name,
-#                 credential=AzureKeyCredential(api_key)
-#             )
-#             logging.debug(f"Initialized AzureVectorService with index '{index_name}'")
-#         except Exception as e:
-#             logging.error("Failed to initialize AzureVectorService", exc_info=True)
-#             raise
-
-#     def add_vectors(self, documents: List[Dict]):
-#         """
-#         Uploads documents (with vectors) to Azure Cognitive Search.
-
-#         Args:
-#             documents: List of documents with 'id', 'vector', and other metadata.
-#         """
-#         try:
-#             result = self.client.upload_documents(documents=documents)
-#             logging.info(f"Uploaded {len(result)} documents to Azure Search.")
-#         except Exception as e:
-#             logging.error("Failed to upload vectors", exc_info=True)
-#             raise
-
-#     def search(self, query_vector: List[float], top_k: int = 3, vector_field_name: str = "vector") -> List[Dict]:
-#         """
-#         Runs a vector similarity search on the index.
-
-#         Args:
-#             query_vector: The input query vector.
-#             top_k: Number of top results to return.
-#             vector_field_name: The name of the vector field in the index.
-
-#         Returns:
-#             List of documents matching the query vector.
-#         """
-#         try:
-#             results = self.client.search(
-#             search_text="",
-#             vectors=[
-#                 {
-#                     "value": query_vector,
-#                     "k": top_k,
-#                     "fields": vector_field_name
-#                 }
-#             ]
-#         )
-#             return [doc for doc in results]
-#         except Exception as e:
-#             logging.error("Vector search failed", exc_info=True)
-#             return []
-
-#     def delete_documents_by_ids(self, ids: List[str]):
-#         """
-#         Deletes documents from the index by their IDs.
-
-#         Args:
-#             ids: List of document IDs to delete.
-#         """
-#         try:
-#             documents = [{"id": doc_id} for doc_id in ids]
-#             self.client.delete_documents(documents)
-#             logging.info(f"Deleted {len(ids)} documents from Azure Search.")
-#         except Exception as e:
-#             logging.error("Failed to delete documents by ID", exc_info=True)
-
-#     @staticmethod
-#     def init_singleton(service_endpoint: str, index_name: str, api_key: str):
-#         """Initializes global singleton instance."""
-#         global azure_instance
-#         if azure_instance is None:
-#             azure_instance = AzureVectorService(service_endpoint, index_name, api_key)
-#         else:
-#             logging.warning("AzureVectorService singleton is already initialized.")
-
-#     @staticmethod
-#     def get_instance() -> Optional["AzureVectorService"]:
-#         """Retrieves global singleton instance."""
-#         global azure_instance
-#         if azure_instance is None:
-#             logging.error("AzureVectorService instance is not initialized. Call init_singleton first.")
-#         return azure_instance
 
 
 class VectorDBService:
+    def __init__(self, endpoint: str, api_key: str, index_name: str, vector_field: str):
+        self.endpoint = endpoint
+        self.index_name = index_name
+        self.vector_field = vector_field
+        self.api_key = api_key
+
+        credential = AzureKeyCredential(api_key)
+
+        # Client to interact with documents (vectors)
+        self.client = SearchClient(endpoint, index_name, credential=credential)
+        
+        # Client to manage indexes (checking or retrieving vector store)
+        self.index_client = SearchIndexClient(endpoint, credential=credential)
+
+        # Verify vector store (index) exists upon initialization
+        self._verify_or_retrieve_index()
+    
+    def _verify_or_retrieve_index(self):
+        """Verifies that the vector store index exists and retrieves it."""
+        try:
+            index: SearchIndex = self.index_client.get_index(self.index_name)
+            logging.info(f"✅ Retrieved existing vector store index: '{self.index_name}'")
+            # Optional: You could store 'index' object if schema info is needed
+        except Exception as e:
+            logging.error(f"Vector store index '{self.index_name}' not found: {str(e)}")
+            raise
 
     def add_vectors(self, ids: List[str], vectors: List[List[float]],
                     metadatas: List[Mapping] = None):
         """Adds vectors to a specified collection in batch for higher performance."""
-        ...
+        documents = []
+        for i, vector in enumerate(vectors):
+            doc = {
+                "id": ids[i], 
+                self.vector_field: vector
+            }
+            if metadatas and metadatas[i]:
+                doc.update(metadatas[i])
+            documents.append(doc)
+        try:
+            upload_results = self.client.upload_documents(documents=documents)
+            succeeded = [doc.key for doc in upload_results if doc.succeeded]
+            failed = [doc.key for doc in upload_results if not doc.succeeded]
+
+            if succeeded:
+                logging.info(f"Uploaded vectors successfully: {succeeded}")
+            if failed:
+                logging.error(f"Upload failed for documents: {failed}")
+
+        except Exception as e:
+            logging.error(f"Error uploading vectors: {str(e)}")
+            raise
 
     def search(self, query_vectors: List[List[float]], top_k: int = 5) -> QueryResult:
         """Queries the closest vectors from the collection."""
+        results_batch = []
+
+        for vector in query_vectors:
+            try:
+                search_results = self.client.search(
+                    search_text="",  # empty required for vector-only search (we can just assume its vector only for now...)
+                    vectors=[{
+                        "value": vector,
+                        "fields": self.vector_field,
+                        "k": top_k
+                    }]
+                )
+                results = [dict(result) for result in search_results]
+                results_batch.append(results)
+                logging.info(f"Retrieved top-{top_k} results for query vector.")
+            except Exception as e:
+                logging.error(f"Error performing vector search: {str(e)}")
+                results_batch.append([])
+
+        return results_batch
 
 
 class ChromaDBService(VectorDBService):
