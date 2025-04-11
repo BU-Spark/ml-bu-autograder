@@ -37,7 +37,8 @@ class SubRubric(BaseModel):
     question_index: int = Field(..., description="Index of the question.")
     max_points: float = Field(..., description="Maximum points for this question.")
     leniency: Optional[int] = Field(
-        None, ge=1, le=5,
+        #None, ge=1, le=5,  # TODO: Azure API doesn't like default values and ranges
+        ...,
         description="Leniency (1=very strict, 5=very lenient). If omitted, no specific question-level leniency is set."
     )
     instructor_guideline: Optional[str] = Field(
@@ -67,7 +68,9 @@ class Rubric(BaseModel):
         )
     )
     leniency: int = Field(
-        3, ge=1, le=5, description="Overall leniency (1=very strict, 5=very lenient)."
+        #3, ge=1, le=5, # TODO: Azure API doesn't like default values and ranges
+        ...,
+        description="Overall leniency (1=very strict, 5=very lenient)."
     )
     overall_instructor_guidelines: Optional[str] = Field(
         None, description="General grading criteria applicable to all questions."
