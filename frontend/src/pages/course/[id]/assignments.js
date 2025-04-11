@@ -1,8 +1,3 @@
-/**
- * Assignments Page for BU MET Autograder
- * Interface for creating, editing, and managing assignments
- */
-
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import {
@@ -130,6 +125,7 @@ export default function Assignments() {
 
       setLoading(true);
       try {
+        // Ensure proper API parameters are passed
         const assignmentsData = await assignmentService.getAssignments(courseId, semester);
         setAssignments(assignmentsData || []);
 
@@ -163,29 +159,27 @@ export default function Assignments() {
         semester: semester,
         assignment_title: newAssignmentData.assignment_title,
         assignment_guidelines: newAssignmentData.assignment_guidelines,
-        questions: [],
+        questions: [],  // Initialize with an empty question list
       });
 
-      // Add to assignments list
       setAssignments([...assignments, newAssignment]);
-
-      // Reset form and close dialog
       setNewAssignmentData({
         assignment_title: '',
         assignment_guidelines: '',
       });
       setCreateDialogOpen(false);
 
-      // Select the new assignment
+      // Select the newly created assignment and update URL only if it's not the same URL
       setSelectedAssignment(newAssignment);
 
-      // Show success alert
+      const newRoute = `/course/${courseId}/assignments?semester=${semester}&assignmentId=${newAssignment.assignment_id}`;
+      if (router.asPath !== newRoute) {
+        router.push(newRoute, undefined, { shallow: true });
+      }
+
       setAlertMessage('Assignment created successfully');
       setAlertSeverity('success');
       setAlertOpen(true);
-
-      // Update URL with new assignment ID
-      router.push(`/course/${courseId}/assignments?semester=${semester}&assignmentId=${newAssignment.assignment_id}`, undefined, { shallow: true });
     } catch (error) {
       console.error('Error creating assignment:', error);
       setAlertMessage(error.message || 'Failed to create assignment');
@@ -199,31 +193,22 @@ export default function Assignments() {
     if (!selectedAssignment) return;
 
     try {
-      // Update assignment through the API
-      // This is a simplified version - in a real app, you'd likely have a dedicated update endpoint
       const updatedAssignment = {
         ...selectedAssignment,
         assignment_title: editAssignmentData.assignment_title,
         assignment_guidelines: editAssignmentData.assignment_guidelines,
       };
 
-      // Mock update - in a real implementation, call the API
-      // await assignmentService.updateAssignment(updatedAssignment);
+      await assignmentService.updateAssignment(courseId, semester, selectedAssignment.assignment_id, updatedAssignment);
 
-      // Update in local state
       const updatedAssignments = assignments.map((assignment) =>
-        assignment.assignment_id === selectedAssignment.assignment_id
-          ? updatedAssignment
-          : assignment
+        assignment.assignment_id === selectedAssignment.assignment_id ? updatedAssignment : assignment
       );
 
       setAssignments(updatedAssignments);
       setSelectedAssignment(updatedAssignment);
-
-      // Close dialog
       setEditAssignmentDialogOpen(false);
 
-      // Show success alert
       setAlertMessage('Assignment updated successfully');
       setAlertSeverity('success');
       setAlertOpen(true);
@@ -240,27 +225,23 @@ export default function Assignments() {
     if (!selectedAssignment) return;
 
     try {
-      await assignmentService.deleteAssignment(selectedAssignment.assignment_id);
+      await assignmentService.deleteAssignment(courseId, semester, selectedAssignment.assignment_id);
 
-      // Remove from assignments list
       const updatedAssignments = assignments.filter(
         (assignment) => assignment.assignment_id !== selectedAssignment.assignment_id
       );
       setAssignments(updatedAssignments);
-
-      // Clear selected assignment
       setSelectedAssignment(null);
-
-      // Close dialog
       setDeleteAssignmentDialogOpen(false);
 
-      // Show success alert
       setAlertMessage('Assignment deleted successfully');
       setAlertSeverity('success');
       setAlertOpen(true);
 
-      // Update URL to remove assignmentId
-      router.push(`/course/${courseId}/assignments?semester=${semester}`, undefined, { shallow: true });
+      const newRoute = `/course/${courseId}/assignments?semester=${semester}`;
+      if (router.asPath !== newRoute) {
+        router.push(newRoute, undefined, { shallow: true });
+      }
     } catch (error) {
       console.error('Error deleting assignment:', error);
       setAlertMessage(error.message || 'Failed to delete assignment');
@@ -274,7 +255,6 @@ export default function Assignments() {
     if (!selectedAssignment) return;
 
     try {
-      // Determine the next question index
       const nextIndex = selectedAssignment.questions.length;
 
       const newQuestion = {
@@ -282,31 +262,19 @@ export default function Assignments() {
         question_index: nextIndex,
       };
 
-      await assignmentService.addQuestion({
-        semester: semester,
-        course_id: courseId,
-        assignment_id: selectedAssignment.assignment_id,
-        question: newQuestion,
-      });
+      await assignmentService.addQuestion(courseId, semester, selectedAssignment.assignment_id, newQuestion);
 
-      // Update the selected assignment with the new question
       const updatedQuestions = [...selectedAssignment.questions, newQuestion];
       const updatedAssignment = {
         ...selectedAssignment,
         questions: updatedQuestions,
       };
 
-      // Update in local state
-      const updatedAssignments = assignments.map((assignment) =>
-        assignment.assignment_id === selectedAssignment.assignment_id
-          ? updatedAssignment
-          : assignment
-      );
-
-      setAssignments(updatedAssignments);
+      setAssignments(assignments.map((assignment) =>
+        assignment.assignment_id === selectedAssignment.assignment_id ? updatedAssignment : assignment
+      ));
       setSelectedAssignment(updatedAssignment);
 
-      // Reset form and close dialog
       setQuestionData({
         question_text: '',
         question_index: 0,
@@ -314,7 +282,6 @@ export default function Assignments() {
       });
       setAddQuestionDialogOpen(false);
 
-      // Show success alert
       setAlertMessage('Question added successfully');
       setAlertSeverity('success');
       setAlertOpen(true);
@@ -331,14 +298,8 @@ export default function Assignments() {
     if (!selectedAssignment) return;
 
     try {
-      await assignmentService.editQuestion({
-        semester: semester,
-        course_id: courseId,
-        assignment_id: selectedAssignment.assignment_id,
-        question: questionData,
-      });
+      await assignmentService.editQuestion(courseId, semester, selectedAssignment.assignment_id, questionData.question_index, questionData);
 
-      // Update the selected assignment with the edited question
       const updatedQuestions = selectedAssignment.questions.map((q) =>
         q.question_index === questionData.question_index ? questionData : q
       );
@@ -348,17 +309,11 @@ export default function Assignments() {
         questions: updatedQuestions,
       };
 
-      // Update in local state
-      const updatedAssignments = assignments.map((assignment) =>
-        assignment.assignment_id === selectedAssignment.assignment_id
-          ? updatedAssignment
-          : assignment
-      );
-
-      setAssignments(updatedAssignments);
+      setAssignments(assignments.map((assignment) =>
+        assignment.assignment_id === selectedAssignment.assignment_id ? updatedAssignment : assignment
+      ));
       setSelectedAssignment(updatedAssignment);
 
-      // Reset form and close dialog
       setQuestionData({
         question_text: '',
         question_index: 0,
@@ -366,7 +321,6 @@ export default function Assignments() {
       });
       setEditQuestionDialogOpen(false);
 
-      // Show success alert
       setAlertMessage('Question updated successfully');
       setAlertSeverity('success');
       setAlertOpen(true);
@@ -383,17 +337,12 @@ export default function Assignments() {
     if (!selectedAssignment || questionToDelete === null) return;
 
     try {
-      await assignmentService.removeQuestion(
-        selectedAssignment.assignment_id,
-        questionToDelete
-      );
+      await assignmentService.removeQuestion(courseId, semester, selectedAssignment.assignment_id, questionToDelete);
 
-      // Update the selected assignment by removing the deleted question
       const updatedQuestions = selectedAssignment.questions.filter(
         (q) => q.question_index !== questionToDelete
       );
 
-      // Reindex remaining questions
       const reindexedQuestions = updatedQuestions.map((q, index) => ({
         ...q,
         question_index: index,
@@ -404,21 +353,14 @@ export default function Assignments() {
         questions: reindexedQuestions,
       };
 
-      // Update in local state
-      const updatedAssignments = assignments.map((assignment) =>
-        assignment.assignment_id === selectedAssignment.assignment_id
-          ? updatedAssignment
-          : assignment
-      );
-
-      setAssignments(updatedAssignments);
+      setAssignments(assignments.map((assignment) =>
+        assignment.assignment_id === selectedAssignment.assignment_id ? updatedAssignment : assignment
+      ));
       setSelectedAssignment(updatedAssignment);
 
-      // Close dialog and reset
       setDeleteQuestionDialogOpen(false);
       setQuestionToDelete(null);
 
-      // Show success alert
       setAlertMessage('Question deleted successfully');
       setAlertSeverity('success');
       setAlertOpen(true);
@@ -428,338 +370,6 @@ export default function Assignments() {
       setAlertSeverity('error');
       setAlertOpen(true);
     }
-  };
-
-  // Handle opening edit assignment dialog
-  const handleOpenEditAssignmentDialog = () => {
-    if (!selectedAssignment) return;
-
-    setEditAssignmentData({
-      assignment_title: selectedAssignment.assignment_title || '',
-      assignment_guidelines: selectedAssignment.assignment_guidelines || '',
-    });
-
-    setEditAssignmentDialogOpen(true);
-  };
-
-  // Handle opening edit question dialog
-  const handleOpenEditQuestionDialog = (question) => {
-    setQuestionData({
-      question_text: question.question_text,
-      question_index: question.question_index,
-      question_graphics_figures: question.question_graphics_figures || null,
-    });
-
-    setEditQuestionDialogOpen(true);
-  };
-
-  // Handle selecting an assignment
-  const handleSelectAssignment = (assignment) => {
-    setSelectedAssignment(assignment);
-
-    // Update URL with selected assignment ID
-    router.push(`/course/${courseId}/assignments?semester=${semester}&assignmentId=${assignment.assignment_id}`, undefined, { shallow: true });
-  };
-
-  // Handle drag and drop reordering of questions
-  const handleDragEnd = async (result) => {
-    if (!result.destination || !selectedAssignment) return;
-
-    const { source, destination } = result;
-
-    // Don't do anything if dropped in the same position
-    if (source.index === destination.index) return;
-
-    // Reorder the questions array
-    const questions = Array.from(selectedAssignment.questions);
-    const [movedQuestion] = questions.splice(source.index, 1);
-    questions.splice(destination.index, 0, movedQuestion);
-
-    // Update question indexes to match their new positions
-    const reindexedQuestions = questions.map((q, index) => ({
-      ...q,
-      question_index: index,
-    }));
-
-    try {
-      // Update the question order via API
-      await assignmentService.modifyQuestionOrder({
-        semester: semester,
-        course_id: courseId,
-        assignment_id: selectedAssignment.assignment_id,
-        list_of_question_indexes: reindexedQuestions.map((q) => q.question_index),
-      });
-
-      // Update local state
-      const updatedAssignment = {
-        ...selectedAssignment,
-        questions: reindexedQuestions,
-      };
-
-      const updatedAssignments = assignments.map((assignment) =>
-        assignment.assignment_id === selectedAssignment.assignment_id
-          ? updatedAssignment
-          : assignment
-      );
-
-      setAssignments(updatedAssignments);
-      setSelectedAssignment(updatedAssignment);
-
-      // Show success alert
-      setAlertMessage('Question order updated successfully');
-      setAlertSeverity('success');
-      setAlertOpen(true);
-    } catch (error) {
-      console.error('Error updating question order:', error);
-      setAlertMessage(error.message || 'Failed to update question order');
-      setAlertSeverity('error');
-      setAlertOpen(true);
-    }
-  };
-
-  // Handle form input changes
-  const handleInputChange = (event, formSetter) => {
-    const { name, value } = event.target;
-    formSetter((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  // Render the assignment list
-  const renderAssignmentList = () => {
-    if (loading) {
-      return (
-        <Grid container spacing={3}>
-          {[1, 2, 3].map((item) => (
-            <Grid item xs={12} sm={6} md={4} key={item}>
-              <CardSkeleton height={150} />
-            </Grid>
-          ))}
-        </Grid>
-      );
-    }
-
-    if (assignments.length === 0) {
-      return (
-        <NoAssignmentsBox>
-          <AssignmentIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
-          <Typography variant="h6" gutterBottom>
-            No Assignments Found
-          </Typography>
-          <Typography variant="body2" color="text.secondary" paragraph>
-            You don't have any assignments yet. Create your first assignment to get started.
-          </Typography>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<AddIcon />}
-            onClick={() => setCreateDialogOpen(true)}
-          >
-            Create Assignment
-          </Button>
-        </NoAssignmentsBox>
-      );
-    }
-
-    return (
-      <Grid container spacing={3}>
-        {assignments.map((assignment) => (
-          <Grid item xs={12} sm={6} md={4} key={assignment.assignment_id}>
-            <AssignmentCard
-              raised={selectedAssignment?.assignment_id === assignment.assignment_id}
-            >
-              <CardActionArea onClick={() => handleSelectAssignment(assignment)}>
-                <AssignmentCardContent>
-                  <Typography variant="h6" component="h2" noWrap>
-                    {assignment.assignment_title || 'Untitled Assignment'}
-                  </Typography>
-
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    {assignment.questions.length} {assignment.questions.length === 1 ? 'question' : 'questions'}
-                  </Typography>
-
-                  {assignment.assignment_guidelines && (
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        mb: 1,
-                      }}
-                    >
-                      {assignment.assignment_guidelines}
-                    </Typography>
-                  )}
-                </AssignmentCardContent>
-              </CardActionArea>
-            </AssignmentCard>
-          </Grid>
-        ))}
-      </Grid>
-    );
-  };
-
-  // Render the selected assignment details
-  const renderAssignmentDetails = () => {
-    if (!selectedAssignment) return null;
-
-    return (
-      <Box sx={{ mt: 4 }}>
-        <Paper sx={{ p: 3, mb: 3 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <Box>
-              <Typography variant="h5" gutterBottom>
-                {selectedAssignment.assignment_title || 'Untitled Assignment'}
-              </Typography>
-
-              <Typography variant="body2" color="text.secondary">
-                {selectedAssignment.questions.length} {selectedAssignment.questions.length === 1 ? 'question' : 'questions'}
-              </Typography>
-            </Box>
-
-            <Box>
-              <IconButton
-                color="primary"
-                aria-label="edit assignment"
-                onClick={handleOpenEditAssignmentDialog}
-              >
-                <EditIcon />
-              </IconButton>
-
-              <IconButton
-                color="error"
-                aria-label="delete assignment"
-                onClick={() => setDeleteAssignmentDialogOpen(true)}
-              >
-                <DeleteIcon />
-              </IconButton>
-            </Box>
-          </Box>
-
-          {selectedAssignment.assignment_guidelines && (
-            <>
-              <Divider sx={{ my: 2 }} />
-
-              <Typography variant="subtitle1" gutterBottom>
-                Guidelines:
-              </Typography>
-
-              <Typography variant="body2" paragraph>
-                {selectedAssignment.assignment_guidelines}
-              </Typography>
-            </>
-          )}
-        </Paper>
-
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h6">Questions</Typography>
-
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<AddIcon />}
-            onClick={() => setAddQuestionDialogOpen(true)}
-          >
-            Add Question
-          </Button>
-        </Box>
-
-        {selectedAssignment.questions.length === 0 ? (
-          <Paper sx={{ p: 3, textAlign: 'center' }}>
-            <QuestionIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-            <Typography variant="h6" gutterBottom>
-              No Questions Yet
-            </Typography>
-            <Typography variant="body2" color="text.secondary" paragraph>
-              Add questions to this assignment to get started.
-            </Typography>
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={<AddIcon />}
-              onClick={() => setAddQuestionDialogOpen(true)}
-            >
-              Add Question
-            </Button>
-          </Paper>
-        ) : (
-          <DragDropContext onDragEnd={handleDragEnd}>
-            <Droppable droppableId="questions-list">
-              {(provided) => (
-                <List {...provided.droppableProps} ref={provided.innerRef}>
-                  {selectedAssignment.questions.map((question, index) => (
-                    <Draggable
-                      key={`question-${question.question_index}`}
-                      draggableId={`question-${question.question_index}`}
-                      index={index}
-                    >
-                      {(provided, snapshot) => (
-                        <QuestionItem
-                          ref={provided.innerRef}
-                          {...provided.draggableProps}
-                          isDragging={snapshot.isDragging}
-                        >
-                          <ListItemIcon {...provided.dragHandleProps}>
-                            <DragIndicatorIcon />
-                          </ListItemIcon>
-
-                          <ListItemText
-                            primary={`Question ${index + 1}`}
-                            secondary={
-                              <Typography
-                                variant="body2"
-                                color="text.secondary"
-                                sx={{
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  display: '-webkit-box',
-                                  WebkitLineClamp: 2,
-                                  WebkitBoxOrient: 'vertical',
-                                }}
-                              >
-                                {question.question_text}
-                              </Typography>
-                            }
-                          />
-
-                          <ListItemSecondaryAction>
-                            <IconButton
-                              edge="end"
-                              aria-label="edit"
-                              onClick={() => handleOpenEditQuestionDialog(question)}
-                              sx={{ mr: 1 }}
-                            >
-                              <EditIcon />
-                            </IconButton>
-
-                            <IconButton
-                              edge="end"
-                              aria-label="delete"
-                              onClick={() => {
-                                setQuestionToDelete(question.question_index);
-                                setDeleteQuestionDialogOpen(true);
-                              }}
-                            >
-                              <DeleteIcon />
-                            </IconButton>
-                          </ListItemSecondaryAction>
-                        </QuestionItem>
-                      )}
-                    </Draggable>
-                  ))}
-                  {provided.placeholder}
-                </List>
-              )}
-            </Droppable>
-          </DragDropContext>
-        )}
-      </Box>
-    );
   };
 
   return (

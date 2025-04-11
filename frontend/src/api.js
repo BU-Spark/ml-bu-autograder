@@ -100,10 +100,13 @@ export const authService = {
 // Course management
 export const courseService = {
   // Course CRUD operations
-  getCourses: () => api.get('/courses'),
-  getCourse: (courseId, semester) => api.get('/course', { params: { course_id: courseId, semester } }),
-  createCourse: (semester, courseData) => api.post('/course', courseData, { params: { semester } }),
-  deleteCourse: (courseId, semester) => api.delete('/course', { params: { course_id: courseId, semester } }),
+  getCourses: (semester) => api.get('/courses', { params: { semester } }),
+  getCourse: (courseId, semester) =>
+    api.get('/course', { params: { course_id: courseId, semester } }),
+  createCourse: (semester, courseData) =>
+    api.post('/course', courseData, { params: { semester } }),
+  deleteCourse: (courseId, semester) =>
+    api.delete('/course', { params: { course_id: courseId, semester } }),
 
   // Course transfer
   transferCourse: (currentCourseId, currentSemester, copyFromCourseId, copyFromCourseSemester) =>
@@ -112,8 +115,8 @@ export const courseService = {
         current_course_id: currentCourseId,
         current_semester: currentSemester,
         copy_from_course_id: copyFromCourseId,
-        copy_from_course_semester: copyFromCourseSemester
-      }
+        copy_from_course_semester: copyFromCourseSemester,
+      },
     }),
 
   // Instructor management
@@ -127,41 +130,59 @@ export const courseService = {
 export const assignmentService = {
   // Assignment CRUD operations
   getAssignments: (courseId, semester) =>
-    api.get('/assignments', { params: { course_id: courseId, semester } }),
+    api.get('/assignments', { params: { course_id: courseId, semester: semester } }),
+
   getAssignment: (courseId, semester, assignmentId) =>
-    api.get('/assignment', { params: { course_id: courseId, semester, assignment_id: assignmentId } }),
-  createAssignment: (assignmentData) => api.post('/assignment', assignmentData),
-  deleteAssignment: (assignmentId) => api.delete('/assignment', { params: { assignment_id: assignmentId } }),
+    api.get('/assignment', { params: { course_id: courseId, semester: semester, assignment_id: assignmentId } }),
+
+  createAssignment: (assignmentData) =>
+    api.post('/assignment', assignmentData),
+
+  deleteAssignment: (courseId, semester, assignmentId) =>
+    api.delete('/assignment', { params: { course_id: courseId, semester: semester, assignment_id: assignmentId } }),
 
   // Question management
-  addQuestion: (questionData) => api.patch('/assignment/add_question', questionData),
-  removeQuestion: (assignmentId, questionIndex) =>
-    api.patch('/assignment/remove_question', null, { params: { assignment_id: assignmentId, question_index: questionIndex } }),
-  editQuestion: (questionData) => api.patch('/assignment/edit_question', questionData),
-  modifyQuestionOrder: (orderData) => api.patch('/assignment/modify_order', orderData),
+  addQuestion: (courseId, semester, assignmentId, questionData) =>
+    api.patch('/assignment/add_question', questionData, { params: { course_id: courseId, semester: semester, assignment_id: assignmentId } }),
 
-  //Update assignment
-  updateAssignment: (assignmentData) => api.put('/assignment', assignmentData),
+  removeQuestion: (courseId, semester, assignmentId, questionIndex) =>
+    api.patch('/assignment/remove_question', null, { params: { course_id: courseId, semester: semester, assignment_id: assignmentId, question_index: questionIndex } }),
+
+  editQuestion: (courseId, semester, assignmentId, questionIndex, questionData) =>
+    api.patch('/assignment/edit_question', questionData, { params: { course_id: courseId, semester: semester, assignment_id: assignmentId, question_index: questionIndex } }),
+
+  modifyQuestionOrder: (courseId, semester, assignmentId, orderData) =>
+    api.patch('/assignment/modify_order', orderData, { params: { course_id: courseId, semester: semester, assignment_id: assignmentId } }),
+
+  // Update assignment
+  updateAssignment: (courseId, semester, assignmentId, assignmentData) =>
+    api.put('/assignment', assignmentData, { params: { course_id: courseId, semester: semester, assignment_id: assignmentId } }),
 };
 
 // Student response management
 export const responseService = {
   // Response CRUD operations
   uploadResponse: (responseData) => api.post('/response', responseData),
+  
   replaceResponse: (responseData) => api.put('/response', responseData),
-  deleteResponse: (studentIdentifier, assignmentId, questionIndex = null) =>
+  
+  deleteResponse: (studentIdentifier, semester, courseId, assignmentId, questionIndex = null) =>
     api.delete('/response', {
       params: {
         student_id: studentIdentifier,
+        semester: semester,
+        course_id: courseId,
         assignment_id: assignmentId,
-        question_index: questionIndex
+        question_index: questionIndex,
       }
     }),
 
   // Get responses
-  getResponses: (assignmentId, questionIndex = null, studentIdentifier = null) =>
+  getResponses: (semester, courseId, assignmentId, questionIndex = null, studentIdentifier = null) =>
     api.get('/responses', {
       params: {
+        semester: semester,
+        course_id: courseId,
         assignment_id: assignmentId,
         question_index: questionIndex,
         student_id: studentIdentifier
@@ -169,24 +190,32 @@ export const responseService = {
     }),
 
   // Grading
-  gradeSpecific: (studentIdentifiers, assignmentId, questionIndex = null) =>
-    api.post('/response/grade/specific', null, {
+  gradeSpecific: (studentIdentifiers, semester, courseId, assignmentId, questionIndex = null) =>
+    api.post('/grade/specific', null, {
       params: {
         student_ids: studentIdentifiers,
+        semester: semester,
+        course_id: courseId,
         assignment_id: assignmentId,
         question_index: questionIndex
       }
     }),
-  gradeUngraded: (assignmentId, questionIndex = null) =>
-    api.post('/response/grade/ungraded', null, {
+  
+  gradeUngraded: (semester, courseId, assignmentId, questionIndex = null) =>
+    api.post('/grade/ungraded', null, {
       params: {
+        semester: semester,
+        course_id: courseId,
         assignment_id: assignmentId,
         question_index: questionIndex
       }
     }),
-  gradeAll: (assignmentId, questionIndex = null) =>
-    api.post('/response/grade/all', null, {
+  
+  gradeAll: (semester, courseId, assignmentId, questionIndex = null) =>
+    api.post('/grade/all', null, {
       params: {
+        semester: semester,
+        course_id: courseId,
         assignment_id: assignmentId,
         question_index: questionIndex
       }
@@ -196,28 +225,48 @@ export const responseService = {
 // Course material management
 export const materialService = {
   // Get all materials for a course
-  getMaterials: (courseId, semester) =>
-    api.get('/course_materials', { params: { course_id: courseId, semester } }),
+  getMaterials: (semester, courseId) =>
+    api.get('/course_materials', { params: { semester: semester, course_id: courseId } }),
 
   // Material CRUD operations
-  getMaterial: (courseId, semester, materialId) =>
-    api.get('/course_material', { params: { course_id: courseId, semester, material_id: materialId } }),
+  getMaterial: (semester, courseId, materialId) =>
+    api.get('/course_material', { params: { semester: semester, course_id: courseId, material_id: materialId } }),
+  
   uploadMaterial: (materialData) => api.post('/course_material', materialData),
+  
   updateMaterial: (materialData) => api.patch('/course_material', materialData),
-  deleteMaterial: (courseId, semester, materialId) =>
-    api.delete('/course_material', { params: { course_id: courseId, semester, material_id: materialId } }),
+  
+  deleteMaterial: (semester, courseId, materialId) =>
+    api.delete('/course_material', { params: { semester: semester, course_id: courseId, material_id: materialId } }),
 };
+
 
 // Rubric management
 export const rubricService = {
   // Rubric CRUD operations
-  getRubric: (assignmentId, questionIndex = null) =>
-    api.get('/rubric', { params: { assignment_id: assignmentId, question_index: questionIndex } }),
-  createRubric: (rubricData) => api.put('/rubric', rubricData), // Correctly uses PUT
+  getRubric: (semester, courseId, assignmentId, questionIndex = null) =>
+    api.get('/rubric', { 
+      params: { 
+        semester: semester, 
+        course_id: courseId, 
+        assignment_id: assignmentId, 
+        question_index: questionIndex 
+      } 
+    }),
+
+  createRubric: (rubricData) => 
+    api.put('/rubric', rubricData), // Correctly uses PUT for creating a rubric
 
   // AI rubric enhancement
-  getAIRubric: (assignmentId, instructions = null) =>
-    api.get('/ai_rubric', { params: { assignment_id: assignmentId, instructions } }),
+  getAIRubric: (semester, courseId, assignmentId, instructions = null) =>
+    api.get('/ai_rubric', { 
+      params: { 
+        semester: semester, 
+        course_id: courseId, 
+        assignment_id: assignmentId, 
+        instructions: instructions 
+      } 
+    }),
 };
 
 // User management
@@ -248,9 +297,9 @@ export const useCourses = () => {
   };
 };
 
-export const useAssignments = (courseId, semester) => {
+export const useAssignments = (semester, courseId) => {
   const { data, error, mutate } = useSWR(
-    courseId && semester ? `/assignments?course_id=${courseId}&semester=${semester}` : null,
+    semester && courseId ? `/assignments?semester=${semester}&course_id=${courseId}` : null,
     fetcher
   );
   return {
@@ -261,8 +310,13 @@ export const useAssignments = (courseId, semester) => {
   };
 };
 
-export const useRubric = (assignmentId, questionIndex = null) => {
-  const params = new URLSearchParams({ assignment_id: assignmentId });
+
+export const useRubric = (semester, courseId, assignmentId, questionIndex = null) => {
+  const params = new URLSearchParams({
+    assignment_id: assignmentId,
+    semester: semester,
+    course_id: courseId,
+  });
   if (questionIndex !== null) params.append('question_index', questionIndex);
 
   const { data, error, mutate } = useSWR(
@@ -278,9 +332,10 @@ export const useRubric = (assignmentId, questionIndex = null) => {
   };
 };
 
-export const useMaterials = (courseId, semester) => {
+
+export const useMaterials = (semester, courseId) => {
   const { data, error, mutate } = useSWR(
-    courseId && semester ? `/course_materials?course_id=${courseId}&semester=${semester}` : null,
+    semester && courseId ? `/course_materials?semester=${semester}&course_id=${courseId}` : null,
     fetcher
   );
   return {
@@ -290,5 +345,6 @@ export const useMaterials = (courseId, semester) => {
     mutate,
   };
 };
+
 
 export default api;

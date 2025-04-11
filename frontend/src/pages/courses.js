@@ -1,8 +1,3 @@
-/**
- * Course List Page for BU MET Autograder
- * Displays all courses with creation and deletion options
- */
-
 import React, { useState } from 'react';
 import { useRouter } from 'next/router';
 import {
@@ -39,7 +34,7 @@ import { useCourses, courseService } from '../api';
 import CardSkeleton from '../components/CardSkeleton';
 import ConfirmationDialog from '../components/ConfirmationDialog';
 
-// Styled components
+// Styled components (no changes needed)
 const CourseCard = styled(Card)(({ theme }) => ({
   height: '100%',
   display: 'flex',
@@ -139,7 +134,7 @@ export default function Courses() {
       await courseService.createCourse(courseData.semester, {
         course_id: courseData.course_id,
         semester: courseData.semester,
-        instructors: [], // Will be populated with current user
+        instructors: [], // Will be populated with current user if needed
       });
 
       // Refresh course list
@@ -302,12 +297,7 @@ export default function Courses() {
       )}
 
       {/* Create Course Dialog */}
-      <Dialog
-        open={createDialogOpen}
-        onClose={() => setCreateDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
+      <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Create New Course</DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ mb: 2 }}>
@@ -386,12 +376,7 @@ export default function Courses() {
         onClose={() => setAlertOpen(false)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert
-          onClose={() => setAlertOpen(false)}
-          severity={alertSeverity}
-          variant="filled"
-          sx={{ width: '100%' }}
-        >
+        <Alert onClose={() => setAlertOpen(false)} severity={alertSeverity} variant="filled" sx={{ width: '100%' }}>
           {alertMessage}
         </Alert>
       </Snackbar>
