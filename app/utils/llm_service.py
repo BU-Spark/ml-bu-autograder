@@ -10,6 +10,7 @@ from typing_extensions import Buffer
 
 from app.models import Rubric, SubRubric
 from app.models.rubric import GradingCriteria
+from app.utils import env_var_util
 
 
 class PromptType(Enum):
@@ -218,8 +219,10 @@ class LLMService:
 
 # TODO: delete me
 if __name__ == '__main__':
-    endpoint = HttpUrl("[REDACTED]")
-    subscription_key = "[REDACTED]"
+    from dotenv import load_dotenv
+    load_dotenv()
+    endpoint = HttpUrl(env_var_util.get_str_var("AZURE_LLM_DEPLOYMENT_URL"))
+    subscription_key = env_var_util.get_str_var("AZURE_LLM_DEPLOYMENT_KEY")
 
     LLMService.init_singleton(endpoint, subscription_key)
     llm = LLMService.get_instance()
