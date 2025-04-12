@@ -4,7 +4,7 @@
  */
 
 // Base API URL - can be overridden by environment variables
-export const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://localhost:8000';
+export const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 
 // API version prefix used for all endpoints
 export const API_PREFIX = '/api/v1';
