@@ -1,10 +1,11 @@
 import logging
 from typing import List, Dict, Optional, Literal, Union
+
 from azure.core.credentials import AzureKeyCredential
+from azure.core.exceptions import HttpResponseError
 from azure.identity import ClientSecretCredential, DefaultAzureCredential  # Keep for type hinting
 from azure.search.documents import SearchClient
 from azure.search.documents.models import VectorizedQuery
-from azure.core.exceptions import HttpResponseError
 from deprecated import deprecated
 from openai import AzureOpenAI, OpenAIError, OpenAI
 

@@ -1,5 +1,5 @@
-import sys
 import logging
+import sys
 
 from azure.identity import DefaultAzureCredential
 from dotenv import load_dotenv
@@ -46,6 +46,7 @@ logging.info("Starting FastAPI server...")
 
 from fastapi import FastAPI
 from app.routes import auth, course, assignment, student_response, grading, course_material, rubric, user
+
 app = FastAPI(
     title="BU MET Autograder API",
     description="API for BU MET Autograder – an AI-based autograding tool. "
@@ -53,7 +54,6 @@ app = FastAPI(
                 "course materials, and rubrics.",
     version=APPLICATION_VERSION
 )
-
 
 # Include routers for modular endpoints with appropriate prefixes and tags.
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])

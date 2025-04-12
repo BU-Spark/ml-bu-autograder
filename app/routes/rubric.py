@@ -123,7 +123,8 @@ async def get_rubric(
         semester: str = Query(..., description="Semester of the course."),
         course_id: str = Query(..., description="Identifier of the course."),
         assignment_id: str = Query(..., description="Identifier of the assignment."),
-        question_index: Optional[int] = Query(None, description="Optional question index to retrieve a specific sub-rubric."),
+        question_index: Optional[int] = Query(None,
+                                              description="Optional question index to retrieve a specific sub-rubric."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()

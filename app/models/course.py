@@ -1,5 +1,6 @@
 import re
 from typing import List, Set
+
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 

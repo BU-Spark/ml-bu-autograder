@@ -89,7 +89,7 @@ async def delete_course(
     if blobs_deleted == 0:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")
 
-    return {"detail":  "The course was successfully deleted."}
+    return {"detail": "The course was successfully deleted."}
 
 
 @router.patch(
@@ -216,7 +216,7 @@ async def add_course_instructor(
     instructor_user.authenticated_courses.add((semester, course_id))
     blob_uploader.upload_user(instructor_user)
 
-    return {"detail":  "The instructor was successfully added to the course!"}
+    return {"detail": "The instructor was successfully added to the course!"}
 
 
 @router.delete(
@@ -267,4 +267,4 @@ async def remove_course_instructor(
     instructor_user.authenticated_courses.remove((semester, course_id))
     blob_uploader.upload_user(instructor_user)
 
-    return {"detail":  "The instructor was successfully removed from the course!"}
+    return {"detail": "The instructor was successfully removed from the course!"}

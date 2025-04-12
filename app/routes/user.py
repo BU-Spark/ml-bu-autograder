@@ -18,6 +18,7 @@ class UserPreferencesUpdate(BaseModel):
 router = APIRouter()
 user_from_auth = JWTService.get_instance().from_authorization_header
 
+
 @router.patch(
     "/user",
     response_model=User,
@@ -54,7 +55,7 @@ async def update_user_preferences(
     }
 )
 async def get_user(
-    user_meta: UserToken = Depends(user_from_auth),
+        user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
     return blob_uploader.get_user(user_meta.user_email)

@@ -217,9 +217,11 @@ class LLMService:
         global llm_service
         return llm_service
 
+
 # TODO: delete me
 if __name__ == '__main__':
     from dotenv import load_dotenv
+
     load_dotenv()
     endpoint = HttpUrl(env_var_util.get_str_var("AZURE_LLM_DEPLOYMENT_URL"))
     subscription_key = env_var_util.get_str_var("AZURE_LLM_DEPLOYMENT_KEY")
@@ -240,7 +242,7 @@ if __name__ == '__main__':
            .add_image_bytes(PromptRole.USER, file_data)
            .add_message(PromptRole.USER, "What was the second image I sent you? What was the first?")
            .build())
-    #print(llm.generate_response(res))
+    # print(llm.generate_response(res))
 
     res = (PromptBuilder.builder()
            .add_message(PromptRole.USER, "Improve this rubric.")

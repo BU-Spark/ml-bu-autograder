@@ -1,13 +1,15 @@
+import re
 from datetime import datetime
 from enum import Enum
 from typing import Optional
-import re
 
 from pydantic import BaseModel, Field, field_validator, EmailStr
+
 
 class TokenType(Enum):
     WEBSITE_ACCESS_TOKEN = "user_access_token"
     PERSONAL_ACCESS_TOKEN = "personal_access_token"
+
 
 class UserToken(BaseModel):
     user_email: EmailStr = Field(
@@ -16,7 +18,6 @@ class UserToken(BaseModel):
     token_expiry: Optional[datetime] = Field(
         None, description="Optional expiration time of the token. If omitted, the token never expires."
     )
-
 
     @field_validator('user_email', mode='before')
     def normalize_email(cls, value: str) -> str:
@@ -32,6 +33,7 @@ class WebsiteAccessToken(UserToken):
     """
     ...
 
+
 class PersonalAccessToken(UserToken):
     """
     Token used for programmatic API access.
@@ -43,7 +45,6 @@ class PersonalAccessToken(UserToken):
     token_expiry: Optional[datetime] = Field(
         None, description="Optional expiration time of the token. If omitted, the token never expires."
     )
-
 
     @field_validator('token_name', mode='before')
     def validate_identifier(cls, value: str) -> str:
