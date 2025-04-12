@@ -1,7 +1,7 @@
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException, status, Query, Depends
 
-from app.models import Course
+from app.models import Course, GradedStudentResponseReference
 from app.models.grade import Grade
 from app.utils import JWTService, UserToken
 from app.utils.azure_blob_service import AzureBlobService
@@ -10,7 +10,7 @@ router = APIRouter()
 user_from_auth = JWTService.get_instance().from_authorization_header
 
 
-def do_grading(r):
+def do_grading(responses: list[GradedStudentResponseReference]):
     ...  # TODO
 
 
@@ -69,9 +69,9 @@ async def grade_specific(
     for student_id in student_ids:
         if question_index is not None:
             # Grade specific question
-            response = blob_uploader.get_student_response(
-                semester, course_id, assignment_id,
-                question_index, student_id
+            response = blob_uploader.list_student_responses(
+                semester, course_id, assignment_id, student_id,
+                question_index
             )
             if response:
                 grade = do_grading(response)  # This is a placeholder for the actual grading logic

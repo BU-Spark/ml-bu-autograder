@@ -4,7 +4,6 @@ from fastapi import APIRouter, HTTPException, Query, Body, Depends
 
 from app.models import Course
 from app.models.course_material import CourseMaterial
-from app.models.uploaded_file import UploadedFileReference
 from app.utils import JWTService, UserToken
 from app.utils.azure_blob_service import AzureBlobService
 

@@ -49,6 +49,7 @@ class Course(BaseModel):
         """
         return [email.strip().lower() for email in value]
 
+    @classmethod
     def normalize_instructor_email(cls, value: EmailStr) -> EmailStr:
         """
         Ensure a single instructor email is lowercased and stripped.
