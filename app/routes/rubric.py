@@ -20,7 +20,7 @@ class EditSubRubricRequest(BaseModel):
     """
     semester: str = Field(..., description="Semester of the course.")
     course_id: str = Field(..., description="Identifier of the course.")
-    assignment_id: int = Field(..., description="Identifier of the assignment.")
+    assignment_id: str = Field(..., description="Identifier of the assignment.")
     sub_rubric: SubRubric = Field(...,
                                   description="Sub-rubric object containing grading instructions and criteria for that specific question.")
 
@@ -84,7 +84,7 @@ async def create_rubric(
 async def get_ai_rubric(
         semester: str = Query(..., description="Semester of the course."),
         course_id: str = Query(..., description="Identifier of the course."),
-        assignment_id: int = Query(..., description="Identifier of the assignment."),
+        assignment_id: str = Query(..., description="Identifier of the assignment."),
         instructions: Optional[str] = Query(None, description="Optional specific improvement instructions for the AI."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
@@ -122,7 +122,7 @@ async def get_ai_rubric(
 async def get_rubric(
         semester: str = Query(..., description="Semester of the course."),
         course_id: str = Query(..., description="Identifier of the course."),
-        assignment_id: int = Query(..., description="Identifier of the assignment."),
+        assignment_id: str = Query(..., description="Identifier of the assignment."),
         question_index: Optional[int] = Query(None, description="Optional question index to retrieve a specific sub-rubric."),
         user_meta: UserToken = Depends(user_from_auth),
 ):

@@ -57,7 +57,7 @@ class Rubric(BaseModel):
     """
     semester: str = Field(..., description="The semester associated with the course.")
     course_id: str = Field(..., description="Associated course identifier.")
-    assignment_id: int = Field(..., description="Associated assignment's ID.")
+    assignment_id: str = Field(..., description="Associated assignment's ID.")
     grading_flags: Optional[List[GradingFlag]] = Field(
         None, description=(
             "List of grading flags that modify grading behavior. Options:\n"
@@ -92,5 +92,5 @@ class Rubric(BaseModel):
         """Converts to lowercase and trims spaces."""
         if re.fullmatch("[a-z]{1,12}[0-9]{4}", value) is None:
             raise ValueError("Semester is in an invalid format. "
-                             "Correct format (case-sensetive) looks like: seasonYYYY. (e.g. spring2025)")
+                             "Correct format (case-sensitive) looks like: seasonYYYY. (e.g. spring2025)")
         return value.strip().lower()

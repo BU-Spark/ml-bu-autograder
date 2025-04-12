@@ -32,7 +32,7 @@ def do_grading(r):
 async def grade_specific(
         semester: str = Query(..., description="Course semester."),
         course_id: str = Query(..., description="Unique identifier of the course."),
-        assignment_id: int = Query(..., description="Identifier of the assignment."),
+        assignment_id: str = Query(..., description="Identifier of the assignment."),
         student_ids: List[str] = Query(..., description="List of student identifiers to grade."),
         question_index: Optional[int] = Query(None, description="Optional index of the question. Grades all questions if omitted."),
         user_meta: UserToken = Depends(user_from_auth),
@@ -110,7 +110,7 @@ async def grade_specific(
 async def grade_ungraded(
         semester: str = Query(..., description="Course semester."),
         course_id: str = Query(..., description="Unique identifier of the course."),
-        assignment_id: int = Query(..., description="Identifier of the assignment."),
+        assignment_id: str = Query(..., description="Identifier of the assignment."),
         question_index: Optional[int] = Query(None, description="Optional index of the question to grade. Grades all ungraded questions if omitted."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
@@ -186,7 +186,7 @@ async def grade_ungraded(
 async def grade_all(
         semester: str = Query(..., description="Course semester."),
         course_id: str = Query(..., description="Unique identifier of the course."),
-        assignment_id: int = Query(..., description="Identifier of the assignment."),
+        assignment_id: str = Query(..., description="Identifier of the assignment."),
         question_index: Optional[int] = Query(None, description="Optional index of the question to grade or regrade. Grades all questions if omitted."),
         user_meta: UserToken = Depends(user_from_auth),
 ):

@@ -12,32 +12,34 @@ class Question(BaseModel):
 
 
 class Assignment(BaseModel):
-    """
-    Assignment object containing questions and guidelines.
-    """
-    assignment_id: int = Field(..., description="Unique assignment identifier.")
-    course_id: str = Field(..., description="Associated course identifier.")
     semester: str = Field(..., description="The semester associated with the course.")
-    assignment_title: Optional[str] = Field(
-        None, description="Title of the assignment."
+    course_id: str = Field(..., description="Associated course identifier.")
+    assignment_id: str = Field(
+        None, description="The unique title of the assignment."
     )
     assignment_guidelines: Optional[str] = Field(
         None, description="General instructions or formatting requirements."
     )
-    questions: List[Question] = Field(
-        [], description="List of questions in order."
+    questions: Optional[List[Question]] = Field(
+        ..., description="List of questions in order."
     )
+
+    @field_validator("assignment_id", mode='before')
+    def validate_identifier(cls, value: str) -> str:
+        """Ensures format is valid."""
+        if not re.fullmatch(r'[ a-zA-Z0-9_-]+', value):
+            raise ValueError("Must contain only spaces, letters, digits, underscores and dashes")
+        return value
 
     @field_validator("course_id", mode='before')
     def normalize_lowercase(cls, value: str) -> str:
         """Converts to lowercase and trims spaces."""
         return value.strip().lower()
 
-    
     @field_validator("semester", mode='before')
     def validate_semester(cls, value: str) -> str:
         """Converts to lowercase and trims spaces."""
         if re.fullmatch("[a-z]{1,12}[0-9]{4}", value) is None:
             raise ValueError("Semester is in an invalid format. "
-                             "Correct format (case-sensetive) looks like: seasonYYYY. (e.g. spring2025)")
+                             "Correct format (case-sensitive) looks like: seasonYYYY. (e.g. spring2025)")
         return value.strip().lower()

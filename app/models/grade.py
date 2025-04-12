@@ -11,7 +11,7 @@ class Grade(BaseModel):
     student_id: str = Field(..., description="Student's unique identifier.")
     semester: str = Field(..., description="The semester associated with the course.")
     course_id: str = Field(..., description="Associated course identifier.")
-    assignment_id: int = Field(..., description="Identifier of the assignment.")
+    assignment_id: str = Field(..., description="Identifier of the assignment.")
     question_index: int = Field(..., description="The index of the question in the assignment.")
     points: float = Field(..., description="Awarded points for the student's response.")
     max_points: float = Field(..., description="Maximum points possible for the question when it was graded.")
@@ -31,5 +31,5 @@ class Grade(BaseModel):
         """Converts to lowercase and trims spaces."""
         if re.fullmatch("[a-z]{1,12}[0-9]{4}", value) is None:
             raise ValueError("Semester is in an invalid format. "
-                             "Correct format (case-sensetive) looks like: seasonYYYY. (e.g. spring2025)")
+                             "Correct format (case-sensitive) looks like: seasonYYYY. (e.g. spring2025)")
         return value.strip().lower()

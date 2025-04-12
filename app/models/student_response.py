@@ -20,7 +20,7 @@ class StudentResponse(BaseModel):
     course_id: str = Field(
         ..., description="The course identifier."
     )
-    assignment_id: int = Field(
+    assignment_id: str = Field(
         ..., description="Identifier of the assignment the response belongs to."
     )
     question_index: int = Field(
@@ -42,7 +42,7 @@ class StudentResponse(BaseModel):
         """Converts to lowercase and trims spaces."""
         if re.fullmatch("[a-z]{1,12}[0-9]{4}", value) is None:
             raise ValueError("Semester is in an invalid format. "
-                             "Correct format (case-sensetive) looks like: seasonYYYY. (e.g. spring2025)")
+                             "Correct format (case-sensitive) looks like: seasonYYYY. (e.g. spring2025)")
         return value.strip().lower()
 
 

@@ -25,6 +25,7 @@ user_from_auth = JWTService.get_instance().from_authorization_header
 async def get_course_materials(
         semester: str = Query(..., description="Semester of the course."),
         course_id: str = Query(..., description="Identifier of the course."),
+        include_data: bool = Query(False, description="Whether to include the material base64 file data."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
     # validate params
@@ -44,7 +45,7 @@ async def get_course_materials(
         raise HTTPException(status_code=403, detail="Authenticated but access is not allowed.")
     
     # Get all course materials
-    materials = blob_uploader.list_course_materials(semester, course_id)
+    materials = blob_uploader.list_course_materials(semester, course_id, include_data)
     
     return materials
 
@@ -63,7 +64,7 @@ async def get_course_materials(
 async def get_course_material(
         semester: str = Query(..., description="Semester of the course."),
         course_id: str = Query(..., description="Identifier of the course."),
-        material_id: int = Query(..., description="Unique identifier of the specific material."),
+        material_id: str = Query(..., description="Unique identifier of the specific material."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
     # validate params
@@ -143,7 +144,7 @@ async def upload_course_material(
 async def delete_course_material(
         semester: str = Query(..., description="Semester of the course."),
         course_id: str = Query(..., description="Identifier of the course."),
-        material_id: int = Query(..., description="Unique identifier of the material to delete."),
+        material_id: str = Query(..., description="Unique identifier of the material to delete."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
     # validate params
@@ -163,7 +164,7 @@ async def delete_course_material(
         raise HTTPException(status_code=403, detail="Authenticated but access is not allowed.")
     
     # Check if material exists
-    material = blob_uploader.get_course_material(semester, course_id, material_id)
+    material = blob_uploader.course_material_exists(semester, course_id, material_id)
     if not material:
         raise HTTPException(status_code=404, detail="Course material does not exist.")
     
