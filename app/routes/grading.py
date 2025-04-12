@@ -1,9 +1,7 @@
 from typing import List, Optional
-import re
 from fastapi import APIRouter, HTTPException, status, Query, Depends
-from pydantic import BaseModel, Field, field_validator
 
-from app.models import StudentResponse, Course
+from app.models import Course
 from app.models.grade import Grade
 from app.utils import JWTService, UserToken
 from app.utils.azure_blob_service import AzureBlobService
@@ -145,7 +143,7 @@ async def grade_ungraded(
 
     # Get all responses
     responses = blob_uploader.list_student_responses(
-        semester, course_id, assignment_id, question_index
+        semester, course_id, assignment_id, None, question_index
     )
 
     # Filter out already graded responses
@@ -221,7 +219,7 @@ async def grade_all(
 
     # Get all responses
     responses = blob_uploader.list_student_responses(
-        semester, course_id, assignment_id, question_index
+        semester, course_id, assignment_id, None, question_index
     )
 
     if not responses:

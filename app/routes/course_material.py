@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Query, Body, Depends
 
 from app.models import Course
 from app.models.course_material import CourseMaterial
+from app.models.uploaded_file import UploadedFileReference
 from app.utils import JWTService, UserToken
 from app.utils.azure_blob_service import AzureBlobService
 
@@ -25,7 +26,6 @@ user_from_auth = JWTService.get_instance().from_authorization_header
 async def get_course_materials(
         semester: str = Query(..., description="Semester of the course."),
         course_id: str = Query(..., description="Identifier of the course."),
-        include_data: bool = Query(False, description="Whether to include the material base64 file data."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
     # validate params
@@ -45,7 +45,7 @@ async def get_course_materials(
         raise HTTPException(status_code=403, detail="Authenticated but access is not allowed.")
     
     # Get all course materials
-    materials = blob_uploader.list_course_materials(semester, course_id, include_data)
+    materials = blob_uploader.list_course_materials(semester, course_id)
     
     return materials
 
@@ -209,5 +209,7 @@ async def update_course_material(
     
     # Update the material
     blob_uploader.upload_course_material(material)
+
+    # TODO: run the rag pipeline
     
     return material
