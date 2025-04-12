@@ -58,7 +58,14 @@ class AzureBlobService:
             cache_storage=str(azure_blob_cache_dir),
             expiry_time=cache_expiry
         )
+
         self.abfs = self.fs.fs  # Store direct filesystem access
+
+        # TODO: there are bugs in azure's filecache system
+        #  1. you cant upload files with metadata
+        #  2. you cant manually invalidate cache
+        self.fs = self.fs.fs
+
         self.container = container_name
         logging.info(f"Initialized AzureBlobService for container '{container_name}'")
 
