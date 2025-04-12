@@ -116,6 +116,26 @@ class AzureBlobService:
         except FileNotFoundError:
             return None
 
+    def get_user(self, user_email: EmailStr) -> Optional[User]:
+        """Retrieves user data if exists."""
+        blob_path = f"user/{user_email}/user.json"
+        # <<< --- ADDED Detailed LOGGING --- >>>
+        logging.info(f"Attempting to retrieve user data for '{user_email}' from '{blob_path}'")
+        data = self.download_json(blob_path) # download_json now has better logging
+        if data:
+            logging.info(f"User data found for '{user_email}'. Validating model...")
+            try:
+                user_obj = User(**data)
+                logging.info(f"Successfully validated and created User object for '{user_email}'.")
+                return user_obj
+            except Exception as e: # Catch potential Pydantic validation errors
+                 logging.error(f"Failed to validate User data for '{user_email}' from '{blob_path}': {e}", exc_info=True)
+                 return None # Return None if data is invalid
+        else:
+            # download_json already logged the specific reason (NotFound or InvalidJSON)
+            logging.warning(f"User data retrieval failed for '{user_email}' (file not found or invalid).")
+            return None
+
     def delete_blob(self, blob_path: str):
         """
         Deletes a blob from Azure Blob Storage.

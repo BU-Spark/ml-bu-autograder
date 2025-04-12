@@ -1,13 +1,15 @@
+# In app/routes/user.py
+import logging # Add import
 from typing import Optional
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, HTTPException, status # Add status
 from pydantic import BaseModel
 
 from app.models import UserToken
 from app.models.user import User
+# <<<--- Corrected: Import JWTService directly if needed, or rely on singleton --- >>>
 from app.utils import JWTService
 from app.utils.azure_blob_service import AzureBlobService
-
 
 class UserPreferencesUpdate(BaseModel):
     first_name: Optional[str] = None
@@ -32,16 +34,41 @@ async def update_user_preferences(
         preferences: UserPreferencesUpdate = Body(..., description="User preferences to update."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
+   # <<< --- ADD LOGGING --- >>>
+    logging.info(f"PATCH /user requested by: {user_meta.user_email}")
     blob_uploader = AzureBlobService.get_instance()
-    user = AzureBlobService.get_instance().get_user(user_meta.user_email)
+
+    logging.debug(f"Fetching user data for update: {user_meta.user_email}")
+    user = blob_uploader.get_user(user_meta.user_email) # get_user now has logging
+
+    if not user:
+         logging.error(f"User {user_meta.user_email} not found during PATCH /user request!")
+         # Should not happen if token is valid, but good check
+         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User profile not found.")
+
+    updated = False
     if preferences.dark_mode is not None:
         user.dark_mode = preferences.dark_mode
+        updated = True
     if preferences.first_name is not None:
         user.first_name = preferences.first_name
+        updated = True
     if preferences.last_name is not None:
         user.last_name = preferences.last_name
-    blob_uploader.upload_user(user)
+        updated = True
+
+    if updated:
+        logging.info(f"Updating user preferences for {user_meta.user_email}")
+        try:
+            blob_uploader.upload_user(user)
+        except Exception as e:
+             logging.error(f"Failed to upload updated user preferences for {user_meta.user_email}: {e}", exc_info=True)
+             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to save preferences.")
+    else:
+         logging.info(f"No preferences provided to update for {user_meta.user_email}")
+
     return user
+
 
 
 @router.get(
@@ -56,5 +83,16 @@ async def update_user_preferences(
 async def get_user(
     user_meta: UserToken = Depends(user_from_auth),
 ):
+    # <<< --- ADD LOGGING --- >>>
+    logging.info(f"GET /user requested by: {user_meta.user_email}")
     blob_uploader = AzureBlobService.get_instance()
-    return blob_uploader.get_user(user_meta.user_email)
+
+    logging.debug(f"Fetching user data for profile view: {user_meta.user_email}")
+    user = blob_uploader.get_user(user_meta.user_email) # get_user now has logging
+
+    if not user:
+        logging.error(f"User {user_meta.user_email} not found during GET /user request!")
+        # Return 404 if the user associated with a valid token doesn't exist in storage
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User profile not found.")
+
+    return user

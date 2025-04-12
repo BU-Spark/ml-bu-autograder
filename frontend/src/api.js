@@ -19,12 +19,18 @@ const api = axios.create({
 });
 
 // Request interceptor to add auth token
+// Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
-    // Using sessionStorage or secure context storage is often preferred over localStorage for tokens
-    const token = typeof window !== 'undefined' ? sessionStorage.getItem('authToken') : null; // Check if window exists
+    const token = typeof window !== 'undefined' ? sessionStorage.getItem('authToken') : null;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    } else {
+       // <<< --- ADDED WARNING --- >>>
+       // Log only if it's not an auth request itself to avoid noise during login
+       if (!config.url?.includes('/auth/')) {
+            console.warn(`No 'authToken' found in sessionStorage for request to ${config.url}. Request sent without Authorization header.`);
+       }
     }
     return config;
   },
