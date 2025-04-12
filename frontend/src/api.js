@@ -5,12 +5,13 @@
 
 import axios from 'axios';
 import useSWR from 'swr';
+// Assuming config.js is in the same directory or adjusted path
 import { BACKEND_URL, API_PREFIX, LIMITS, ERROR_MESSAGES } from './config';
-import { signOut } from 'next-auth/react';
+import { signOut } from 'next-auth/react'; // Assuming next-auth is used
 
 // Create an Axios instance with default config
 const api = axios.create({
-  baseURL: `${BACKEND_URL}${API_PREFIX}`,
+  baseURL: `${BACKEND_URL}${API_PREFIX}`, // Ensure API_PREFIX includes trailing / if needed
   timeout: LIMITS.apiTimeout,
   headers: {
     'Content-Type': 'application/json',
@@ -20,7 +21,8 @@ const api = axios.create({
 // Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('authToken');
+    // Using sessionStorage or secure context storage is often preferred over localStorage for tokens
+    const token = typeof window !== 'undefined' ? sessionStorage.getItem('authToken') : null; // Check if window exists
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -35,30 +37,45 @@ api.interceptors.response.use(
   (error) => {
     // Handle specific error cases
     if (error.response) {
+      const { status, data } = error.response;
+      const errorMessage = data?.detail || error.message; // Prefer backend 'detail' message
+
       // Server responded with a status code outside of 2xx range
-      switch (error.response.status) {
+      switch (status) {
         case 401:
-          // Unauthorized - could trigger logout or refresh token (if implemented)
-          console.error('Authentication error:', error.response);
-          signOut({ callbackUrl: '/login' }); // Redirect to login on 401
+          console.error('Authentication error (401):', errorMessage);
+          // Only sign out if not already on login page to avoid loops
+          if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+             signOut({ callbackUrl: '/login' }); // Redirect to login on 401
+          }
+          // Return a more specific error for UI handling
           return Promise.reject(new Error(ERROR_MESSAGES.auth.unauthorized));
 
         case 403:
-          console.error('Forbidden error:', error.response);
-          return Promise.reject(new Error(ERROR_MESSAGES.auth.unauthorized));
+          console.error('Forbidden error (403):', errorMessage);
+          // Might indicate insufficient permissions
+          return Promise.reject(new Error(errorMessage || ERROR_MESSAGES.auth.forbidden)); // Use backend message
+
         case 404:
-          console.error('Not found error:', error.response);
-          return Promise.reject(new Error(ERROR_MESSAGES.api.notFound));
-        case 400:
-          console.error('Bad request error:', error.response);
-          // Returning the original error response to provide details.
-          return Promise.reject(error.response); // Reject with the full response
+          console.error('Not found error (404):', errorMessage);
+          return Promise.reject(new Error(errorMessage || ERROR_MESSAGES.api.notFound));
+
+        case 400: // Bad Request
+        case 409: // Conflict
+        case 422: // Unprocessable Entity (often used by FastAPI for validation errors)
+          console.error(`Client error (${status}):`, errorMessage);
+          // Return a more specific error, potentially the backend message
+          return Promise.reject(new Error(errorMessage || `Invalid request (${status}).`));
+
         case 500:
-          console.error('Server error:', error.response);
-          return Promise.reject(new Error(ERROR_MESSAGES.api.serverError));
+        case 502: // Often from external services like LLM
+        case 503:
+          console.error(`Server error (${status}):`, errorMessage);
+          return Promise.reject(new Error(errorMessage || ERROR_MESSAGES.api.serverError));
+
         default:
-          console.error('API error:', error.response);
-          return Promise.reject(new Error(ERROR_MESSAGES.general));
+          console.error(`API error (${status}):`, errorMessage);
+          return Promise.reject(new Error(errorMessage || ERROR_MESSAGES.general));
       }
     } else if (error.request) {
       // Request was made but no response received
@@ -74,135 +91,218 @@ api.interceptors.response.use(
 
 // SWR fetcher function using our API instance
 const fetcher = async (url) => {
-  try {
-    const response = await api.get(url);
-    return response.data;
-  } catch (error) {
-    throw error; // SWR handles the error
-  }
+  // No try-catch needed here, interceptor handles errors, SWR catches rejected promises
+  const response = await api.get(url);
+  return response.data;
 };
 
-// API service methods
+// --- API Service Methods ---
 
 // Authentication
 export const authService = {
-  // Get token using Google OAuth
-  googleOAuth: (params) => api.get('/auth/google_oauth', { params }),
+  // --- Corrected: Expects 'code' from Google Redirect ---
+  // GET /auth/google_oauth?code=...
+  googleOAuth: (code) => api.get('/auth/google_oauth', { params: { code } }), // Send 'code' as query param
 
-  // Token management
-  createToken: (tokenName) => api.post('/auth/token', null, { params: { token_name: tokenName } }),
+  // Get URL for redirecting user to Google
+  // GET /auth/google_oauth_url
+  getGoogleOAuthUrl: () => api.get('/auth/google_oauth_url'), // Backend needs to implement this
+
+  // --- Correct ---
+  // POST /auth/token?token_name=...&token_expiry=...
+  createToken: (tokenName, tokenExpiry = null) => api.post('/auth/token', null, { // No body needed
+      params: { // Send as query parameters
+          token_name: tokenName,
+          token_expiry: tokenExpiry // Send null or ISO date string if needed
+      }
+  }),
+
+  // --- Correct ---
+  // GET /auth/tokens
   listTokens: () => api.get('/auth/tokens'),
-  deleteToken: (tokenId) => api.delete('/auth/token', { params: { token_id: tokenId } }),
-  //Sign out
-  signOut: () => api.post('/auth/signout')
+
+  // --- Corrected: Parameter name ---
+  // DELETE /auth/token?token_name=...
+  deleteToken: (tokenName) => api.delete('/auth/token', { params: { token_name: tokenName } }), // Use token_name
+
+  // --- Removed: No corresponding backend endpoint ---
+  // signOut: () => api.post('/auth/signout')
 };
 
 // Course management
 export const courseService = {
-  // Course CRUD operations
-  getCourses: (semester) => api.get('/courses', { params: { semester } }),
+  // --- Correct ---
+  // GET /courses?semester=...
+  getCourses: (semester = null) => api.get('/courses', { params: { semester } }), // Pass null if no semester filter
+
+  // --- Correct ---
+  // GET /course?course_id=...&semester=...
   getCourse: (courseId, semester) =>
     api.get('/course', { params: { course_id: courseId, semester } }),
-  createCourse: (semester, courseData) =>
-    api.post('/course', courseData, { params: { semester } }),
+
+  // --- Corrected: semester is part of the body model ---
+  // POST /course (Body: Course)
+  createCourse: (courseData) => // courseData must include semester
+    api.post('/course', courseData), // Remove semester from params
+
+  // --- Correct ---
+  // DELETE /course?course_id=...&semester=...
   deleteCourse: (courseId, semester) =>
     api.delete('/course', { params: { course_id: courseId, semester } }),
 
-  // Course transfer
-  transferCourse: (currentCourseId, currentSemester, copyFromCourseId, copyFromCourseSemester) =>
-    api.patch('/course/transfer', null, {
+  // --- Correct (but backend non-functional) ---
+  // PATCH /course/transfer?current_course_id=... etc.
+  transferCourse: (currentSemester, currentCourseId, copyFromSemester, copyFromCourseId) =>
+    api.patch('/course/transfer', null, { // No request body needed
       params: {
-        current_course_id: currentCourseId,
         current_semester: currentSemester,
+        current_course_id: currentCourseId,
+        copy_from_course_semester: copyFromSemester, // Updated param name
         copy_from_course_id: copyFromCourseId,
-        copy_from_course_semester: copyFromCourseSemester,
       },
     }),
 
-  // Instructor management
-  addInstructor: (courseId, semester, instructor) =>
-    api.post('/course/instructor', null, { params: { course_id: courseId, semester, instructor } }),
-  removeInstructor: (courseId, semester, instructor) =>
-    api.delete('/course/instructor', { params: { course_id: courseId, semester, instructor } }),
+  // --- Correct ---
+  // POST /course/instructor?course_id=...&semester=...&instructor=...
+  addInstructor: (semester, courseId, instructor) => // Changed order for consistency
+    api.post('/course/instructor', null, { params: { semester, course_id: courseId, instructor } }), // No body
+
+  // --- Correct ---
+  // DELETE /course/instructor?course_id=...&semester=...&instructor=...
+  removeInstructor: (semester, courseId, instructor) => // Changed order for consistency
+    api.delete('/course/instructor', { params: { semester, course_id: courseId, instructor } }),
 };
 
-// Assignment management
+// Assignment management (Incorporates previous corrections)
 export const assignmentService = {
-  // Assignment CRUD operations
+  // GET /assignments?course_id=...&semester=...
   getAssignments: (courseId, semester) =>
     api.get('/assignments', { params: { course_id: courseId, semester: semester } }),
 
-  getAssignment: (courseId, semester, assignmentId) =>
-    api.get('/assignment', { params: { course_id: courseId, semester: semester, assignment_id: assignmentId } }),
-
-  createAssignment: (assignmentData) =>
-    api.post('/assignment', assignmentData),
-
-  deleteAssignment: (courseId, semester, assignmentId) =>
-    api.delete('/assignment', { params: { course_id: courseId, semester: semester, assignment_id: assignmentId } }),
-
-  // Question management
-  addQuestion: (courseId, semester, assignmentId, questionData) =>
-    api.patch('/assignment/add_question', questionData, { params: { course_id: courseId, semester: semester, assignment_id: assignmentId } }),
-
-  removeQuestion: (courseId, semester, assignmentId, questionIndex) =>
-    api.patch('/assignment/remove_question', null, { params: { course_id: courseId, semester: semester, assignment_id: assignmentId, question_index: questionIndex } }),
-
-  editQuestion: (courseId, semester, assignmentId, questionIndex, questionData) =>
-    api.patch('/assignment/edit_question', questionData, { params: { course_id: courseId, semester: semester, assignment_id: assignmentId, question_index: questionIndex } }),
-
-  modifyQuestionOrder: (courseId, semester, assignmentId, orderData) =>
-    api.patch('/assignment/modify_order', orderData, { params: { course_id: courseId, semester: semester, assignment_id: assignmentId } }),
-
-  // Update assignment
-  updateAssignment: (courseId, semester, assignmentId, assignmentData) =>
-    api.put('/assignment', assignmentData, { params: { course_id: courseId, semester: semester, assignment_id: assignmentId } }),
-};
-
-// Student response management
-export const responseService = {
-  // Response CRUD operations
-  uploadResponse: (responseData) => api.post('/response', responseData),
-  
-  replaceResponse: (responseData) => api.put('/response', responseData),
-  
-  deleteResponse: (studentIdentifier, semester, courseId, assignmentId, questionIndex = null) =>
-    api.delete('/response', {
+  // GET /assignment?course_id=...&semester=...&assignment_id=...&include_questions=...
+  getAssignment: (courseId, semester, assignmentId, includeQuestions = false) =>
+    api.get('/assignment', {
       params: {
-        student_id: studentIdentifier,
-        semester: semester,
         course_id: courseId,
+        semester: semester,
         assignment_id: assignmentId,
-        question_index: questionIndex,
+        include_questions: includeQuestions
       }
     }),
 
-  // Get responses
-  getResponses: (semester, courseId, assignmentId, questionIndex = null, studentIdentifier = null) =>
+  // POST /assignment (Body: Assignment)
+  createAssignment: (assignmentData) =>
+    api.post('/assignment', assignmentData),
+
+  // DELETE /assignment?course_id=...&semester=...&assignment_id=...
+  deleteAssignment: (courseId, semester, assignmentId) =>
+    api.delete('/assignment', { params: { course_id: courseId, semester: semester, assignment_id: assignmentId } }),
+
+  // PATCH /assignment?course_id=...&semester=...&assignment_id=... (Body: AssignmentUpdateRequest)
+  updateAssignmentMetadata: (semester, courseId, assignmentId, updateData) =>
+    api.patch('/assignment', updateData, {
+      params: {
+        semester: semester,
+        course_id: courseId,
+        assignment_id: assignmentId
+      }
+    }),
+
+  // PATCH /assignment/add_question (Body: AddQuestionRequest)
+  addQuestion: (semester, courseId, assignmentId, questionData) =>
+    api.patch('/assignment/add_question', {
+      semester: semester,
+      course_id: courseId,
+      assignment_id: assignmentId,
+      question: questionData
+    }),
+
+  // PATCH /assignment/remove_question?semester=...&course_id=...&assignment_id=...&question_index=...
+  removeQuestion: (semester, courseId, assignmentId, questionIndex) =>
+    api.patch('/assignment/remove_question', null, {
+       params: {
+         semester: semester,
+         course_id: courseId,
+         assignment_id: assignmentId,
+         question_index: questionIndex
+       }
+    }),
+
+  // PATCH /assignment/edit_question (Body: EditQuestionRequest)
+  editQuestion: (semester, courseId, assignmentId, questionIndex, questionData) =>
+    api.patch('/assignment/edit_question', {
+      semester: semester,
+      course_id: courseId,
+      assignment_id: assignmentId,
+      question_index: questionIndex,
+      question: questionData
+    }),
+
+  // PATCH /assignment/modify_order (Body: ModifyOrderRequest)
+  modifyQuestionOrder: (semester, courseId, assignmentId, newIndexOrder) =>
+    api.patch('/assignment/modify_order', {
+      semester: semester,
+      course_id: courseId,
+      assignment_id: assignmentId,
+      list_of_question_indexes: newIndexOrder
+    }),
+};
+
+// Student response and Grading management
+export const responseService = {
+  // --- Correct ---
+  // POST /response (Body: StudentResponse)
+  uploadResponse: (responseData) => api.post('/response', responseData),
+
+  // --- Correct ---
+  // PUT /response (Body: StudentResponse)
+  replaceResponse: (responseData) => api.put('/response', responseData),
+
+  // --- Correct ---
+  // DELETE /response?student_id=...&semester=... etc.
+  deleteResponse: (semester, courseId, assignmentId, studentId, questionIndex = null) => // Consistent param order
+    api.delete('/response', {
+      params: {
+        semester: semester,
+        course_id: courseId,
+        assignment_id: assignmentId,
+        student_id: studentId, // Use student_id as expected by backend Query
+        question_index: questionIndex, // Will be omitted if null
+      }
+    }),
+
+  // --- Correct ---
+  // GET /responses?semester=...&course_id=... etc.
+  getResponses: (semester, courseId, assignmentId, questionIndex = null, studentId = null) => // Consistent param order
     api.get('/responses', {
       params: {
         semester: semester,
         course_id: courseId,
         assignment_id: assignmentId,
-        question_index: questionIndex,
-        student_id: studentIdentifier
+        question_index: questionIndex, // Will be omitted if null
+        student_id: studentId // Will be omitted if null
       }
     }),
 
-  // Grading
-  gradeSpecific: (studentIdentifiers, semester, courseId, assignmentId, questionIndex = null) =>
-    api.post('/grade/specific', null, {
+  // --- Grading ---
+
+  // --- Correct ---
+  // POST /response/grade/specific?semester=...&course_id=... etc. (Note: API path prefix adds /response)
+  gradeSpecific: (semester, courseId, assignmentId, studentIds, questionIndex = null) => // studentIds is List[str]
+    api.post('/response/grade/specific', null, { // No body
       params: {
-        student_ids: studentIdentifiers,
         semester: semester,
         course_id: courseId,
         assignment_id: assignmentId,
+        student_ids: studentIds, // Send array as query param (axios usually handles this correctly)
         question_index: questionIndex
       }
     }),
-  
+
+  // --- Correct ---
+  // POST /response/grade/ungraded?semester=...&course_id=... etc.
   gradeUngraded: (semester, courseId, assignmentId, questionIndex = null) =>
-    api.post('/grade/ungraded', null, {
+    api.post('/response/grade/ungraded', null, { // No body
       params: {
         semester: semester,
         course_id: courseId,
@@ -210,9 +310,11 @@ export const responseService = {
         question_index: questionIndex
       }
     }),
-  
+
+  // --- Correct ---
+  // POST /response/grade/all?semester=...&course_id=... etc.
   gradeAll: (semester, courseId, assignmentId, questionIndex = null) =>
-    api.post('/grade/all', null, {
+    api.post('/response/grade/all', null, { // No body
       params: {
         semester: semester,
         course_id: courseId,
@@ -224,59 +326,75 @@ export const responseService = {
 
 // Course material management
 export const materialService = {
-  // Get all materials for a course
+  // --- Correct ---
+  // GET /course_materials?semester=...&course_id=...
   getMaterials: (semester, courseId) =>
     api.get('/course_materials', { params: { semester: semester, course_id: courseId } }),
 
-  // Material CRUD operations
+  // --- Correct ---
+  // GET /course_material?semester=...&course_id=...&material_id=...
   getMaterial: (semester, courseId, materialId) =>
     api.get('/course_material', { params: { semester: semester, course_id: courseId, material_id: materialId } }),
-  
+
+  // --- Correct ---
+  // POST /course_material (Body: CourseMaterial)
   uploadMaterial: (materialData) => api.post('/course_material', materialData),
-  
+
+  // --- Correct ---
+  // PATCH /course_material (Body: CourseMaterial)
   updateMaterial: (materialData) => api.patch('/course_material', materialData),
-  
+
+  // --- Correct ---
+  // DELETE /course_material?semester=...&course_id=...&material_id=...
   deleteMaterial: (semester, courseId, materialId) =>
     api.delete('/course_material', { params: { semester: semester, course_id: courseId, material_id: materialId } }),
 };
 
-
 // Rubric management
 export const rubricService = {
-  // Rubric CRUD operations
+  // --- Correct ---
+  // GET /rubric?semester=...&course_id=... etc.
   getRubric: (semester, courseId, assignmentId, questionIndex = null) =>
-    api.get('/rubric', { 
-      params: { 
-        semester: semester, 
-        course_id: courseId, 
-        assignment_id: assignmentId, 
-        question_index: questionIndex 
-      } 
+    api.get('/rubric', {
+      params: {
+        semester: semester,
+        course_id: courseId,
+        assignment_id: assignmentId,
+        question_index: questionIndex // Omitted if null
+      }
     }),
 
-  createRubric: (rubricData) => 
-    api.put('/rubric', rubricData), // Correctly uses PUT for creating a rubric
+  // --- Correct ---
+  // PUT /rubric (Body: Rubric)
+  createRubric: (rubricData) => // Expects full Rubric object
+    api.put('/rubric', rubricData),
 
-  // AI rubric enhancement
+  // --- Correct ---
+  // GET /ai_rubric?semester=...&course_id=... etc.
   getAIRubric: (semester, courseId, assignmentId, instructions = null) =>
-    api.get('/ai_rubric', { 
-      params: { 
-        semester: semester, 
-        course_id: courseId, 
-        assignment_id: assignmentId, 
-        instructions: instructions 
-      } 
+    api.get('/ai_rubric', {
+      params: {
+        semester: semester,
+        course_id: courseId,
+        assignment_id: assignmentId,
+        instructions: instructions // Omitted if null
+      }
     }),
 };
 
 // User management
 export const userService = {
-  // User data and preferences
+  // --- Correct ---
+  // GET /user
   getUserData: () => api.get('/user'),
+
+  // --- Correct ---
+  // PATCH /user (Body: UserPreferencesUpdate)
   updateUserPreferences: (preferencesData) => api.patch('/user', preferencesData),
 };
 
-// Custom SWR hooks for data fetching
+// --- SWR Hooks (Generally look OK, relying on the service methods above) ---
+
 export const useUser = () => {
   const { data, error, mutate } = useSWR('/user', fetcher);
   return {
@@ -287,8 +405,9 @@ export const useUser = () => {
   };
 };
 
-export const useCourses = () => {
-  const { data, error, mutate } = useSWR('/courses', fetcher);
+export const useCourses = (semester = null) => { // Allow optional semester filtering
+  const queryString = semester ? `?semester=${encodeURIComponent(semester)}` : '';
+  const { data, error, mutate } = useSWR(`/courses${queryString}`, fetcher);
   return {
     courses: data,
     isLoading: !error && !data,
@@ -297,14 +416,20 @@ export const useCourses = () => {
   };
 };
 
-export const useAssignments = (semester, courseId) => {
+export const useAssignments = (semester, courseId, includeQuestions = false) => { // Add includeQuestions hook option
+  const shouldFetch = semester && courseId;
+  const params = new URLSearchParams();
+  if (semester) params.append('semester', semester);
+  if (courseId) params.append('course_id', courseId);
+  if (includeQuestions) params.append('include_questions', 'true'); // Add include_questions
+
   const { data, error, mutate } = useSWR(
-    semester && courseId ? `/assignments?semester=${semester}&course_id=${courseId}` : null,
+    shouldFetch ? `/assignments?${params.toString()}` : null,
     fetcher
   );
   return {
     assignments: data,
-    isLoading: !error && !data,
+    isLoading: !error && !data && shouldFetch, // Only loading if should fetch
     isError: error,
     mutate,
   };
@@ -312,21 +437,22 @@ export const useAssignments = (semester, courseId) => {
 
 
 export const useRubric = (semester, courseId, assignmentId, questionIndex = null) => {
+  const shouldFetch = semester && courseId && assignmentId;
   const params = new URLSearchParams({
-    assignment_id: assignmentId,
     semester: semester,
     course_id: courseId,
+    assignment_id: String(assignmentId), // Ensure string
   });
-  if (questionIndex !== null) params.append('question_index', questionIndex);
+  if (questionIndex !== null) params.append('question_index', String(questionIndex)); // Ensure string
 
   const { data, error, mutate } = useSWR(
-    assignmentId ? `/rubric?${params.toString()}` : null,
+    shouldFetch ? `/rubric?${params.toString()}` : null,
     fetcher
   );
 
   return {
     rubric: data,
-    isLoading: !error && !data,
+    isLoading: !error && !data && shouldFetch,
     isError: error,
     mutate,
   };
@@ -334,17 +460,23 @@ export const useRubric = (semester, courseId, assignmentId, questionIndex = null
 
 
 export const useMaterials = (semester, courseId) => {
-  const { data, error, mutate } = useSWR(
-    semester && courseId ? `/course_materials?semester=${semester}&course_id=${courseId}` : null,
+   const shouldFetch = semester && courseId;
+   const params = new URLSearchParams();
+   if (semester) params.append('semester', semester);
+   if (courseId) params.append('course_id', courseId);
+
+   const { data, error, mutate } = useSWR(
+    shouldFetch ? `/course_materials?${params.toString()}` : null,
     fetcher
   );
   return {
     materials: data,
-    isLoading: !error && !data,
+    isLoading: !error && !data && shouldFetch,
     isError: error,
     mutate,
   };
 };
 
-
-export default api;
+// Note: Exporting the instance directly isn't common; exporting service objects is typical.
+// If you need to export the configured axios instance:
+// export default api;

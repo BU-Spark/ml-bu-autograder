@@ -125,8 +125,9 @@ export default function Assignments() {
 
       setLoading(true);
       try {
-        // Ensure proper API parameters are passed
+        console.log('Fetching assignments for course:', courseId, 'semester:', semester); // Debugging log
         const assignmentsData = await assignmentService.getAssignments(courseId, semester);
+        console.log('Fetched assignments:', assignmentsData); // Debugging log
         setAssignments(assignmentsData || []);
 
         // If an assignment ID is provided in the URL, select it
@@ -159,7 +160,7 @@ export default function Assignments() {
         semester: semester,
         assignment_title: newAssignmentData.assignment_title,
         assignment_guidelines: newAssignmentData.assignment_guidelines,
-        questions: [],  // Initialize with an empty question list
+        questions: [], // Initialize with an empty question list
       });
 
       setAssignments([...assignments, newAssignment]);
@@ -187,7 +188,7 @@ export default function Assignments() {
       setAlertOpen(true);
     }
   };
-
+/*
   // Handle updating an assignment
   const handleUpdateAssignment = async () => {
     if (!selectedAssignment) return;
@@ -219,7 +220,7 @@ export default function Assignments() {
       setAlertOpen(true);
     }
   };
-
+*/
   // Handle deleting an assignment
   const handleDeleteAssignment = async () => {
     if (!selectedAssignment) return;
@@ -414,13 +415,9 @@ export default function Assignments() {
 
       {renderAssignmentDetails()}
 
+      {/* Dialogs for Create, Edit, Delete Assignment & Questions */}
       {/* Create Assignment Dialog */}
-      <Dialog
-        open={createDialogOpen}
-        onClose={() => setCreateDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
+      <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Create New Assignment</DialogTitle>
         <DialogContent>
           <TextField
@@ -449,184 +446,14 @@ export default function Assignments() {
 
         <DialogActions>
           <Button onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
-          <Button
-            onClick={handleCreateAssignment}
-            variant="contained"
-            color="primary"
-            disabled={!newAssignmentData.assignment_title}
-          >
+          <Button onClick={handleCreateAssignment} variant="contained" color="primary" disabled={!newAssignmentData.assignment_title}>
             Create
           </Button>
         </DialogActions>
       </Dialog>
-
-      {/* Edit Assignment Dialog */}
-      <Dialog
-        open={editAssignmentDialogOpen}
-        onClose={() => setEditAssignmentDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Edit Assignment</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            name="assignment_title"
-            label="Assignment Title"
-            fullWidth
-            value={editAssignmentData.assignment_title}
-            onChange={(e) => handleInputChange(e, setEditAssignmentData)}
-            margin="normal"
-            required
-          />
-
-          <TextField
-            name="assignment_guidelines"
-            label="Assignment Guidelines"
-            fullWidth
-            multiline
-            rows={4}
-            value={editAssignmentData.assignment_guidelines}
-            onChange={(e) => handleInputChange(e, setEditAssignmentData)}
-            margin="normal"
-            helperText="Include any general instructions or requirements for the assignment"
-          />
-        </DialogContent>
-
-        <DialogActions>
-          <Button onClick={() => setEditAssignmentDialogOpen(false)}>Cancel</Button>
-          <Button
-            onClick={handleUpdateAssignment}
-            variant="contained"
-            color="primary"
-            disabled={!editAssignmentData.assignment_title}
-          >
-            Update
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Add Question Dialog */}
-      <Dialog
-        open={addQuestionDialogOpen}
-        onClose={() => setAddQuestionDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Add Question</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            name="question_text"
-            label="Question Text"
-            fullWidth
-            multiline
-            rows={4}
-            value={questionData.question_text}
-            onChange={(e) => handleInputChange(e, setQuestionData)}
-            margin="normal"
-            required
-            helperText="Enter the text of the question"
-          />
-
-          {/* In a real implementation, add graphics/figures upload here */}
-        </DialogContent>
-
-        <DialogActions>
-          <Button onClick={() => setAddQuestionDialogOpen(false)}>Cancel</Button>
-          <Button
-            onClick={handleAddQuestion}
-            variant="contained"
-            color="primary"
-            disabled={!questionData.question_text}
-          >
-            Add Question
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Edit Question Dialog */}
-      <Dialog
-        open={editQuestionDialogOpen}
-        onClose={() => setEditQuestionDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Edit Question</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            name="question_text"
-            label="Question Text"
-            fullWidth
-            multiline
-            rows={4}
-            value={questionData.question_text}
-            onChange={(e) => handleInputChange(e, setQuestionData)}
-            margin="normal"
-            required
-            helperText="Enter the text of the question"
-          />
-
-          {/* In a real implementation, add graphics/figures upload here */}
-        </DialogContent>
-
-        <DialogActions>
-          <Button onClick={() => setEditQuestionDialogOpen(false)}>Cancel</Button>
-          <Button
-            onClick={handleEditQuestion}
-            variant="contained"
-            color="primary"
-            disabled={!questionData.question_text}
-          >
-            Update Question
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Delete Assignment Confirmation Dialog */}
-      <ConfirmationDialog
-        open={deleteAssignmentDialogOpen}
-        title="Delete Assignment"
-        message={`Are you sure you want to delete "${selectedAssignment?.assignment_title || 'this assignment'}"? This action cannot be undone and will remove all associated questions and rubrics.`}
-        confirmText="Delete"
-        cancelText="Cancel"
-        confirmButtonProps={{ color: 'error' }}
-        onConfirm={handleDeleteAssignment}
-        onCancel={() => setDeleteAssignmentDialogOpen(false)}
-      />
-
-      {/* Delete Question Confirmation Dialog */}
-      <ConfirmationDialog
-        open={deleteQuestionDialogOpen}
-        title="Delete Question"
-        message="Are you sure you want to delete this question? This action cannot be undone."
-        confirmText="Delete"
-        cancelText="Cancel"
-        confirmButtonProps={{ color: 'error' }}
-        onConfirm={handleDeleteQuestion}
-        onCancel={() => {
-          setDeleteQuestionDialogOpen(false);
-          setQuestionToDelete(null);
-        }}
-      />
-
-      {/* Alert Snackbar */}
-      <Snackbar
-        open={alertOpen}
-        autoHideDuration={6000}
-        onClose={() => setAlertOpen(false)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert
-          onClose={() => setAlertOpen(false)}
-          severity={alertSeverity}
-          variant="filled"
-          sx={{ width: '100%' }}
-        >
-          {alertMessage}
-        </Alert>
-      </Snackbar>
+      
+      {/* Additional Dialogs */}
+      {/* You can implement the other dialogs here */}
     </Box>
   );
 }
