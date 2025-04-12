@@ -5,7 +5,7 @@ from typing import List, Optional
 # <<< --- Added status and logging --- >>>
 from fastapi import APIRouter, HTTPException, Query, Body, Depends, status
 # <<< --- Added Optional here --- >>>
-from pydantic import BaseModel, Field, field_validator, Optional
+from pydantic import BaseModel, Field, field_validator
 
 from app.models import Course
 from app.models.assignment import Assignment, Question
