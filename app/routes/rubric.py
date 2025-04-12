@@ -88,24 +88,35 @@ async def get_ai_rubric(
         instructions: Optional[str] = Query(None, description="Optional specific improvement instructions for the AI."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
+    blob_uploader = AzureBlobService.get_instance()
+
     # validate params
     semester = Course.validate_semester(semester)
     course_id = Course.normalize_lowercase(course_id)
 
-    blob_uploader = AzureBlobService.get_instance()
+    # Check if course exists
+    if not blob_uploader.course_exists(semester, course_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course does not exist.")
 
-    # TODO: AI API CALLS
+    # Check if user has permissions on course
+    user = blob_uploader.get_user(user_meta.user_email)
+    if not user.authenticated_courses.__contains__((semester, course_id)):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Authenticated but access is not allowed.")
 
-    dummy_rubric = Rubric(
-        semester="spring2024",
-        course_id="cs123",
-        assignment_id=assignment_id,
-        grading_flags=[GradingFlag.IGNORE_SPELLINGS],
-        leniency=4,
-        overall_instructor_guidelines="Improved guidelines based on AI.",
-        sub_rubrics=[]
-    )
-    return dummy_rubric
+    # Check if assignment exists
+    if not blob_uploader.assignment_exists(semester, course_id, assignment_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment does not exist.")
+
+    # Get the rubric
+    rubric = blob_uploader.get_rubric(semester, course_id, assignment_id)
+    if rubric is None:
+        # TODO: generate it from scratch
+        ...
+    else:
+        # TODO: AI improvement
+        ...
+
+    return rubric
 
 
 @router.get(
