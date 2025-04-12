@@ -2,7 +2,7 @@ import re
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class GradingFlag(str, Enum):
@@ -36,11 +36,6 @@ class SubRubric(BaseModel):
     """
     question_index: int = Field(..., description="Index of the question.")
     max_points: float = Field(..., description="Maximum points for this question.")
-    leniency: Optional[int] = Field(
-        #None, ge=1, le=5,  # TODO: Azure API doesn't like default values and ranges
-        ...,
-        description="Leniency (1=very strict, 5=very lenient). If omitted, no specific question-level leniency is set."
-    )
     instructor_guideline: Optional[str] = Field(
         None, description="General instruction guidelines outline the grading rules for the question."
     )
@@ -49,6 +44,29 @@ class SubRubric(BaseModel):
                                                                                 "the sum of the points allocated to "
                                                                                 "each grading criteria must sum to "
                                                                                 "'max_points'.")
+
+    @model_validator(mode="after")
+    def check_grading_criteria(cls, values):
+        max_points = values.max_points
+        grading_criteria = values.grading_criteria
+        if grading_criteria is not None:
+            total_allocated = 0
+            for criteria in grading_criteria:
+                # Check each criterion individually
+                if criteria.points > max_points:
+                    raise ValueError(
+                        f"Points allocated to grading criteria '{criteria.criteria_id}' "
+                        f"({criteria.points}) exceeds the maximum points allocated to"
+                        f" the whole question ({max_points})."
+                    )
+                total_allocated += criteria.points
+            # Compare sum of points to the parent max_points
+            if total_allocated != max_points:
+                raise ValueError(
+                    f"The sum of grading criteria points ({total_allocated}) does not equal "
+                    f"max_points ({max_points})."
+                )
+        return values
 
 
 class Rubric(BaseModel):
@@ -66,11 +84,6 @@ class Rubric(BaseModel):
             "- `ORIGINALITY`: Reward originality and deduct for unoriginal ideas.\n"
             "- `IGNORE_FORMATTING`: Ignore formatting issues."
         )
-    )
-    leniency: int = Field(
-        #3, ge=1, le=5, # TODO: Azure API doesn't like default values and ranges
-        ...,
-        description="Overall leniency (1=very strict, 5=very lenient)."
     )
     overall_instructor_guidelines: Optional[str] = Field(
         None, description="General grading criteria applicable to all questions."

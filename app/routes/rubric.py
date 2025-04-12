@@ -13,27 +13,6 @@ router = APIRouter()
 user_from_auth = JWTService.get_instance().from_authorization_header
 
 
-class EditSubRubricRequest(BaseModel):
-    """
-    Request model for editing a sub-rubric of an assignment.
-    Allows modification of grading criteria for individual questions.
-    """
-    semester: str = Field(..., description="Semester of the course.")
-    course_id: str = Field(..., description="Identifier of the course.")
-    assignment_id: str = Field(..., description="Identifier of the assignment.")
-    sub_rubric: SubRubric = Field(...,
-                                  description="Sub-rubric object containing grading instructions and criteria for that specific question.")
-
-    @classmethod
-    @field_validator("semester", mode='before')
-    def validate_semester(cls, value: str) -> str:
-        """Converts to lowercase and trims spaces."""
-        if re.fullmatch("[a-zA-Z]{1,12}[0-9]{4}", value) is not None:
-            raise ValueError("Semester is in an invalid format. "
-                             "Correct format looks like: seasonYYYY. (e.g. spring2025)")
-        return value.strip().lower()
-
-
 @router.put(
     "/rubric",
     response_model=Rubric,
