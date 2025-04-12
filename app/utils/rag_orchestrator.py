@@ -55,7 +55,7 @@ Do not make up information."""
         if not isinstance(retriever, AzureAISearchRetriever):
             raise TypeError("retriever must be an instance of AzureAISearchRetriever")
         if not isinstance(chat_client, AzureOpenAI) and not isinstance(chat_client, OpenAI):
-            raise TypeError("chat_client must be an instance of AzureOpenAI or OpenAI")
+             raise TypeError("chat_client must be an instance of AzureOpenAI or OpenAI")
         if not chat_deployment:
             raise ValueError("chat_deployment cannot be empty.")
 
@@ -74,21 +74,22 @@ Do not make up information."""
 
         logger.info(f"Using System Prompt starting with: \"{self.system_prompt[:100]}...\"")
         logger.info(
-            f"Using Context Template: \"{self.context_template.replace('{', '{{').replace('}', '}}')[:100]}...\"")  # Log template snippet safely
+            f"Using Context Template: \"{self.context_template.replace('{', '{{').replace('}', '}}')[:100]}...\"") # Log template snippet safely
         logger.info(f"Using Chat Deployment: {self.chat_deployment}")
         logger.info("RAGOrchestrator initialized successfully.")
+
 
     def _format_context(self, documents: List[Dict]) -> Tuple[str, List[str]]:
         """Formats retrieved documents into a context string and extracts sources."""
         context_parts = []
-        sources = set()  # Use a set to store unique sources
+        sources = set() # Use a set to store unique sources
         for i, doc in enumerate(documents):
             # Prioritize filepath, then title, then url, then generate an ID
             source_identifier = doc['metadata'].get('filepath') or \
                                 doc['metadata'].get('title') or \
                                 doc['metadata'].get('url') or \
                                 doc['metadata'].get('id') or \
-                                f"Document {doc.get('rank', i + 1)}"  # Fallback
+                                f"Document {doc.get('rank', i + 1)}" # Fallback
 
             sources.add(source_identifier)
             try:
@@ -160,8 +161,7 @@ Answer:
             - The generated answer string (Optional[str]), or None if generation failed.
             - A list of source identifiers (List[str]) used in the context.
         """
-        logger.info(
-            f"Processing query: '{user_query}' using '{search_type}' search (k={top_k_retrieval}, semantic={use_semantic_ranking})")
+        logger.info(f"Processing query: '{user_query}' using '{search_type}' search (k={top_k_retrieval}, semantic={use_semantic_ranking})")
 
         # 1. Retrieve Documents
         # Pass semantic ranking flag to retriever's search method
@@ -175,12 +175,12 @@ Answer:
 
         if not retrieved_docs:
             logger.warning("Retrieval step returned no documents.")
-            return "I couldn't find any relevant documents to answer your question.", []  # Provide a user-friendly response
+            return "I couldn't find any relevant documents to answer your question.", [] # Provide a user-friendly response
 
         # 2. Format Context
         context_str, sources = self._format_context(retrieved_docs)
         logger.info(f"Formatted context using {len(sources)} unique sources.")
-        logger.debug(f"Context String Snippet:\n{context_str[:500]}...")  # Log only a snippet
+        logger.debug(f"Context String Snippet:\n{context_str[:500]}...") # Log only a snippet
 
         # 3. Build Prompt
         messages = self._build_prompt_messages(user_query, context_str)

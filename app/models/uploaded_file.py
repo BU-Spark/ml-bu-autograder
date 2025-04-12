@@ -1,6 +1,6 @@
 import base64
 from enum import Enum
-from typing import Optional
+from typing import Optional, Dict
 
 from pydantic import BaseModel, Field, field_validator, HttpUrl
 
@@ -42,7 +42,7 @@ class UploadedFileData(BaseModel):
     - **content**: A string representing the binary content of the file encoded in Base64.
     """
     data_type: DataType = Field(..., description="The data type which 'content' should be interpret as.")
-    # metadata: Optional[Dict[str, str]] = Field(None, description="Optional metadata as key-value pairs.")
+    #metadata: Optional[Dict[str, str]] = Field(None, description="Optional metadata as key-value pairs.")
     content: bytes = Field(..., description="Binary content of the file (must be uploaded as a base64-encoded string).")
 
     @field_validator("content", mode="before")

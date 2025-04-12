@@ -32,20 +32,20 @@ async def get_course_materials(
     course_id = Course.normalize_lowercase(course_id)
 
     blob_uploader = AzureBlobService.get_instance()
-
+    
     # Check if the course exists
     course_exists = blob_uploader.course_exists(semester, course_id)
     if not course_exists:
         raise HTTPException(status_code=404, detail="Course does not exist.")
-
+    
     # Check if user has perms on course
     user = blob_uploader.get_user(user_meta.user_email)
     if not user.authenticated_courses.__contains__((semester, course_id)):
         raise HTTPException(status_code=403, detail="Authenticated but access is not allowed.")
-
+    
     # Get all course materials
     materials = blob_uploader.list_course_materials(semester, course_id)
-
+    
     return materials
 
 
@@ -71,22 +71,22 @@ async def get_course_material(
     course_id = Course.normalize_lowercase(course_id)
 
     blob_uploader = AzureBlobService.get_instance()
-
+    
     # Check if the course exists
     course_exists = blob_uploader.course_exists(semester, course_id)
     if not course_exists:
         raise HTTPException(status_code=404, detail="Course does not exist.")
-
+    
     # Check if user has perms on course
     user = blob_uploader.get_user(user_meta.user_email)
     if not user.authenticated_courses.__contains__((semester, course_id)):
         raise HTTPException(status_code=403, detail="Authenticated but access is not allowed.")
-
+    
     # Get specific course material
     material = blob_uploader.get_course_material(semester, course_id, material_id)
     if not material:
         raise HTTPException(status_code=404, detail="Course material does not exist.")
-
+    
     return material
 
 
@@ -107,26 +107,26 @@ async def upload_course_material(
         user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
-
+    
     # Check if the course exists
     course_exists = blob_uploader.course_exists(material.semester, material.course_id)
     if not course_exists:
         raise HTTPException(status_code=404, detail="Course does not exist.")
-
+    
     # Check if user has perms on course
     user = blob_uploader.get_user(user_meta.user_email)
     if not user.authenticated_courses.__contains__((material.semester, material.course_id)):
         raise HTTPException(status_code=403, detail="Authenticated but access is not allowed.")
-
+    
     # Check if material already exists
     if blob_uploader.course_material_exists(material.semester, material.course_id, material.material_id):
         raise HTTPException(status_code=409, detail="Material with this ID already exists.")
-
+    
     # Upload the material
     blob_uploader.upload_course_material(material)
 
     # TODO: chunk up the material and upload it to rag db
-
+    
     return material
 
 
@@ -151,26 +151,26 @@ async def delete_course_material(
     course_id = Course.normalize_lowercase(course_id)
 
     blob_uploader = AzureBlobService.get_instance()
-
+    
     # Check if the course exists
     course_exists = blob_uploader.course_exists(semester, course_id)
     if not course_exists:
         raise HTTPException(status_code=404, detail="Course does not exist.")
-
+    
     # Check if user has perms on course
     user = blob_uploader.get_user(user_meta.user_email)
     if not user.authenticated_courses.__contains__((semester, course_id)):
         raise HTTPException(status_code=403, detail="Authenticated but access is not allowed.")
-
+    
     # Check if material exists
     material = blob_uploader.course_material_exists(semester, course_id, material_id)
     if not material:
         raise HTTPException(status_code=404, detail="Course material does not exist.")
-
+    
     # Delete the material
     blob_uploader.delete_course_material(semester, course_id, material_id)
-
-    return {"detail": "Course material deleted successfully."}
+    
+    return {"detail":  "Course material deleted successfully."}
 
 
 @router.patch(
@@ -190,26 +190,25 @@ async def update_course_material(
         user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
-
+    
     # Check if the course exists
     course_exists = blob_uploader.course_exists(material.semester, material.course_id)
     if not course_exists:
         raise HTTPException(status_code=404, detail="Course does not exist.")
-
+    
     # Check if user has perms on course
     user = blob_uploader.get_user(user_meta.user_email)
     if not user.authenticated_courses.__contains__((material.semester, material.course_id)):
         raise HTTPException(status_code=403, detail="Authenticated but access is not allowed.")
-
+    
     # Check if material exists
-    existing_material = blob_uploader.course_material_exists(material.semester, material.course_id,
-                                                             material.material_id)
+    existing_material = blob_uploader.course_material_exists(material.semester, material.course_id, material.material_id)
     if not existing_material:
         raise HTTPException(status_code=404, detail="Course material does not exist.")
-
+    
     # Update the material
     blob_uploader.upload_course_material(material)
 
     # TODO: run the rag pipeline
-
+    
     return material

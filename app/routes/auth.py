@@ -1,9 +1,9 @@
 import datetime
 import json
 import os
+import requests
 from typing import List, Optional
 
-import requests
 from fastapi import APIRouter, HTTPException, Query, status, Depends
 from pydantic import EmailStr
 
@@ -28,8 +28,7 @@ GOOGLE_CLIENT_SECRET = google_oauth_config["web"]["client_secret"]
 GOOGLE_REDIRECT_URI = google_oauth_config["web"]["redirect_uris"][0]
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 
-
-# TODO
+#TODO
 @router.post(
     "/token",
     response_model=PersonalAccessToken,
@@ -42,9 +41,9 @@ GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 )
 async def create_access_token(
         token_name: Optional[str] = Query(...,
-                                          description="Friendly name for the token.  "
-                                                      "Only alphanumeric characters and underscores are allowed."
-                                                      "Defaults to 'token_n' (where n is a number)."),
+                                description="Friendly name for the token.  "
+                                            "Only alphanumeric characters and underscores are allowed."
+                                            "Defaults to 'token_n' (where n is a number)."),
         token_expiry: Optional[datetime.datetime] = Query(...),
         user_meta: UserToken = Depends(user_from_auth),
 ):
@@ -120,7 +119,7 @@ async def delete_access_token(
 
     blob_uploader.delete_token(user_meta.user_email, token_name)
 
-    return {"detail": "The access token has been deleted."}
+    return {"detail":  "The access token has been deleted."}
 
 
 @router.get(
@@ -206,7 +205,6 @@ async def google_oauth(
     jwt_token = jwt_service.create_user_jwt(user)
 
     return {"authentication_token": jwt_token, "user": user}
-
 
 @router.get(
     "/google_oauth_url",

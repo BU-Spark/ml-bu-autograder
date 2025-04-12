@@ -1,19 +1,21 @@
 import fnmatch
-import logging
-from typing import Optional, List, Mapping
-
+from typing import Optional, List, Dict, Mapping
 import chromadb
+import logging
+
+from chromadb import QueryResult
+from chromadb.errors import InvalidCollectionException
+
 from azure.core.credentials import AzureKeyCredential
 from azure.search.documents import SearchClient
 from azure.search.documents.indexes import SearchIndexClient
 from azure.search.documents.indexes.models import SearchIndex
-from chromadb import QueryResult
-from chromadb.errors import InvalidCollectionException
 
 chroma_instance: Optional["ChromaDBService"] = None
 
-
 # azure_instance: Optional["AzureVectorService"] = None
+
+
 
 
 class VectorDBService:
@@ -27,13 +29,13 @@ class VectorDBService:
 
         # Client to interact with documents (vectors)
         self.client = SearchClient(endpoint, index_name, credential=credential)
-
+        
         # Client to manage indexes (checking or retrieving vector store)
         self.index_client = SearchIndexClient(endpoint, credential=credential)
 
         # Verify vector store (index) exists upon initialization
         self._verify_or_retrieve_index()
-
+    
     def _verify_or_retrieve_index(self):
         """Verifies that the vector store index exists and retrieves it."""
         try:
@@ -50,7 +52,7 @@ class VectorDBService:
         documents = []
         for i, vector in enumerate(vectors):
             doc = {
-                "id": ids[i],
+                "id": ids[i], 
                 self.vector_field: vector
             }
             if metadatas and metadatas[i]:
@@ -77,8 +79,7 @@ class VectorDBService:
         for vector in query_vectors:
             try:
                 search_results = self.client.search(
-                    search_text="",
-                    # empty required for vector-only search (we can just assume its vector only for now...)
+                    search_text="",  # empty required for vector-only search (we can just assume its vector only for now...)
                     vectors=[{
                         "value": vector,
                         "fields": self.vector_field,

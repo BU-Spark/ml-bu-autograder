@@ -4,12 +4,12 @@ import logging
 from enum import Enum
 from typing import List, Optional, Dict
 
-import fitz
 from azure.ai.inference import EmbeddingsClient, ImageEmbeddingsClient
 from azure.ai.inference.models import ImageEmbeddingInput, EmbeddingInputType
 from azure.core.credentials import AzureKeyCredential
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
+import fitz
 from app.utils import VectorDBService
 
 
@@ -275,7 +275,7 @@ class LangchainRAGService:
                         # *** Add size check here ***
                         img_width = base_image["width"]
                         img_height = base_image["height"]
-                        if img_width * img_height < self.min_image_pixels:
+                        if img_width*img_height < self.min_image_pixels:
                             logging.debug(
                                 f"Skipping small image {img_index} on page {page_num} (xref: {xref}, size: {img_width}x{img_height})")
                             skipped_image_count += 1

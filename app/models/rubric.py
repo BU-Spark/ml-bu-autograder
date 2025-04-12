@@ -37,7 +37,7 @@ class SubRubric(BaseModel):
     question_index: int = Field(..., description="Index of the question.")
     max_points: float = Field(..., description="Maximum points for this question.")
     leniency: Optional[int] = Field(
-        # None, ge=1, le=5,  # TODO: Azure API doesn't like default values and ranges
+        #None, ge=1, le=5,  # TODO: Azure API doesn't like default values and ranges
         ...,
         description="Leniency (1=very strict, 5=very lenient). If omitted, no specific question-level leniency is set."
     )
@@ -68,7 +68,7 @@ class Rubric(BaseModel):
         )
     )
     leniency: int = Field(
-        # 3, ge=1, le=5, # TODO: Azure API doesn't like default values and ranges
+        #3, ge=1, le=5, # TODO: Azure API doesn't like default values and ranges
         ...,
         description="Overall leniency (1=very strict, 5=very lenient)."
     )
@@ -80,11 +80,13 @@ class Rubric(BaseModel):
         description="List of sub-rubrics specifying grading for individual questions.",
     )
 
+    
     @field_validator("course_id", mode="before")
     def normalize_lowercase(cls, value: str) -> str:
         """Converts course_id and semester to lowercase and trims spaces."""
         return value.strip().lower()
 
+    
     @field_validator("semester", mode='before')
     def validate_semester(cls, value: str) -> str:
         """Converts to lowercase and trims spaces."""

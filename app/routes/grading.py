@@ -1,5 +1,4 @@
 from typing import List, Optional
-
 from fastapi import APIRouter, HTTPException, status, Query, Depends
 
 from app.models import Course, GradedStudentResponseReference
@@ -33,8 +32,7 @@ async def grade_specific(
         course_id: str = Query(..., description="Unique identifier of the course."),
         assignment_id: str = Query(..., description="Identifier of the assignment."),
         student_ids: List[str] = Query(..., description="List of student identifiers to grade."),
-        question_index: Optional[int] = Query(None,
-                                              description="Optional index of the question. Grades all questions if omitted."),
+        question_index: Optional[int] = Query(None, description="Optional index of the question. Grades all questions if omitted."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
@@ -111,8 +109,7 @@ async def grade_ungraded(
         semester: str = Query(..., description="Course semester."),
         course_id: str = Query(..., description="Unique identifier of the course."),
         assignment_id: str = Query(..., description="Identifier of the assignment."),
-        question_index: Optional[int] = Query(None,
-                                              description="Optional index of the question to grade. Grades all ungraded questions if omitted."),
+        question_index: Optional[int] = Query(None, description="Optional index of the question to grade. Grades all ungraded questions if omitted."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
@@ -188,8 +185,7 @@ async def grade_all(
         semester: str = Query(..., description="Course semester."),
         course_id: str = Query(..., description="Unique identifier of the course."),
         assignment_id: str = Query(..., description="Identifier of the assignment."),
-        question_index: Optional[int] = Query(None,
-                                              description="Optional index of the question to grade or regrade. Grades all questions if omitted."),
+        question_index: Optional[int] = Query(None, description="Optional index of the question to grade or regrade. Grades all questions if omitted."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
