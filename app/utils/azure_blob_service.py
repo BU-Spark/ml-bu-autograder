@@ -401,7 +401,7 @@ class AzureBlobService:
             question_index=question_index,
             student_id=student_id,
             data=UploadedFileData(
-                data_type=DataType.from_value(data_type),
+                data_type=DataType.from_extension(data_type),
                 content=self.get_file_bytes(blob_path)
             )
         )
@@ -422,7 +422,7 @@ class AzureBlobService:
             question_index=question_index,
             student_id=student_id,
             data=UploadedFileReference(
-                data_type=DataType.from_value(data_type),
+                data_type=DataType.from_extension(data_type),
                 url=self.generate_sas_url(blob_path)
             ),
             grade=None
@@ -481,7 +481,7 @@ class AzureBlobService:
         data_type = material_id_split[-1]
         # Prepare the file data dictionary.
         file_data = UploadedFileReference(
-            data_type=DataType.from_value(data_type),
+            data_type=DataType.from_extension(data_type),
             url=self.generate_sas_url(relative_path)
         )
         try:

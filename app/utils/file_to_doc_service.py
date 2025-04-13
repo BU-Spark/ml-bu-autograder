@@ -2,7 +2,7 @@ import logging
 
 import fitz  # PyMuPDF
 import base64
-from typing import Dict, List, Set, Tuple, Any, Optional
+from typing import Dict, List, Tuple, Any, Optional
 from pathlib import Path
 
 # Assuming 'construct' is just for the Enum definition example
@@ -14,29 +14,28 @@ from pydantic import FilePath, BaseModel, Field  # Use pydantic BaseModel for Do
 
 
 # Define DocumentContentType using standard Enum
-class DocumentContentType(PyEnum):
+class ContentModality(PyEnum):
     TEXT = 1
     IMAGE = 2
     AUDIO = 3
-    VIDEO = 4
 
 
 # Define DocumentChunk using Pydantic for potential validation/structure
 class DocumentChunk(BaseModel):
     # The modality of the data
-    content_type: DocumentContentType
+    content_modality: ContentModality
     # The raw bytes of this data
     content: bytes
     # metadata associated with the data
     # (for example which document or page number it comes from)
-    metadata: dict = Field(default_factory=dict)
+    metadata: Optional[Dict[str, Any]] = None
 
     # Make Pydantic allow arbitrary types like the Enum
     class Config:
         arbitrary_types_allowed = True
 
     def get_as_string(self) -> str:
-        if self.content_type == DocumentContentType.TEXT:
+        if self.content_modality == ContentModality.TEXT:
             try:
                 return self.content.decode("utf-8")
             except UnicodeDecodeError:
@@ -44,7 +43,7 @@ class DocumentChunk(BaseModel):
                 return f"[Non-UTF8 Text: {len(self.content)} bytes]"
         else:
             # Provide a representation for non-text types
-            return f"[{self.content_type.name}: {len(self.content)} bytes]"
+            return f"[{self.content_modality.name}: {len(self.content)} bytes]"
 
     def get_as_bytes(self) -> bytes:
         return self.content
@@ -57,13 +56,22 @@ class Document:
     # document contents in the order one would naturally read them
     # int: the chunk id
     # DocumentContent: the content associated with the chunk
-    original_file: str
+    file_name: str
     contents: Dict[int, DocumentChunk]
 
     # Add a simple constructor for type hinting and clarity
-    def __init__(self, original_file: str, contents: Dict[int, DocumentChunk]):
-        self.original_file = original_file
+    def __init__(self, file_name: str, contents: Dict[int, DocumentChunk]):
+        self.file_name = file_name
         self.contents = contents
+
+    @classmethod
+    def _validate_path(cls, file_path: FilePath) -> Path:
+        """Helper to validate file path existence."""
+        if not file_path.exists():
+            raise FileNotFoundError(f"No such file: {file_path}")
+        if not file_path.is_file():
+             raise ValueError(f"Path is not a file: {file_path}")
+        return file_path
 
     # This method was AI generated: https://aistudio.google.com/app/prompts?state=%7B%22ids%22:%5B%2210BYwhnSJqSXol4OhtKIwAbFk6qUN3oZ7%22%5D,%22action%22:%22open%22,%22userId%22:%22112153521177605316268%22,%22resourceKeys%22:%7B%7D%7D&usp=sharing
     @classmethod
@@ -95,8 +103,7 @@ class Document:
             ValueError: If overlap is greater than or equal to split_len when split_len is not None.
             Exception: For errors during PDF processing.
         """
-        if not Path(file_path).exists():
-            raise FileNotFoundError(f"No such file: {file_path}")
+        file_path = Document._validate_path(file_path)
 
         if split_len is not None and overlap >= split_len:
             raise ValueError(
@@ -203,7 +210,7 @@ class Document:
                                 metadata = {'page_num': chunk_pages}
 
                                 contents[chunk_id_counter] = DocumentChunk(
-                                    content_type=DocumentContentType.TEXT,
+                                    content_modality=ContentModality.TEXT,
                                     content=chunk_bytes,
                                     metadata=metadata
                                 )
@@ -231,7 +238,7 @@ class Document:
                             metadata = {'page_num': chunk_pages}
 
                             contents[chunk_id_counter] = DocumentChunk(
-                                content_type=DocumentContentType.TEXT,
+                                content_modality=ContentModality.TEXT,
                                 content=chunk_bytes,
                                 metadata=metadata
                             )
@@ -242,7 +249,7 @@ class Document:
                         img_bytes = item['content']
                         metadata = {'page_num': [item_page]}
                         contents[chunk_id_counter] = DocumentChunk(
-                            content_type=DocumentContentType.IMAGE,
+                            content_modality=ContentModality.IMAGE,
                             content=img_bytes,
                             metadata=metadata
                         )
@@ -258,35 +265,187 @@ class Document:
                 metadata = {'page_num': chunk_pages}
 
                 contents[chunk_id_counter] = DocumentChunk(
-                    content_type=DocumentContentType.TEXT,
+                    content_modality=ContentModality.TEXT,
                     content=chunk_bytes,
                     metadata=metadata
                 )
 
-        except fitz.FileNotFoundError:
-            raise FileNotFoundError(f"PyMuPDF could not find or open file: {file_path}")
+        except fitz.FileNotFoundError as e:
+            logging.error(f"PyMuPDF could not find or open file {file_path}: {e}")
+            return None
         except Exception as e:
             logging.error(f"An error occurred during PDF processing: {e}")
-            raise RuntimeError(f"Failed to process PDF {file_path}: {e}") from e
+            return None
         finally:
             if doc:
                 doc.close()
 
-        return cls(original_file=str(file_path), contents=contents)
+        return cls(file_name=file_path.name, contents=contents)
 
     # --- Stubs for other methods as provided in the prompt ---
 
     @classmethod
-    def from_txt(cls, file_path: FilePath, split_len: int = 5000, overlap: int = 0):
-        raise NotImplementedError("from_mp3 is not implemented")
+    def from_txt(cls,
+                 file_path: FilePath,
+                 split_len: int = 500,  # Default split length for text
+                 overlap: int = 50,  # Default overlap for text
+                 encoding: str = 'utf-8') -> Optional["Document"]:
+        """
+        Extracts text from a plain text file, chunking the content by words.
+
+        Args:
+            file_path: Path to the TXT file.
+            split_len: Maximum number of words per text chunk.
+            overlap: Number of words from the end of the previous text chunk to include
+                     at the beginning of the next chunk. Must be less than split_len.
+            encoding: The encoding to use when reading the file. Defaults to 'utf-8'.
+
+        Returns:
+            A Document object containing the text content split into chunks.
+
+        Raises:
+            FileNotFoundError: If the file_path does not exist or is not a file.
+            ValueError: If overlap is greater than or equal to split_len.
+        """
+        file_path = Document._validate_path(file_path)
+
+        if overlap >= split_len:
+            raise ValueError(f"Overlap ({overlap}) must be less than split_len ({split_len}).")
+
+        contents: Dict[int, DocumentChunk] = {}
+        chunk_id_counter = 0
+
+        try:
+            full_text = file_path.read_text(encoding=encoding)
+            words = full_text.split()  # Split by whitespace
+            words = [w for w in words if w]  # Remove empty strings resulting from multiple spaces
+
+            current_word_index = 0
+            total_words = len(words)
+
+            while current_word_index < total_words:
+                # Determine the end index for this chunk
+                end_index = min(current_word_index + split_len, total_words)
+
+                # Get the words for the current chunk
+                words_for_chunk = words[current_word_index:end_index]
+
+                if not words_for_chunk:  # Should not happen with the loop condition, but safety check
+                    break
+
+                # Join words and encode
+                chunk_text = " ".join(words_for_chunk)
+                chunk_bytes = chunk_text.encode(encoding)  # Use the same encoding
+
+                # Create and store the chunk
+                contents[chunk_id_counter] = DocumentChunk(
+                    content_modality=ContentModality.TEXT,
+                    content=chunk_bytes,
+                )
+                chunk_id_counter += 1
+
+                # Calculate the start index for the *next* chunk, considering overlap
+                next_start_index = current_word_index + split_len - overlap
+
+                # Ensure we make progress and handle edge cases
+                if next_start_index <= current_word_index:
+                    # This happens if overlap >= split_len, or if split_len is very small.
+                    # Force progress by moving at least one word forward.
+                    # The initial check `overlap >= split_len` should prevent this,
+                    # but as a safeguard:
+                    current_word_index += 1
+                else:
+                    current_word_index = next_start_index
+
+
+        except FileNotFoundError:  # Already handled by _validate_path, but good practice
+            return None
+        except UnicodeDecodeError as e:
+            logging.error(f"Encoding error reading {file_path} with {encoding}: {e}")
+            return None
+        except IOError as e:
+            logging.error(f"IO error reading {file_path}: {e}")
+            return None
+        except Exception as e:
+            logging.error(f"An unexpected error occurred during TXT processing '{file_path}': {e}", exc_info=True)
+            return None
+
+        return cls(file_name=file_path.name, contents=contents)
 
     @classmethod
-    def from_png(self, file_path: FilePath):
-        raise NotImplementedError("from_png is not implemented")
+    def _from_binary_file(cls,
+                          file_path: FilePath,
+                          content_modality: ContentModality,
+                          content_format: str) -> Optional["Document"]:
+        """Reads a binary file entirely into a single chunk."""
+        validated_path = cls._validate_path(file_path)
+        contents: Dict[int, DocumentChunk] = {}
 
+        try:
+            file_bytes = validated_path.read_bytes()
+
+            if not file_bytes:
+                logging.warning(f"Binary file is empty: {validated_path}")
+                return None
+
+            metadata = {'content_format': content_format}
+
+            chunk = DocumentChunk(
+                content_modality=content_modality,
+                content=file_bytes,
+                metadata=metadata
+            )
+            contents[0] = chunk  # Single chunk with ID 0
+
+        except FileNotFoundError:  # Should be caught by _validate_path
+            return None
+        except IOError as e:
+            logging.error(f"IO error reading binary file {validated_path}: {e}")
+            return None
+        except Exception as e:
+            logging.error(f"An unexpected error occurred during binary file processing '{validated_path}': {e}",
+                          exc_info=True)
+            return None
+
+        return cls(file_name=validated_path.name, contents=contents)
+
+    # --- NEW: from_png Implementation ---
     @classmethod
-    def from_jpg(self, file_path: FilePath):
-        raise NotImplementedError("from_jpg is not implemented")
+    def from_png(cls, file_path: FilePath) -> "Document":
+        """
+        Loads a PNG image file into a single DocumentChunk.
+
+        Args:
+            file_path: Path to the PNG file.
+
+        Returns:
+            A Document object containing one image chunk.
+
+        Raises:
+            FileNotFoundError: If the file_path does not exist or is not a file.
+        """
+        logging.info(f"Processing PNG file: {file_path}")
+        # Delegate to the helper method
+        return cls._from_binary_file(file_path, ContentModality.IMAGE, "png")
+
+    # --- NEW: from_jpg Implementation ---
+    @classmethod
+    def from_jpeg(cls, file_path: FilePath) -> "Document":
+        """
+        Loads a JPG/JPEG image file into a single DocumentChunk.
+
+        Args:
+            file_path: Path to the JPG/JPEG file.
+
+        Returns:
+            A Document object containing one image chunk.
+
+        Raises:
+            FileNotFoundError: If the file_path does not exist or is not a file.
+        """
+        logging.info(f"Processing JPG/JPEG file: {file_path}")
+        # Delegate to the helper method
+        return cls._from_binary_file(file_path, ContentModality.IMAGE, "jpeg")
 
     @classmethod
     def from_mp3(cls, file_path: FilePath, split_min: float = 2.0, overlap: float = 0.33):
@@ -328,10 +487,10 @@ def print_document_summary(document: Document, title: str):
 
     for chunk_id, chunk in sorted(document.contents.items()):
         print(f"\n--- Chunk ID: {chunk_id} ---")
-        print(f"  Type: {chunk.content_type.name}")
+        print(f"  Type: {chunk.content_modality.name}")
         print(f"  Metadata: {chunk.metadata}")
 
-        if chunk.content_type == DocumentContentType.TEXT:
+        if chunk.content_modality == ContentModality.TEXT:
             text_content = chunk.get_as_string()
             word_count = len(text_content.split())
             print(f"  Word Count: {word_count}")
@@ -343,7 +502,7 @@ def print_document_summary(document: Document, title: str):
             else:
                  print(f"  Content: '{text_content}'")
 
-        elif chunk.content_type == DocumentContentType.IMAGE:
+        elif chunk.content_modality == ContentModality.IMAGE:
              image_size = len(chunk.content)
              print(f"  Image Content Size: {image_size} bytes")
              # Optionally print base64 preview if needed, but it's very long
