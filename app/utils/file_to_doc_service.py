@@ -10,7 +10,8 @@ from pathlib import Path
 # Using standard library Enum for DocumentContentType.
 from enum import Enum as PyEnum
 
-from pydantic import FilePath, BaseModel, Field # Use pydantic BaseModel for DocumentChunk
+from pydantic import FilePath, BaseModel, Field  # Use pydantic BaseModel for DocumentChunk
+
 
 # Define DocumentContentType using standard Enum
 class DocumentContentType(PyEnum):
@@ -18,6 +19,7 @@ class DocumentContentType(PyEnum):
     IMAGE = 2
     AUDIO = 3
     VIDEO = 4
+
 
 # Define DocumentChunk using Pydantic for potential validation/structure
 class DocumentChunk(BaseModel):
@@ -50,6 +52,7 @@ class DocumentChunk(BaseModel):
     def get_as_base64(self) -> str:
         return base64.b64encode(self.content).decode("utf-8")
 
+
 class Document:
     # document contents in the order one would naturally read them
     # int: the chunk id
@@ -64,28 +67,43 @@ class Document:
 
     # This method was AI generated: https://aistudio.google.com/app/prompts?state=%7B%22ids%22:%5B%2210BYwhnSJqSXol4OhtKIwAbFk6qUN3oZ7%22%5D,%22action%22:%22open%22,%22userId%22:%22112153521177605316268%22,%22resourceKeys%22:%7B%7D%7D&usp=sharing
     @classmethod
-    def from_pdf(cls, file_path: FilePath, split_len_words: int = 500, overlap_words: int = 50) -> Optional["Document"]:
+    def from_pdf(cls,
+                 file_path: FilePath,
+                 split_len: Optional[int] = 500,
+                 overlap: int = 50,
+                 min_image_bytes: int = 0) -> Optional["Document"]:
         """
         Extracts text and images from a PDF file in reading order, chunking text content.
 
         Args:
             file_path: Path to the PDF file.
-            split_len_words: Maximum character length for text chunks. Chunks are created when
-                       this length is reached, an image is encountered, or the document ends.
-            overlap_words: Currently unused for PDF processing. A warning will be printed if non-zero.
+            split_len: Maximum number of words for text chunks. Chunks are created when
+                       this limit is reached, an image is encountered, or the document ends.
+                       If set to None, text splitting based on length is disabled, and text
+                       chunks are only split by images or the end of the document.
+            overlap: Number of words from the end of the previous text chunk to include
+                     at the beginning of the next chunk. Only applicable if split_len is not None.
+                     Must be less than split_len if split_len is set.
+            min_image_bytes: Minimum size in bytes for an image to be included as a chunk.
+                             Images smaller than this will be skipped. Defaults to 0 (include all images).
 
         Returns:
             A Document object containing extracted and chunked content.
 
         Raises:
             FileNotFoundError: If the file_path does not exist.
+            ValueError: If overlap is greater than or equal to split_len when split_len is not None.
             Exception: For errors during PDF processing.
         """
         if not Path(file_path).exists():
             raise FileNotFoundError(f"No such file: {file_path}")
 
-        if overlap_words >= split_len_words:
-            raise ValueError(f"Overlap ({overlap_words}) must be less than split_len ({split_len_words})")
+        if split_len is not None and overlap >= split_len:
+            raise ValueError(
+                f"Overlap ({overlap}) must be less than split_len ({split_len}) when split_len is enabled.")
+        if split_len is None and overlap > 0:
+            print(f"Warning: Overlap ({overlap}) is specified, but split_len is None. Overlap will be ignored.")
+            overlap = 0  # Overlap is meaningless without length-based splitting
 
         contents: Dict[int, DocumentChunk] = {}
         chunk_id_counter = 0
@@ -106,13 +124,12 @@ class Document:
                 text_blocks = page.get_text("blocks")
                 for tb in text_blocks:
                     x0, y0, x1, y1, text_content, block_no, block_type = tb
-                    # Basic check to ignore blocks with no real text content
                     clean_text = text_content.strip()
                     if clean_text:
                         page_items.append({
                             'type': 'text',
-                            'bbox': (x0, y0, x1, y1),  # Store bbox for sorting
-                            'content': clean_text,  # Use cleaned text
+                            'bbox': (x0, y0, x1, y1),
+                            'content': clean_text,
                             'page': page_num_one_based
                         })
 
@@ -126,11 +143,10 @@ class Document:
 
                     try:
                         img_bbox_rect = page.get_image_bbox(img_info)
-                        # Handle invalid or unavailable bbox more gracefully - maybe skip sorting?
-                        # For now, require a valid bbox for inclusion in sorted items.
                         if not img_bbox_rect or not img_bbox_rect.is_valid or img_bbox_rect.is_empty:
-                            logging.warning(
-                                f"Warning: Skipping image xref {xref} on page {page_num_one_based} due to invalid/missing bbox.")
+                            # Still skip images without reliable bbox for sorting
+                            logging.info(
+                                f"Skipping image xref {xref} on page {page_num_one_based} due to invalid/missing bbox.")
                             continue
 
                         img_bbox = tuple(img_bbox_rect)
@@ -138,6 +154,16 @@ class Document:
                         base_image = doc.extract_image(xref)
                         if base_image and base_image.get("image"):
                             img_bytes = base_image["image"]
+                            image_size = len(img_bytes)
+
+                            # Check if image meets minimum size requirement
+                            if image_size < min_image_bytes:
+                                logging.info(
+                                    f"Skipping image xref {xref} on page {page_num_one_based} (size {image_size} bytes < min {min_image_bytes} bytes).")
+                                processed_xrefs.add(xref)  # Mark as processed even if skipped
+                                continue  # Skip adding this image item
+
+                            # If image is large enough, add it to page items
                             page_items.append({
                                 'type': 'image',
                                 'bbox': img_bbox,
@@ -148,10 +174,10 @@ class Document:
                             processed_xrefs.add(xref)
                         else:
                             logging.warning(
-                                f"Warning: Could not extract image bytes for xref {xref} on page {page_num_one_based}.")
+                                f"Could not extract image bytes for xref {xref} on page {page_num_one_based}.")
 
                     except Exception as e:
-                        logging.error(f"Warning: Error processing image xref {xref} on page {page_num_one_based}: {e}")
+                        logging.warning(f"Error processing image xref {xref} on page {page_num_one_based}: {e}")
 
                 # --- Sort items based on reading order heuristic (top-to-bottom, left-to-right) ---
                 page_items.sort(key=lambda item: (item['bbox'][1], item['bbox'][0]))  # Sort by y0 then x0
@@ -161,47 +187,43 @@ class Document:
                     item_page = item['page']
 
                     if item['type'] == 'text':
-                        # Simple word splitting by whitespace. Consider more robust tokenization if needed.
-                        words = item['content'].split()  # Splits by whitespace
-                        words = [w for w in words if w]  # Remove empty strings resulting from multiple spaces
+                        words = item['content'].split()
+                        words = [w for w in words if w]
+                        if not words: continue
 
-                        if not words:  # Skip if block contained only whitespace
-                            continue
-
-                        # Add words with their page number to the buffer
                         buffered_word_data.extend([(word, item_page) for word in words])
 
-                        # Check if buffer exceeds split_len and create chunks with overlap
-                        while len(buffered_word_data) >= split_len_words:
-                            words_for_chunk = buffered_word_data[:split_len_words]
-                            chunk_text = " ".join([w for w, p in words_for_chunk])
-                            chunk_bytes = chunk_text.encode("utf-8")
-                            # Collect unique page numbers associated with the words in this chunk
-                            chunk_pages = sorted(list(set([p for w, p in words_for_chunk])))
-                            metadata = {'page_num': chunk_pages}
+                        # Perform length-based chunking ONLY if split_len is enabled
+                        if split_len is not None:
+                            while len(buffered_word_data) >= split_len:
+                                words_for_chunk = buffered_word_data[:split_len]
+                                chunk_text = " ".join([w for w, p in words_for_chunk])
+                                chunk_bytes = chunk_text.encode("utf-8")
+                                chunk_pages = sorted(list(set([p for w, p in words_for_chunk])))
+                                metadata = {'page_num': chunk_pages}
 
-                            contents[chunk_id_counter] = DocumentChunk(
-                                content_type=DocumentContentType.TEXT,
-                                content=chunk_bytes,
-                                metadata=metadata
-                            )
-                            chunk_id_counter += 1
+                                contents[chunk_id_counter] = DocumentChunk(
+                                    content_type=DocumentContentType.TEXT,
+                                    content=chunk_bytes,
+                                    metadata=metadata
+                                )
+                                chunk_id_counter += 1
 
-                            # Update buffer: keep the last 'overlap' words for the next chunk
-                            if overlap_words > 0:
-                                buffered_word_data = buffered_word_data[split_len_words - overlap_words:]
-                            else:
-                                buffered_word_data = buffered_word_data[split_len_words:]
-                            # Check if the remaining buffer is still >= split_len (unlikely with overlap but possible)
-                            if len(buffered_word_data) < split_len_words:
-                                break
-
+                                # Apply overlap if enabled
+                                if overlap > 0:
+                                    buffered_word_data = buffered_word_data[split_len - overlap:]
+                                else:
+                                    buffered_word_data = buffered_word_data[split_len:]
+                                # Safety break in case overlap logic somehow leads to infinite loop (unlikely here)
+                                if len(buffered_word_data) < split_len:
+                                    break
 
                     elif item['type'] == 'image':
+                        # Encountering an image always forces the current text buffer (if any)
+                        # to be finalized into a chunk, regardless of split_len.
+
                         # 1. Finalize any pending text chunk before the image
-                        # Check if there are words in the buffer to form a final text chunk
                         if buffered_word_data:
-                            # Create a chunk from ALL remaining words in the buffer before the image
                             words_for_chunk = buffered_word_data
                             chunk_text = " ".join([w for w, p in words_for_chunk])
                             chunk_bytes = chunk_text.encode("utf-8")
@@ -214,13 +236,11 @@ class Document:
                                 metadata=metadata
                             )
                             chunk_id_counter += 1
+                            buffered_word_data = []  # Reset buffer
 
-                        # Reset text buffer *after* creating the final text chunk
-                        buffered_word_data = []
-
-                        # 2. Create the image chunk
+                        # 2. Create the image chunk (it was already checked for size earlier)
                         img_bytes = item['content']
-                        metadata = {'page_num': [item_page]}  # Image is associated only with its page
+                        metadata = {'page_num': [item_page]}
                         contents[chunk_id_counter] = DocumentChunk(
                             content_type=DocumentContentType.IMAGE,
                             content=img_bytes,
@@ -230,7 +250,7 @@ class Document:
 
             # --- After processing all pages, check for any remaining text ---
             if buffered_word_data:
-                # Create a final chunk from any remaining words in the buffer
+                # Create a final chunk from ALL remaining words in the buffer
                 words_for_chunk = buffered_word_data
                 chunk_text = " ".join([w for w, p in words_for_chunk])
                 chunk_bytes = chunk_text.encode("utf-8")
@@ -242,7 +262,6 @@ class Document:
                     content=chunk_bytes,
                     metadata=metadata
                 )
-                # chunk_id_counter += 1 # Not needed after last chunk
 
         except fitz.FileNotFoundError:
             raise FileNotFoundError(f"PyMuPDF could not find or open file: {file_path}")
@@ -251,7 +270,7 @@ class Document:
             raise RuntimeError(f"Failed to process PDF {file_path}: {e}") from e
         finally:
             if doc:
-                doc.close()  # Ensure the PDF document is closed
+                doc.close()
 
         return cls(original_file=str(file_path), contents=contents)
 
@@ -301,57 +320,70 @@ class Document:
     def from_html(self, file_path: FilePath, split_len: int = 5000, overlap: int = 0):
         raise NotImplementedError("from_html is not implemented")
 
-# Example Usage (requires a PDF file named 'example.pdf' in the same directory)
+# --- Helper Function to Print Document Chunks ---
+def print_document_summary(document: Document, title: str):
+    print(f"\n--- {title} ---")
+    print(f"Original File: {document.original_file}")
+    print(f"Total chunks: {len(document.contents)}")
+
+    for chunk_id, chunk in sorted(document.contents.items()):
+        print(f"\n--- Chunk ID: {chunk_id} ---")
+        print(f"  Type: {chunk.content_type.name}")
+        print(f"  Metadata: {chunk.metadata}")
+
+        if chunk.content_type == DocumentContentType.TEXT:
+            text_content = chunk.get_as_string()
+            word_count = len(text_content.split())
+            print(f"  Word Count: {word_count}")
+            words = text_content.split()
+            preview_start = " ".join(words[:15])
+            preview_end = " ".join(words[-15:])
+            if len(words) > 30:
+                print(f"  Content Preview: '{preview_start} ... {preview_end}'")
+            else:
+                 print(f"  Content: '{text_content}'")
+
+        elif chunk.content_type == DocumentContentType.IMAGE:
+             image_size = len(chunk.content)
+             print(f"  Image Content Size: {image_size} bytes")
+             # Optionally print base64 preview if needed, but it's very long
+             # print(f"  Image Base64 Preview: {chunk.get_as_base64()[:50]}...")
+
 if __name__ == '__main__':
     # Create a dummy PDF for testing if one doesn't exist
     dummy_pdf_path = Path("Lecture Material\\Mod 2 HIS & EHR Clinical Functionality-Lecture Slides.pdf")
 
     try:
-        # Example: Process the PDF with word count splitting and overlap
+        # Test Case 1: Standard splitting with overlap
         split_words = 50
         overlap_words = 10
-        print(f"\nProcessing with split_len={split_words} words, overlap={overlap_words} words...")
-        document = Document.from_pdf(dummy_pdf_path, split_len_words=split_words, overlap_words=overlap_words)
+        document1 = Document.from_pdf(dummy_pdf_path,
+                                      split_len=split_words,
+                                      overlap=overlap_words,
+                                      min_image_bytes=0)  # Include all "images" (none in this dummy)
+        print_document_summary(document1,
+                               f"Test 1: split_len={split_words}, overlap={overlap_words}, min_image_bytes=0")
 
-        print(f"\n--- Processed Document: {document.original_file} ---")
-        print(f"Total chunks: {len(document.contents)}")
+        # Test Case 2: No length splitting (split_len=None)
+        document2 = Document.from_pdf(dummy_pdf_path,
+                                      split_len=None,
+                                      overlap=overlap_words,  # Overlap will be ignored
+                                      min_image_bytes=0)
+        print_document_summary(document2,
+                               f"Test 2: split_len=None (Overlap {overlap_words} ignored), min_image_bytes=0")
+        # Expected: Fewer chunks, potentially large ones, only split by (simulated) images or page ends if structure allows.
 
-        for chunk_id, chunk in sorted(document.contents.items()):  # Sort by ID for predictable output
-            print(f"\n--- Chunk ID: {chunk_id} ---")
-            print(f"  Type: {chunk.content_type.name}")
-            print(f"  Metadata: {chunk.metadata}")
-            # print(f"  Content Length (bytes): {len(chunk.content)}")
-
-            if chunk.content_type == DocumentContentType.TEXT:
-                text_content = chunk.get_as_string()
-                word_count = len(text_content.split())
-                print(f"  Word Count: {word_count}")
-                # Print first/last few words for overlap check
-                words = text_content.split()
-                preview_start = " ".join(words[:15])
-                preview_end = " ".join(words[-15:])
-                if len(words) > 30:
-                    print(f"  Content Preview: '{preview_start} ... {preview_end}'")
-                else:
-                    print(f"  Content: '{text_content}'")
-
-            elif chunk.content_type == DocumentContentType.IMAGE:
-                print(f"  Image Content Size: {len(chunk.content)} bytes")
-
-        # Test overlap specifically between first few text chunks if possible
-        if len(document.contents) > 1:
-            chunk0 = document.contents.get(0)
-            chunk1 = document.contents.get(1)
-            if chunk0 and chunk1 and chunk0.content_type == DocumentContentType.TEXT and chunk1.content_type == DocumentContentType.TEXT:
-                words0 = chunk0.get_as_string().split()
-                words1 = chunk1.get_as_string().split()
-                print("\n--- Overlap Check (Chunk 0 vs Chunk 1) ---")
-                print(f"  Last {overlap_words} words of Chunk 0: {' '.join(words0[-overlap_words:])}")
-                print(f"  First {overlap_words} words of Chunk 1: {' '.join(words1[:overlap_words])}")
-                if words0[-overlap_words:] == words1[:overlap_words]:
-                    print("  Overlap seems correct!")
-                else:
-                    print("  Overlap MISMATCH detected!")
+        # Test Case 3: Splitting with high min_image_bytes (won't affect this dummy PDF)
+        # If the dummy PDF had real images, this setting could cause them to be skipped.
+        high_min_bytes = 1024 * 1024  # 1 MB
+        document3 = Document.from_pdf(dummy_pdf_path,
+                                      split_len=split_words,
+                                      overlap=overlap_words,
+                                      min_image_bytes=high_min_bytes)
+        print_document_summary(document3,
+                               f"Test 3: split_len={split_words}, overlap={overlap_words}, min_image_bytes={high_min_bytes}")
+        # Expected: Same as Test 1 for *this* dummy PDF, as it has no real images to skip.
+        # If it had images < 1MB, they would be skipped and text chunks might merge across them.
 
 
     except FileNotFoundError as e:
