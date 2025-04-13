@@ -11,6 +11,8 @@ class DataType(Enum):
     """
     # TODO: determine which of these will we support
     PNG = "png"
+    jpg = "jpg"
+    jpeg = "jpeg"
     PDF = "pdf"
     WORD_DOC = "doc"
     POWERPOINT = "ppt"
