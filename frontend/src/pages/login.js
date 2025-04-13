@@ -161,13 +161,6 @@ export default function Login() {
     }
   };
 
-  const handleMicrosoftLogin = async () => {
-    setLoading(true); setError(null);
-    // Use showAlert for temporary info message
-    showAlert("Microsoft login is not implemented yet.", "info");
-    setLoading(false);
-    // Implement similar logic as handleGoogleLogin when ready
-  };
 
   // --- Component Render ---
   return (
