@@ -5,16 +5,13 @@ import base64
 from typing import Dict, List, Tuple, Any, Optional
 from pathlib import Path
 
-# Assuming 'construct' is just for the Enum definition example
-# and we can use standard Python enums or just constants.
-# Using standard library Enum for DocumentContentType.
-from enum import Enum as PyEnum
+from enum import Enum
 
 from pydantic import FilePath, BaseModel, Field  # Use pydantic BaseModel for DocumentChunk
 
 
 # Define DocumentContentType using standard Enum
-class ContentModality(PyEnum):
+class ContentModality(Enum):
     TEXT = 1
     IMAGE = 2
     AUDIO = 3
@@ -29,10 +26,6 @@ class DocumentChunk(BaseModel):
     # metadata associated with the data
     # (for example which document or page number it comes from)
     metadata: Optional[Dict[str, Any]] = None
-
-    # Make Pydantic allow arbitrary types like the Enum
-    class Config:
-        arbitrary_types_allowed = True
 
     def get_as_string(self) -> str:
         if self.content_modality == ContentModality.TEXT:
@@ -282,8 +275,7 @@ class Document:
 
         return cls(file_name=file_path.name, contents=contents)
 
-    # --- Stubs for other methods as provided in the prompt ---
-
+    # This method was generated using AI: https://aistudio.google.com/app/prompts?state=%7B%22ids%22:%5B%221LjDioKGc-5H78OUXySRbPlJh0TUB0nYv%22%5D,%22action%22:%22open%22,%22userId%22:%22112153521177605316268%22,%22resourceKeys%22:%7B%7D%7D&usp=sharing
     @classmethod
     def from_txt(cls,
                  file_path: FilePath,
@@ -372,6 +364,7 @@ class Document:
 
         return cls(file_name=file_path.name, contents=contents)
 
+    # This method was generated using AI: https://aistudio.google.com/app/prompts?state=%7B%22ids%22:%5B%221LjDioKGc-5H78OUXySRbPlJh0TUB0nYv%22%5D,%22action%22:%22open%22,%22userId%22:%22112153521177605316268%22,%22resourceKeys%22:%7B%7D%7D&usp=sharing
     @classmethod
     def _from_binary_file(cls,
                           file_path: FilePath,
@@ -409,7 +402,7 @@ class Document:
 
         return cls(file_name=validated_path.name, contents=contents)
 
-    # --- NEW: from_png Implementation ---
+    # This method was generated using AI: https://aistudio.google.com/app/prompts?state=%7B%22ids%22:%5B%221LjDioKGc-5H78OUXySRbPlJh0TUB0nYv%22%5D,%22action%22:%22open%22,%22userId%22:%22112153521177605316268%22,%22resourceKeys%22:%7B%7D%7D&usp=sharing
     @classmethod
     def from_png(cls, file_path: FilePath) -> "Document":
         """
@@ -428,7 +421,7 @@ class Document:
         # Delegate to the helper method
         return cls._from_binary_file(file_path, ContentModality.IMAGE, "png")
 
-    # --- NEW: from_jpg Implementation ---
+    # This method was generated using AI: https://aistudio.google.com/app/prompts?state=%7B%22ids%22:%5B%221LjDioKGc-5H78OUXySRbPlJh0TUB0nYv%22%5D,%22action%22:%22open%22,%22userId%22:%22112153521177605316268%22,%22resourceKeys%22:%7B%7D%7D&usp=sharing
     @classmethod
     def from_jpeg(cls, file_path: FilePath) -> "Document":
         """
