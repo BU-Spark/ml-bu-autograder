@@ -16,7 +16,7 @@ class DataType(Enum):
     PDF = "pdf"
     WORD_DOC = "doc"
     POWERPOINT = "ppt"
-    URL = "url"
+    HTML = "html"
     EXCEL = "xls"
     TEXT = "txt"
     CSV = "csv"
