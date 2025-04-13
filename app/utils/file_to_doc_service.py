@@ -1,3 +1,5 @@
+import logging
+
 import fitz  # PyMuPDF
 import base64
 from typing import Dict, List, Set, Tuple, Any, Optional
@@ -127,7 +129,7 @@ class Document:
                         # Handle invalid or unavailable bbox more gracefully - maybe skip sorting?
                         # For now, require a valid bbox for inclusion in sorted items.
                         if not img_bbox_rect or not img_bbox_rect.is_valid or img_bbox_rect.is_empty:
-                            print(
+                            logging.warning(
                                 f"Warning: Skipping image xref {xref} on page {page_num_one_based} due to invalid/missing bbox.")
                             continue
 
@@ -145,11 +147,11 @@ class Document:
                             })
                             processed_xrefs.add(xref)
                         else:
-                            print(
+                            logging.warning(
                                 f"Warning: Could not extract image bytes for xref {xref} on page {page_num_one_based}.")
 
                     except Exception as e:
-                        print(f"Warning: Error processing image xref {xref} on page {page_num_one_based}: {e}")
+                        logging.error(f"Warning: Error processing image xref {xref} on page {page_num_one_based}: {e}")
 
                 # --- Sort items based on reading order heuristic (top-to-bottom, left-to-right) ---
                 page_items.sort(key=lambda item: (item['bbox'][1], item['bbox'][0]))  # Sort by y0 then x0
@@ -245,7 +247,7 @@ class Document:
         except fitz.FileNotFoundError:
             raise FileNotFoundError(f"PyMuPDF could not find or open file: {file_path}")
         except Exception as e:
-            print(f"An error occurred during PDF processing: {e}")
+            logging.error(f"An error occurred during PDF processing: {e}")
             raise RuntimeError(f"Failed to process PDF {file_path}: {e}") from e
         finally:
             if doc:
@@ -303,29 +305,6 @@ class Document:
 if __name__ == '__main__':
     # Create a dummy PDF for testing if one doesn't exist
     dummy_pdf_path = Path("Lecture Material\\Mod 2 HIS & EHR Clinical Functionality-Lecture Slides.pdf")
-
-    if not dummy_pdf_path.exists():
-        try:
-            doc = fitz.open()  # New empty doc
-            page = doc.new_page()
-            page.insert_text((50, 72), "This is the first short text block on page 1.")
-            # Add more text to test splitting and overlap
-            long_text_part1 = " ".join([f"word{i:03}" for i in range(1, 71)])  # 70 words
-            page.insert_text((50, 90), long_text_part1)
-            page.insert_text((50, 144), "An intermediate block between long texts.")  # ~6 words
-
-            page2 = doc.new_page()
-            long_text_part2 = " ".join([f"word{i:03}" for i in range(71, 151)])  # 80 words
-            page2.insert_text((50, 72), long_text_part2)
-            page2.insert_text((50, 200), "Final text block on page 2, quite short.")  # ~8 words
-
-            doc.save(str(dummy_pdf_path))
-            doc.close()
-            print(f"Created dummy PDF: {dummy_pdf_path}")
-        except Exception as e:
-            print(f"Could not create dummy PDF: {e}")
-            if not dummy_pdf_path.exists():
-                exit(1)
 
     try:
         # Example: Process the PDF with word count splitting and overlap
