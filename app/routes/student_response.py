@@ -3,7 +3,7 @@ from typing import Optional, List
 from fastapi import APIRouter, HTTPException, status, Query, Body, Depends
 
 from app.models import Course
-from app.models.student_response import StudentResponse, GradedStudentResponse
+from app.models.student_response import GradedStudentResponseReference, StudentResponseData
 from app.utils import JWTService, UserToken
 from app.utils.azure_blob_service import AzureBlobService
 
@@ -11,23 +11,19 @@ router = APIRouter()
 user_from_auth = JWTService.get_instance().from_authorization_header
 
 
-# Dummy storage for student responses
-dummy_responses: List[StudentResponse] = []
-
-
 @router.post(
     "/response",
     summary="Upload Student Response",
     description="Uploads a student response for an assignment question. The size of the data must be below a certain threshold.",
     responses={
-        400: {"description": "Missing or invalid parameters."},
-        404: {"description": "Assignment or question not found."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        400: {"detail": "Missing or invalid parameters."},
+        404: {"detail": "Assignment or question not found."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def upload_response(
-        response: StudentResponse = Body(..., description="Student response object containing the answer data."),
+        response: StudentResponseData = Body(..., description="Student response object containing the answer data."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
@@ -45,9 +41,18 @@ async def upload_response(
     if not blob_uploader.assignment_exists(response.semester, response.course_id, response.assignment_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment does not exist.")
 
+    # Check if response already exists
+    if blob_uploader.student_response_exists(
+            response.semester, response.course_id, response.assignment_id, response.question_index, response.student_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Response already exists."
+        )
+
     # Upload the response
     blob_uploader.upload_student_response(response)
-    return {"message": "Response uploaded successfully."}
+    return {"detail": "Response uploaded successfully."}
 
 
 @router.put(
@@ -55,14 +60,14 @@ async def upload_response(
     summary="Replace Student Response",
     description="Replaces an existing student response. The size of the data must be below a certain threshold.",
     responses={
-        400: {"description": "Missing or invalid parameters."},
-        404: {"description": "Existing response not found."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        400: {"detail": "Missing or invalid parameters."},
+        404: {"detail": "Existing response not found."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def replace_response(
-        response: StudentResponse = Body(..., description="Student response object with the updated answer data."),
+        response: StudentResponseData = Body(..., description="Student response object with the updated answer data."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
@@ -81,15 +86,17 @@ async def replace_response(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment does not exist.")
 
     # Check if response exists
-    existing_response = blob_uploader.get_student_response(
-        response.semester, response.course_id, response.assignment_id, response.question_index, response.student_id
-    )
-    if not existing_response:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Response not found.")
+    if not blob_uploader.student_response_exists(
+            response.semester, response.course_id, response.assignment_id, response.question_index, response.student_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Response not found."
+        )
 
     # Upload the updated response
     blob_uploader.upload_student_response(response)
-    return {"message": "Response replaced successfully."}
+    return {"detail": "Response replaced successfully."}
 
 
 @router.delete(
@@ -97,17 +104,17 @@ async def replace_response(
     summary="Delete Student Response",
     description="Deletes a student response. If question_index is omitted, deletes all responses for that assignment and student.",
     responses={
-        400: {"description": "Missing required parameters."},
-        404: {"description": "Specified response not found."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        400: {"detail": "Missing required parameters."},
+        404: {"detail": "Specified response not found."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def delete_response(
         student_id: str = Query(..., description="Student's unique identifier usually their email."),
         semester: str = Query(..., description="Semester of the course."),
         course_id: str = Query(..., description="Identifier of the course."),
-        assignment_id: int = Query(..., description="Identifier of the assignment."),
+        assignment_id: str = Query(..., description="Identifier of the assignment."),
         question_index: Optional[int] = Query(None,
                                               description="Optional index of the question. If omitted, all responses for the assignment are deleted."),
         user_meta: UserToken = Depends(user_from_auth),
@@ -133,7 +140,7 @@ async def delete_response(
 
     if question_index is not None:
         # Check if specific response exists
-        existing_response = blob_uploader.get_student_response(
+        existing_response = blob_uploader.student_response_exists(
             semester, course_id, assignment_id, question_index, student_id
         )
         if not existing_response:
@@ -141,29 +148,29 @@ async def delete_response(
 
         # Delete specific response
         blob_uploader.delete_student_response(semester, course_id, assignment_id, question_index, student_id)
-        return {"message": "Response deleted successfully."}
+        return {"detail": "Response deleted successfully."}
     else:
         # Delete all responses for the student in this assignment
         blob_uploader.delete_student_responses(semester, course_id, assignment_id, student_id)
-        return {"message": "All responses for the assignment deleted successfully."}
+        return {"detail": "All responses for the assignment deleted successfully."}
 
 
 @router.get(
     "/responses",
     summary="Get Student Responses",
     description="Retrieves student responses (possibly including grade information) based on criteria.",
-    response_model=List[GradedStudentResponse],
+    response_model=List[GradedStudentResponseReference],
     responses={
-        400: {"description": "Missing assignment_id."},
-        404: {"description": "No matching responses found."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        400: {"detail": "Missing assignment_id."},
+        404: {"detail": "No matching responses found."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def get_responses(
         semester: str = Query(..., description="Semester of the course."),
         course_id: str = Query(..., description="Identifier of the course."),
-        assignment_id: int = Query(..., description="Identifier of the assignment."),
+        assignment_id: str = Query(..., description="Identifier of the assignment."),
         question_index: Optional[int] = Query(None, description="Optional index of the question."),
         student_id: Optional[str] = Query(None, description="Optional unique identifier for the student."),
         user_meta: UserToken = Depends(user_from_auth),
@@ -188,19 +195,33 @@ async def get_responses(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment does not exist.")
 
     # Get all responses for the assignment
-    responses = blob_uploader.list_student_responses(semester, course_id, assignment_id, question_index)
+    responses = blob_uploader.list_student_responses(semester, course_id, assignment_id,
+                                                     student_id, question_index, True)
 
-    # Filter by student_id if provided
-    if student_id is not None:
-        responses = [r for r in responses if r.student_id == student_id]
+    return responses
 
-    if not responses:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No matching responses found.")
 
-    graded_responses = []
-    for response in responses:
-        graded_response = blob_uploader.get_student_response(semester, course_id, assignment_id,
-                                                             response.question_index, student_id)
-        graded_responses.append(graded_response)
-
-    return graded_responses
+@router.get(
+    "/response",  # Singular path for getting one specific response
+    summary="Get Single Student Response",
+    description="Retrieves a specific student response, potentially including grade information.",
+    response_model=GradedStudentResponseReference,
+    responses={
+        400: {"detail": "Missing required parameters."},
+        404: {"detail": "Course, Assignment, or specific Response not found."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
+    }
+)
+async def get_response(
+        semester: str = Query(..., description="Semester of the course."),
+        course_id: str = Query(..., description="Identifier of the course."),
+        assignment_id: str = Query(..., description="Identifier of the assignment."),
+        question_index: int = Query(None, description="Optional index of the question."),
+        student_id: str = Query(None, description="Optional unique identifier for the student."),
+        user_meta: UserToken = Depends(user_from_auth),
+):
+    """
+    Retrieves a single, specific student response object based on all identifiers.
+    """
+    return (await get_responses(semester, course_id, assignment_id, question_index, student_id, user_meta))[0]

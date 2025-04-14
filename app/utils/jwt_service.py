@@ -4,12 +4,13 @@ import logging
 from typing import Optional
 
 import jwt
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import FilePath, BaseModel, EmailStr
+from pydantic import FilePath
 
 from app.models import User, PersonalAccessToken, WebsiteAccessToken
 from app.models.token import UserToken, TokenType
+from app.utils import AzureBlobService
 
 jwt_service: Optional["JWTService"] = None
 
@@ -18,13 +19,15 @@ class JWTService:
     _algorithm_: str
     _private_key_: str
     _public_key_: str
+    _environment_secret: Optional[str]
 
-    def __init__(self, jwt_secrets_file: FilePath):
+    def __init__(self, jwt_secrets_file: FilePath, environment_secret: Optional[str] = None):
         with jwt_secrets_file.open('r') as f:
             jwt_secrets = json.load(f)
         self._algorithm_ = jwt_secrets['algorithm']
         self._private_key_ = jwt_secrets['private_key']
         self._public_key_ = jwt_secrets['public_key']
+        self._environment_secret = environment_secret
 
     def create_user_jwt(
             self,
@@ -52,30 +55,25 @@ class JWTService:
 
     def create_access_token(
             self,
-            user: User,
-            token_name: str,
-            # Use timezone-aware datetimes for expiry
-            token_expiry: datetime.datetime
+            access_token: PersonalAccessToken,
     ) -> str:
         """
         Creates a named access token (e.g., for API keys) for a user.
 
-        :param user: The user object containing user_email.
-        :param token_name: A name to identify the token's purpose.
-        :param token_expiry: The absolute expiration time for the token (timezone-aware recommended).
+        :param access_token: the personal access token
         :return: The encoded JWT string.
         :raises jwt.PyJWTError: If encoding fails.
         """
         payload = {
             # subject
-            "sub": user.user_email,
+            "sub": access_token.user_email,
             # expiry
-            "exp": token_expiry,
+            "exp": access_token.token_expiry,
             # issued at
             "iat": datetime.datetime.now(datetime.timezone.utc),
             # custom
             "type": TokenType.PERSONAL_ACCESS_TOKEN.value,
-            "token_name": token_name,
+            "token_name": access_token.token_name,
         }
         token = jwt.encode(payload, self._private_key_, algorithm=self._algorithm_)
         return token
@@ -147,7 +145,7 @@ class JWTService:
             logging.error(f"Error extracting UserToken data from payload: {e}", exc_info=True)
             return None
 
-    def from_authorization_header(self, credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer())) -> Optional[UserToken]:
+    def from_authorization_header(self, credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer())) -> UserToken:
         """
         FastAPI dependency to extract, decode, and validate a JWT from the
         'Authorization: Bearer <token>' header, returning a UserToken object.
@@ -156,27 +154,31 @@ class JWTService:
         :return: A UserToken object if the token is valid and contains necessary info, otherwise None.
                  Returning None typically results in a 401/403 response in FastAPI.
         """
-        if not credentials or credentials.scheme.lower() != "bearer":
-            logging.debug("Missing or invalid Authorization header scheme (not Bearer).")
-            return None  # Will cause FastAPI to return 401/403 Unauthorized
 
         token = credentials.credentials
+
+        if self._environment_secret is not None and token == self._environment_secret:
+            return UserToken(
+                user_email=AzureBlobService.get_instance().get_default_user().user_email,
+                token_expiry=datetime.datetime.max,
+            )
+
         decoded_payload = self.decode_jwt(token)
 
         if decoded_payload is None:
-            return None   # Will cause FastAPI to return 401/403 Unauthorized
+            raise HTTPException(status_code=401, detail="Invalid authorization token.")
 
         # Extract user info from the valid payload
         user_token = self.get_user_token_from_payload(decoded_payload)
         if user_token is None:
-            return None  # Payload structure issue
+            raise HTTPException(status_code=401, detail="Invalid or expired authorization token.")
 
         return user_token
 
     @staticmethod
-    def init_singleton(jwt_secrets_file: FilePath):
+    def init_singleton(jwt_secrets_file: FilePath, environment_secret: Optional[str] = None):
         global jwt_service
-        jwt_service = JWTService(jwt_secrets_file)
+        jwt_service = JWTService(jwt_secrets_file, environment_secret=environment_secret)
 
     @staticmethod
     def get_instance() -> Optional["JWTService"]:

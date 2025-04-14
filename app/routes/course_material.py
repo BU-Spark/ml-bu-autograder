@@ -17,9 +17,9 @@ user_from_auth = JWTService.get_instance().from_authorization_header
     summary="Get All Course Materials",
     description="Retrieves all course materials for the specified course.",
     responses={
-        404: {"description": "Course does not exist."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        404: {"detail": "Course does not exist."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def get_course_materials(
@@ -32,20 +32,20 @@ async def get_course_materials(
     course_id = Course.normalize_lowercase(course_id)
 
     blob_uploader = AzureBlobService.get_instance()
-    
+
     # Check if the course exists
     course_exists = blob_uploader.course_exists(semester, course_id)
     if not course_exists:
         raise HTTPException(status_code=404, detail="Course does not exist.")
-    
+
     # Check if user has perms on course
     user = blob_uploader.get_user(user_meta.user_email)
     if not user.authenticated_courses.__contains__((semester, course_id)):
         raise HTTPException(status_code=403, detail="Authenticated but access is not allowed.")
-    
+
     # Get all course materials
     materials = blob_uploader.list_course_materials(semester, course_id)
-    
+
     return materials
 
 
@@ -55,15 +55,15 @@ async def get_course_materials(
     summary="Get Specific Course Material",
     description="Retrieves a specific course material for the specified course.",
     responses={
-        404: {"description": "Course or material does not exist."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        404: {"detail": "Course or material does not exist."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def get_course_material(
         semester: str = Query(..., description="Semester of the course."),
         course_id: str = Query(..., description="Identifier of the course."),
-        material_id: int = Query(..., description="Unique identifier of the specific material."),
+        material_id: str = Query(..., description="Unique identifier of the specific material."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
     # validate params
@@ -71,22 +71,22 @@ async def get_course_material(
     course_id = Course.normalize_lowercase(course_id)
 
     blob_uploader = AzureBlobService.get_instance()
-    
+
     # Check if the course exists
     course_exists = blob_uploader.course_exists(semester, course_id)
     if not course_exists:
         raise HTTPException(status_code=404, detail="Course does not exist.")
-    
+
     # Check if user has perms on course
     user = blob_uploader.get_user(user_meta.user_email)
     if not user.authenticated_courses.__contains__((semester, course_id)):
         raise HTTPException(status_code=403, detail="Authenticated but access is not allowed.")
-    
+
     # Get specific course material
     material = blob_uploader.get_course_material(semester, course_id, material_id)
     if not material:
         raise HTTPException(status_code=404, detail="Course material does not exist.")
-    
+
     return material
 
 
@@ -96,10 +96,10 @@ async def get_course_material(
     summary="Upload Course Material",
     description="Uploads new course material. The size of the data must be below a certain threshold.",
     responses={
-        400: {"description": "Missing or invalid parameters."},
-        409: {"description": "Material with the same identifier already exists."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        400: {"detail": "Missing or invalid parameters."},
+        409: {"detail": "Material with the same identifier already exists."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def upload_course_material(
@@ -107,25 +107,31 @@ async def upload_course_material(
         user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
-    
+
     # Check if the course exists
     course_exists = blob_uploader.course_exists(material.semester, material.course_id)
     if not course_exists:
         raise HTTPException(status_code=404, detail="Course does not exist.")
-    
+
     # Check if user has perms on course
     user = blob_uploader.get_user(user_meta.user_email)
     if not user.authenticated_courses.__contains__((material.semester, material.course_id)):
         raise HTTPException(status_code=403, detail="Authenticated but access is not allowed.")
-    
+
     # Check if material already exists
-    existing_material = blob_uploader.get_course_material(material.semester, material.course_id, material.material_id)
-    if existing_material:
+    if blob_uploader.course_material_exists(material.semester, material.course_id, material.material_id):
         raise HTTPException(status_code=409, detail="Material with this ID already exists.")
-    
+
     # Upload the material
     blob_uploader.upload_course_material(material)
-    
+
+    # TODO:
+    #  0. Generate a random filename to save the binary content to.
+    #  1. Put everything except the file's binary content in a global queue with reference to where the file is.
+    #     This should be done because we don't want to hold all the files in memory. You'd get memory issues.
+    #  2. Run a background task to process this queue one by one (or in up to n threads) to
+    #     split the file into chunks, vectorize, and upload vectors and chunks to azure
+
     return material
 
 
@@ -134,15 +140,15 @@ async def upload_course_material(
     summary="Delete Course Material",
     description="Deletes specified course material.",
     responses={
-        404: {"description": "Course or material does not exist."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        404: {"detail": "Course or material does not exist."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def delete_course_material(
         semester: str = Query(..., description="Semester of the course."),
         course_id: str = Query(..., description="Identifier of the course."),
-        material_id: int = Query(..., description="Unique identifier of the material to delete."),
+        material_id: str = Query(..., description="Unique identifier of the material to delete."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
     # validate params
@@ -150,26 +156,26 @@ async def delete_course_material(
     course_id = Course.normalize_lowercase(course_id)
 
     blob_uploader = AzureBlobService.get_instance()
-    
+
     # Check if the course exists
     course_exists = blob_uploader.course_exists(semester, course_id)
     if not course_exists:
         raise HTTPException(status_code=404, detail="Course does not exist.")
-    
+
     # Check if user has perms on course
     user = blob_uploader.get_user(user_meta.user_email)
     if not user.authenticated_courses.__contains__((semester, course_id)):
         raise HTTPException(status_code=403, detail="Authenticated but access is not allowed.")
-    
+
     # Check if material exists
-    material = blob_uploader.get_course_material(semester, course_id, material_id)
+    material = blob_uploader.course_material_exists(semester, course_id, material_id)
     if not material:
         raise HTTPException(status_code=404, detail="Course material does not exist.")
-    
+
     # Delete the material
     blob_uploader.delete_course_material(semester, course_id, material_id)
-    
-    return {"message": "Course material deleted successfully."}
+
+    return {"detail": "Course material deleted successfully."}
 
 
 @router.patch(
@@ -178,10 +184,10 @@ async def delete_course_material(
     summary="Update Course Material",
     description="Updates existing course material. The size of the data must be below a certain threshold.",
     responses={
-        400: {"description": "Missing or invalid parameters."},
-        404: {"description": "Course or material does not exist."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        400: {"detail": "Missing or invalid parameters."},
+        404: {"detail": "Course or material does not exist."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def update_course_material(
@@ -189,23 +195,31 @@ async def update_course_material(
         user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
-    
+
     # Check if the course exists
     course_exists = blob_uploader.course_exists(material.semester, material.course_id)
     if not course_exists:
         raise HTTPException(status_code=404, detail="Course does not exist.")
-    
+
     # Check if user has perms on course
     user = blob_uploader.get_user(user_meta.user_email)
     if not user.authenticated_courses.__contains__((material.semester, material.course_id)):
         raise HTTPException(status_code=403, detail="Authenticated but access is not allowed.")
-    
+
     # Check if material exists
-    existing_material = blob_uploader.get_course_material(material.semester, material.course_id, material.material_id)
+    existing_material = blob_uploader.course_material_exists(material.semester, material.course_id,
+                                                             material.material_id)
     if not existing_material:
         raise HTTPException(status_code=404, detail="Course material does not exist.")
-    
+
     # Update the material
     blob_uploader.upload_course_material(material)
-    
+
+    # TODO:
+    #  0. Generate a random filename to save the binary content to.
+    #  1. Put everything except the file's binary content in a global queue with reference to where the file is.
+    #     This should be done because we don't want to hold all the files in memory. You'd get memory issues.
+    #  2. Run a background task to process this queue one by one (or in up to n threads) to
+    #     split the file into chunks, vectorize, and upload vectors and chunks to azure
+
     return material

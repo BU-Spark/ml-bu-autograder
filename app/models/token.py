@@ -17,7 +17,7 @@ class UserToken(BaseModel):
         None, description="Optional expiration time of the token. If omitted, the token never expires."
     )
 
-    @classmethod
+
     @field_validator('user_email', mode='before')
     def normalize_email(cls, value: str) -> str:
         """
@@ -38,13 +38,13 @@ class PersonalAccessToken(UserToken):
     """
     token_name: str = Field(
         ..., description="User-defined name for the token. "
-                         "Only alphanumeric characters and underscores are allowed."
+                         "Only lowercase alphanumeric characters and underscores are allowed."
     )
     token_expiry: Optional[datetime] = Field(
         None, description="Optional expiration time of the token. If omitted, the token never expires."
     )
 
-    @classmethod
+
     @field_validator('token_name', mode='before')
     def validate_identifier(cls, value: str) -> str:
         if not re.fullmatch(r'[a-z0-9_]+', value):

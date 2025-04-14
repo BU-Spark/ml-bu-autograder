@@ -270,26 +270,34 @@ frontend
 ```
 
 ### ☁️ Azure Storage Format
+This document outlines the directory and file structure used within the Azure Blob Storage container.
 
 ```
-📂 `/course/`
-│── 📂 `{semester_key}/`
-│   └── 📂 `{course_id}/`
-│       ├── 📄 `course.json` *(Course metadata)*
-│       ├── 📂 `assignment/`
-│       │   └── 📂 `{assignment_id}/`
-│       │       ├── 📄 `assignment.json` *(Assignment metadata)*
-│       │       ├── 📂 `{question_index}/`
-│       │       │   ├── 📄 `question.json` *(Question metadata)*
-│       │       │   ├── 📂 `student_response/`
-│       │       │   │   └── 📂 `{student_id}/`
-│       │       │   │       ├── 📄 `response.*` *(Student's answer - any file type)*
-│       │       │   │       └── 📄 `grade.json` *(Grading details)*
-│       │       ├── 📂 `rubrics/`
-│       │       │   ├── 📄 `assignment.json` *(Rubric for full assignment)*
-│       │       │   └── 📄 `{question_index}.json` *(Sub-rubric for a specific question)*
-│       ├── 📂 `course_material/`
-│       │   └── 📄 `{material_id}.*` *(Course materials - any file type)*
+📂 `/`
+├── 📂 `course/`
+│   └── 📂 `{semester_key}/`                   *(e.g., "Fall2024")*
+│       └── 📂 `{course_id}/`                   *(e.g., "CS101")*
+│           ├── 📄 `course.json`                *(Course metadata - `Course` model)*
+│           ├── 📂 `assignment/`
+│           │   └── 📂 `{assignment_id}/`       *(Integer ID)*
+│           │       ├── 📄 `assignment.json`    *(Assignment metadata - `Assignment` model)*
+│           │       ├── 📂 `{question_index}/`  *(Integer index, 0-based)*
+│           │       │   ├── 📄 `question.json`    *(Question metadata - `Question` model)*
+│           │       │   └── 📂 `student_response/`
+│           │       │       └── 📂 `{student_id}/`  *(Student identifier, often email)*
+│           │       │           ├── 📄 `response.*`  *(Student's answer file - `StudentResponse` model, extension from `data.data_type`)*
+│           │       │           └── 📄 `grade.json`   *(Grading details - `Grade` model, part of `GradedStudentResponse`)*
+│           │       └── 📂 `rubrics/`
+│           │           ├── 📄 `assignment.json` *(Overall assignment rubric - `Rubric` model)*
+│           │           └── 📄 `{question_index}.json` *(Sub-rubric for a specific question - `SubRubric` model)*
+│           └── 📂 `course_material/`
+│               └── 📄 `{material_id}.*`         *(Course materials - `CourseMaterial` model, extension from `data.data_type`)*
+│
+└── 📂 `user/`
+    └── 📂 `{user_email}/`
+        ├── 📄 `user.json`               *(User metadata - `User` model)*
+        └── 📂 `tokens/`
+            └── 📄 `{token_name}.json`         *(Personal Access Token details - `PersonalAccessToken` model)*
 
 ```
 

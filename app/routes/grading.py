@@ -1,9 +1,7 @@
 from typing import List, Optional
-import re
 from fastapi import APIRouter, HTTPException, status, Query, Depends
-from pydantic import BaseModel, Field, field_validator
 
-from app.models import StudentResponse, Course
+from app.models import Course, GradedStudentResponseReference
 from app.models.grade import Grade
 from app.utils import JWTService, UserToken
 from app.utils.azure_blob_service import AzureBlobService
@@ -12,7 +10,24 @@ router = APIRouter()
 user_from_auth = JWTService.get_instance().from_authorization_header
 
 
-def do_grading(r):
+async def grading_worker():
+    # TODO: this should process a queue of pending grading responses.
+    #  Step 1: Convert the student's response (which might be a pdf, txt, etc)
+    #          into a Document object that we can work with.
+    #  Step 2: Grab the rubric for the assignment and the question instructions
+    #  Step 3: Query the vector database with the student's response grabbing all topn
+    #          relevant documents.
+    #  Step 4: Go grab those documents (texts and images) from Azure blob storage. It might
+    #          also be possible to simply get azure to generate a URL for these documents
+    #          and then send that to the LLM.
+    #  Step 5: Once we have the RAG-ed documents associated with the prompt, use the
+    #          assignment instructions, rubric, RAG-ed course material chunks, and student
+    #          response to generate a prompt for auto-grading.
+    #  Step 6: Grab the auto-graded response, upload it to Azure, and move on to the next assignment
+    #          in the queue (if any).
+    ...
+
+def do_grading(responses: list[GradedStudentResponseReference]):
     ...  # TODO
 
 
@@ -22,17 +37,17 @@ def do_grading(r):
     summary="Grade Specific Responses",
     description="Grades or regrades a specific student responses for an assignment.",
     responses={
-        400: {"description": "Missing or invalid parameters."},
-        404: {"description": "Course, assignment, rubric, or student responses not found."},
-        502: {"description": "External LLM API call failure."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        400: {"detail": "Missing or invalid parameters."},
+        404: {"detail": "Course, assignment, rubric, or student responses not found."},
+        502: {"detail": "External LLM API call failure."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def grade_specific(
         semester: str = Query(..., description="Course semester."),
         course_id: str = Query(..., description="Unique identifier of the course."),
-        assignment_id: int = Query(..., description="Identifier of the assignment."),
+        assignment_id: str = Query(..., description="Identifier of the assignment."),
         student_ids: List[str] = Query(..., description="List of student identifiers to grade."),
         question_index: Optional[int] = Query(None, description="Optional index of the question. Grades all questions if omitted."),
         user_meta: UserToken = Depends(user_from_auth),
@@ -71,9 +86,9 @@ async def grade_specific(
     for student_id in student_ids:
         if question_index is not None:
             # Grade specific question
-            response = blob_uploader.get_student_response(
-                semester, course_id, assignment_id,
-                question_index, student_id
+            response = blob_uploader.list_student_responses(
+                semester, course_id, assignment_id, student_id,
+                question_index
             )
             if response:
                 grade = do_grading(response)  # This is a placeholder for the actual grading logic
@@ -100,17 +115,17 @@ async def grade_specific(
     summary="Grade Ungraded Responses",
     description="Grades all ungraded responses for a specific assignment (optionally for a specific question).",
     responses={
-        400: {"description": "Missing or invalid parameters."},
-        404: {"description": "Course or assignment not found."},
-        502: {"description": "External LLM API call failure."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        400: {"detail": "Missing or invalid parameters."},
+        404: {"detail": "Course or assignment not found."},
+        502: {"detail": "External LLM API call failure."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def grade_ungraded(
         semester: str = Query(..., description="Course semester."),
         course_id: str = Query(..., description="Unique identifier of the course."),
-        assignment_id: int = Query(..., description="Identifier of the assignment."),
+        assignment_id: str = Query(..., description="Identifier of the assignment."),
         question_index: Optional[int] = Query(None, description="Optional index of the question to grade. Grades all ungraded questions if omitted."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
@@ -145,7 +160,7 @@ async def grade_ungraded(
 
     # Get all responses
     responses = blob_uploader.list_student_responses(
-        semester, course_id, assignment_id, question_index
+        semester, course_id, assignment_id, None, question_index
     )
 
     # Filter out already graded responses
@@ -176,17 +191,17 @@ async def grade_ungraded(
     summary="Grade/Regrade All Responses",
     description="Grades or regrades all student responses for a specific assignment (optionally for a specific question).",
     responses={
-        400: {"description": "Missing or invalid parameters."},
-        404: {"description": "Course or assignment not found."},
-        502: {"description": "External LLM API call failure."},
-        401: {"description": "Requester is not authenticated."},
-        403: {"description": "Authenticated but access is not allowed."}
+        400: {"detail": "Missing or invalid parameters."},
+        404: {"detail": "Course or assignment not found."},
+        502: {"detail": "External LLM API call failure."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def grade_all(
         semester: str = Query(..., description="Course semester."),
         course_id: str = Query(..., description="Unique identifier of the course."),
-        assignment_id: int = Query(..., description="Identifier of the assignment."),
+        assignment_id: str = Query(..., description="Identifier of the assignment."),
         question_index: Optional[int] = Query(None, description="Optional index of the question to grade or regrade. Grades all questions if omitted."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
@@ -221,7 +236,7 @@ async def grade_all(
 
     # Get all responses
     responses = blob_uploader.list_student_responses(
-        semester, course_id, assignment_id, question_index
+        semester, course_id, assignment_id, None, question_index
     )
 
     if not responses:
