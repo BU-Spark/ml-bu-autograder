@@ -19,9 +19,9 @@ class AzureEmbeddingService:
         Initializes the AzureEmbeddingService with the necessary Azure endpoint, key, and model.
 
         Args:
-            azure_endpoint (str): The endpoint of the Azure embedding service.
-            azure_key (str): The authentication key for the Azure embedding service.
-            model (str): The name of the model to be used for generating embeddings.
+            azure_embedding_endpoint (HttpUrl): The endpoint of the Azure embedding service.
+            azure_embedding_key (str): The authentication key for the Azure embedding service.
+            azure_embedding_model (str): The name of the model to be used for generating embeddings.
         """
         self.text_client = EmbeddingsClient(
             endpoint=azure_embedding_endpoint.encoded_string(),
@@ -78,7 +78,7 @@ class AzureEmbeddingService:
         Initializes the singleton instance of the AzureEmbeddingService.
 
         Args:
-            azure_embedding_endpoint (str): The endpoint of the Azure embedding service.
+            azure_embedding_endpoint (HttpUrl): The endpoint of the Azure embedding service.
             azure_embedding_key (str): The authentication key for the Azure embedding service.
             azure_embedding_model (str): The name of the model to be used for generating embeddings.
         """
