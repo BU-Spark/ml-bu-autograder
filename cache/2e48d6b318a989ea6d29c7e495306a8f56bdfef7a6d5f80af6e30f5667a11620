@@ -1,0 +1,52 @@
+{
+    "user_email": "fahuddin@bu.edu",
+    "first_name": "Fahim",
+    "last_name": "Uddin",
+    "authenticated_courses": [
+        [
+            "spring2025",
+            "cs560"
+        ],
+        [
+            "summer2025",
+            "cs409"
+        ],
+        [
+            "fall2025",
+            "cs505"
+        ],
+        [
+            "spring2026",
+            "cs505"
+        ],
+        [
+            "spring2025",
+            "cs401"
+        ],
+        [
+            "summer2025",
+            "cs505"
+        ],
+        [
+            "spring2025",
+            "cs505"
+        ],
+        [
+            "spring2025",
+            "cs499"
+        ],
+        [
+            "summer2025",
+            "cs494"
+        ],
+        [
+            "fall2025",
+            "cs509"
+        ],
+        [
+            "spring2025",
+            "cs407"
+        ]
+    ],
+    "dark_mode": false
+}

@@ -4,6 +4,7 @@ import os
 import requests
 from typing import List, Optional, Dict, Union # Add Dict 
 import logging # Add import for logging
+import jwt # Ensure jwt is imported for decoding
 
 from fastapi import APIRouter, HTTPException, Query, status, Depends
 from pydantic import EmailStr
