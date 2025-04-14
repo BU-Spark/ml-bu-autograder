@@ -7,12 +7,14 @@ from typing import List, Optional, Dict
 from azure.ai.inference import EmbeddingsClient, ImageEmbeddingsClient
 from azure.ai.inference.models import ImageEmbeddingInput, EmbeddingInputType
 from azure.core.credentials import AzureKeyCredential
+from deprecated import deprecated
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 import fitz
 from app.utils import VectorDBService
 
 
+@deprecated
 class DataType(Enum):
     """
     Enum for different data types supported by the embedding model.
@@ -28,6 +30,7 @@ class DataType(Enum):
     PDF_IMAGE = "pdf/image"
 
 
+@deprecated
 class AzureEmbeddingModel:
     def __init__(self, azure_endpoint: str, azure_key: str, model: str):
         self.text_client = EmbeddingsClient(
@@ -59,6 +62,7 @@ class AzureEmbeddingModel:
         return [item.embedding for item in response.data][0]
 
 
+@deprecated
 class LangchainRAGService:
     _instance = None
 

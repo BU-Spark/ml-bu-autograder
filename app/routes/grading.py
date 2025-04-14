@@ -10,6 +10,23 @@ router = APIRouter()
 user_from_auth = JWTService.get_instance().from_authorization_header
 
 
+async def grading_worker():
+    # TODO: this should process a queue of pending grading responses.
+    #  Step 1: Convert the student's response (which might be a pdf, txt, etc)
+    #          into a Document object that we can work with.
+    #  Step 2: Grab the rubric for the assignment and the question instructions
+    #  Step 3: Query the vector database with the student's response grabbing all topn
+    #          relevant documents.
+    #  Step 4: Go grab those documents (texts and images) from Azure blob storage. It might
+    #          also be possible to simply get azure to generate a URL for these documents
+    #          and then send that to the LLM.
+    #  Step 5: Once we have the RAG-ed documents associated with the prompt, use the
+    #          assignment instructions, rubric, RAG-ed course material chunks, and student
+    #          response to generate a prompt for auto-grading.
+    #  Step 6: Grab the auto-graded response, upload it to Azure, and move on to the next assignment
+    #          in the queue (if any).
+    ...
+
 def do_grading(responses: list[GradedStudentResponseReference]):
     ...  # TODO
 
