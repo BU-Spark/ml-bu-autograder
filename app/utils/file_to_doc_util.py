@@ -32,7 +32,6 @@ class DocumentChunk(BaseModel):
             try:
                 return self.content.decode("utf-8")
             except UnicodeDecodeError:
-                # Fallback or raise error? Let's return a representation
                 return f"[Non-UTF8 Text: {len(self.content)} bytes]"
         else:
             # Provide a representation for non-text types
@@ -168,6 +167,7 @@ class Document:
                                 'type': 'image',
                                 'bbox': img_bbox,
                                 'content': img_bytes,
+                                'ext': base_image['ext'],
                                 'page': page_num_one_based,
                                 'xref': xref
                             })
@@ -240,7 +240,7 @@ class Document:
 
                         # 2. Create the image chunk (it was already checked for size earlier)
                         img_bytes = item['content']
-                        metadata = {'page_num': [item_page]}
+                        metadata = {'page_num': [item_page], 'ext': item['ext'], 'xref': item['xref']}
                         contents[chunk_id_counter] = DocumentChunk(
                             content_modality=ContentModality.IMAGE,
                             content=img_bytes,
@@ -381,7 +381,7 @@ class Document:
                 logging.warning(f"Binary file is empty: {validated_path}")
                 return None
 
-            metadata = {'content_format': content_format}
+            metadata = {'ext': content_format}
 
             chunk = DocumentChunk(
                 content_modality=content_modality,
@@ -475,7 +475,7 @@ class Document:
 # --- Helper Function to Print Document Chunks ---
 def print_document_summary(document: Document, title: str):
     print(f"\n--- {title} ---")
-    print(f"Original File: {document.original_file}")
+    print(f"Original File: {document.file_name}")
     print(f"Total chunks: {len(document.contents)}")
 
     for chunk_id, chunk in sorted(document.contents.items()):
@@ -503,7 +503,7 @@ def print_document_summary(document: Document, title: str):
 
 if __name__ == '__main__':
     # Create a dummy PDF for testing if one doesn't exist
-    dummy_pdf_path = Path("Lecture Material\\Mod 2 HIS & EHR Clinical Functionality-Lecture Slides.pdf")
+    dummy_pdf_path = Path("I:\\.shortcut-targets-by-id\\1q2B2T_aTytCWO8SdBLnWpTNEQcPtXqE8\\BU MET\\cs581_quiz_and_assignment_data\\Lecture Material\\Mod 2 HIS & EHR Clinical Functionality-Lecture Slides.pdf")
 
     try:
         # Test Case 1: Standard splitting with overlap
