@@ -5,7 +5,7 @@ from azure.identity import DefaultAzureCredential
 from dotenv import load_dotenv
 from pydantic import FilePath, HttpUrl
 
-from app.utils import get_str_var, get_bool_var, setup_loggers, JWTService
+from app.utils import get_str_var, get_bool_var, setup_loggers, JWTService, AzureEmbeddingService
 from app.utils.llm_service import LLMService
 
 load_dotenv()  # Load environment variables first
@@ -30,6 +30,9 @@ AZURE_BLOB_CACHE_DIR = FilePath(get_str_var("AZURE_BLOB_CACHE_DIR"))
 ENV_TEST_API_KEY = get_str_var("ENV_TEST_API_KEY")
 AZURE_LLM_DEPLOYMENT_URL = HttpUrl(get_str_var("AZURE_LLM_DEPLOYMENT_URL"))
 AZURE_LLM_DEPLOYMENT_KEY = get_str_var("AZURE_LLM_DEPLOYMENT_KEY")
+AZURE_EMBEDDING_DEPLOYMENT_URL = HttpUrl(get_str_var("AZURE_EMBEDDING_DEPLOYMENT_URL"))
+AZURE_EMBEDDING_MODEL = get_str_var("AZURE_EMBEDDING_MODEL")
+AZURE_EMBEDDING_DEPLOYMENT_KEY = get_str_var("AZURE_EMBEDDING_DEPLOYMENT_KEY")
 
 # Setup logging level
 setup_loggers(production=PRODUCTION)
@@ -41,6 +44,7 @@ credential = DefaultAzureCredential()
 AzureBlobService.init_singleton(credential, AZURE_STORAGE_ACCOUNT_NAME, AZURE_CONTAINER_NAME, AZURE_BLOB_CACHE_DIR)
 JWTService.init_singleton(JWT_ENCRYPTION_SECRET_FILE, ENV_TEST_API_KEY)
 LLMService.init_singleton(AZURE_LLM_DEPLOYMENT_URL, AZURE_LLM_DEPLOYMENT_KEY)
+AzureEmbeddingService.init_singleton(AZURE_EMBEDDING_DEPLOYMENT_URL, AZURE_EMBEDDING_MODEL, AZURE_EMBEDDING_DEPLOYMENT_KEY)
 
 logging.info("Starting FastAPI server...")
 
