@@ -565,21 +565,50 @@ class AzureBlobService:
         logging.info(f"Completed reordering of questions for assignment {assignment_id}")
 
     def list_courses(self, user: User, semester_key: Optional[str] = None) -> List[Course]:
-        """
-        Gets metadata for all courses, optionally filtered by semester that the given user has access to.
-        """
+
         pattern = f"course/{semester_key}/*/course.json" if semester_key else "course/*/*/course.json"
         courses = []
-        for file in self.fs.glob(self._full_path(pattern)):
-            # if user doesn't have access to this course, skip
-            if not user.authenticated_courses.__contains__(file):
-                continue
-            # Remove the container prefix before passing to download_json
-            relative_path = file.split('/', 1)[1]
-            data = self.download_json(relative_path)
-            if data:
-                courses.append(Course(**data))
-        return courses
+        logging.info(f"User '{user.user_email}' requesting courses. Authenticated Courses: {user.authenticated_courses}") # Log user's permissions
+        logging.info(f"Using glob pattern: {self._full_path(pattern)}")
+        try:
+            files_found = self.fs.glob(self._full_path(pattern))
+            logging.info(f"Glob found {len(files_found)} potential course files: {files_found}") # Log files found
+
+            for file_path_with_container in files_found:
+                logging.debug(f"Processing potential course file: {file_path_with_container}")
+                parts = file_path_with_container.split('/')
+                # Example path: your-container/course/fall2024/cs101/course.json
+                # Indices:        0             1      2       3     4          5
+                if len(parts) >= 6 and parts[1] == 'course' and parts[4] == 'course.json': # Adjust indices based on actual path structure
+                    semester = parts[2]
+                    course_id = parts[3]
+                    course_tuple = (semester, course_id)
+                    logging.debug(f"Parsed path: semester='{semester}', course_id='{course_id}'")
+
+                    # <<< --- THE CRITICAL CHECK --- >>>
+                    if course_tuple in user.authenticated_courses:
+                        logging.info(f"Authorization GRANTED for {course_tuple}. Downloading JSON...")
+                        relative_path = file_path_with_container.split('/', 1)[1]
+                        data = self.download_json(relative_path)
+                        if data:
+                            try:
+                                courses.append(Course(**data))
+                            except Exception as pydantic_error:
+                                logging.error(f"Failed to validate Course data from {relative_path}: {pydantic_error}", exc_info=True)
+                    else:
+                        # <<< --- LOG WHY IT WAS SKIPPED --- >>>
+                        logging.warning(f"Authorization DENIED for {course_tuple}. User '{user.user_email}' does not have it in authenticated_courses.")
+                else:
+                    logging.warning(f"Skipping file with unexpected path structure: {file_path_with_container}")
+
+            logging.info(f"Finished processing. Returning {len(courses)} authorized courses for user {user.user_email}.")
+            return courses
+
+        except Exception as e:
+            logging.error(f"Error during fs.glob or file processing in list_courses: {e}", exc_info=True)
+                # Re-raise or return empty list based on desired error handling
+                # Returning empty list might hide underlying storage issues
+            raise HTTPException(status_code=500, detail="Failed to list courses from storage") from e
 
     def list_course_materials(self, semester_key: str, course_id: str) -> List[CourseMaterial]:
         """
