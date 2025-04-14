@@ -4,14 +4,13 @@ import logging
 from enum import Enum
 from typing import List, Optional, Dict
 
-from azure.ai.inference import EmbeddingsClient, ImageEmbeddingsClient
-from azure.ai.inference.models import ImageEmbeddingInput, EmbeddingInputType
-from azure.core.credentials import AzureKeyCredential
+import fitz
+from azure.ai.inference.models import EmbeddingInputType
 from deprecated import deprecated
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
-import fitz
 from app.utils import VectorDBService
+from app.utils.azure_embedding_service import AzureEmbeddingService
 
 
 @deprecated
@@ -31,44 +30,12 @@ class DataType(Enum):
 
 
 @deprecated
-class AzureEmbeddingModel:
-    def __init__(self, azure_endpoint: str, azure_key: str, model: str):
-        self.text_client = EmbeddingsClient(
-            endpoint=azure_endpoint,
-            credential=AzureKeyCredential(azure_key),
-            model=model
-        )
-        self.image_client = ImageEmbeddingsClient(
-            endpoint=azure_endpoint,
-            credential=AzureKeyCredential(azure_key),
-            model=model
-        )
-        self.model = model
-
-    def embed_text(self, texts: List[str], purpose: EmbeddingInputType) -> List[List[float]]:
-        response = self.text_client.embed(
-            input=texts,
-            model=self.model,
-            input_type=purpose
-        )
-        return [item.embedding for item in response.data]
-
-    def embed_image(self, image_format: str, base_64_image: str, text: Optional[str]) -> List[float]:
-        input_image = ImageEmbeddingInput(image=f"data:image/{image_format};base64,{base_64_image}", text=text)
-        response = self.image_client.embed(
-            input=[input_image],
-            model=self.model,
-        )
-        return [item.embedding for item in response.data][0]
-
-
-@deprecated
 class LangchainRAGService:
     _instance = None
 
     def __init__(self,
                  db: VectorDBService,
-                 embedding_model: AzureEmbeddingModel,
+                 embedding_model: AzureEmbeddingService,
                  chunk_size: int = 2500,
                  chunk_overlap: int = 250,
                  min_image_pixels: int = 240):
@@ -386,7 +353,7 @@ class LangchainRAGService:
     @classmethod
     def init_singleton(cls,
                        db: VectorDBService,
-                       embedding_model: AzureEmbeddingModel,
+                       embedding_model: AzureEmbeddingService,
                        chunk_size: int = 2500,
                        chunk_overlap: int = 250):
         """
