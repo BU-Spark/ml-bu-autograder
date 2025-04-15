@@ -1,5 +1,6 @@
 import logging
 from typing import Optional, List, Mapping, Any
+import time
 import requests
 from azure.core.credentials import AzureKeyCredential
 from azure.search.documents import SearchClient
@@ -159,3 +160,99 @@ class AzureVectorService:
         if azure_instance is None:
             logging.error("AzureVectorService instance not initialized. Call init_singleton first.")
         return azure_instance
+
+
+    def retrieve_closest_vectors_and_blob_paths(self, query_vector: List[float], top_k: int = 1) -> List[dict]:
+        """
+        Retrieves the closest matching documents based on the given vector.
+        Each result contains the document's id, similarity score, stored vector, and its associated blob path.
+        
+        Parameters:
+        - query_vector (List[float]): The vector to search with.
+        - top_k (int): Number of closest results to return.
+        
+        Returns:
+        - List[dict]: A list of dictionaries, each containing 'id', 'score', 'content_vector', and 'file_path'.
+        """
+        try:
+            # Build the search URL for your Azure Search index.
+            search_url = f"{self.endpoint}/indexes/{self.index_name}/docs/search?api-version=2023-07-01-Preview"
+            headers = {
+                "Content-Type": "application/json",
+                "api-key": self.api_key
+            }
+            
+            # Construct the payload for a vector search.
+            payload = {
+                "search": "",  # Must be provided even if not doing a keyword search.
+                "top": top_k,
+                "vector": {
+                    "value": query_vector,
+                    "fields": "content_vector",
+                    "k": top_k
+                }
+            }
+            payload = {k: v for k, v in payload.items() if v is not None}
+            
+            # Execute the POST request.
+            response = requests.post(search_url, headers=headers, json=payload)
+            response.raise_for_status()
+            
+            # Parse the response and extract matching document details.
+            data = response.json().get("value", [])
+            results = []
+            for result in data:
+                # Extract file_path from the document. This should be the blob storage URL.
+                file_path = result.get("file_path")
+                results.append({
+                    "id": result.get("id"),
+                    "score": result.get("@search.score"),
+                    "content_vector": result.get("content_vector"),
+                    "file_path": file_path,
+                    "raw": result  # Optional: full raw result if needed.
+                })
+                # Log the file_path for visibility.
+                logging.info(f"Retrieved Document - ID: {result.get('id')}, Score: {result.get('@search.score')}, File Path: {file_path}")
+            
+            return results
+        except Exception as e:
+            logging.error("❌ Error retrieving closest vectors: " + str(e), exc_info=True)
+            return []
+
+
+#TESTING PURPOSE
+
+if __name__ == "__main__":
+    # Setup logging configuration
+    logging.basicConfig(level=logging.INFO)
+
+    # Replace these with your actual Azure Search service details.
+    endpoint = "https://<your-search-service>.search.windows.net"
+    api_key = "<your-api-key>"
+    index_name = "your-index-name"
+
+    # Initialize the AzureVectorService singleton.
+    AzureVectorService.init_singleton(endpoint, api_key, index_name)
+    service = AzureVectorService.get_instance()
+
+    # Prepare a test document with a dummy vector (ensure the vector length matches the embedding dimensions)
+    test_vector = [0.1] * 1536  # Example vector for testing.
+    test_doc_id = "test-doc-1"
+    test_blob_path = "blob/test/doc1"
+
+    # Add the test document to the index.
+    logging.info("Adding the test document...")
+    service.add_vector_and_blob_document(test_doc_id, test_vector, test_blob_path)
+
+    # Wait a short moment to allow the indexing process to complete.
+    logging.info("Waiting for the document to be indexed...")
+    time.sleep(5)
+
+    # Retrieve the closest matching vectors and their associated blob paths based on the same test vector.
+    logging.info("Retrieving the closest matching vectors and blob paths...")
+    results = service.retrieve_closest_vectors_and_blob_paths(test_vector, top_k=5)
+
+    # Display the results.
+    print("\nSearch Results:")
+    for result in results:
+        print(result)
