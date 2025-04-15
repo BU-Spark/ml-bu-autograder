@@ -564,52 +564,69 @@ class AzureBlobService:
 
         logging.info(f"Completed reordering of questions for assignment {assignment_id}")
 
-    def list_courses(self, user: User, semester_key: Optional[str] = None) -> List[Course]:
 
+    def list_courses(self, user: User, semester_key: Optional[str] = None) -> List[Course]:
+        """
+        Lists all courses the authenticated user has access to,
+        optionally filtered by semester.
+        """
+        # Adjust the pattern based on whether semester_key is provided
         pattern = f"course/{semester_key}/*/course.json" if semester_key else "course/*/*/course.json"
         courses = []
-        logging.info(f"User '{user.user_email}' requesting courses. Authenticated Courses: {user.authenticated_courses}") # Log user's permissions
-        logging.info(f"Using glob pattern: {self._full_path(pattern)}")
+        logging.info(f"User '{user.user_email}' requesting courses. Authenticated Courses: {user.authenticated_courses}")
+        full_pattern_path = self._full_path(pattern)
+        logging.info(f"Using glob pattern: {full_pattern_path}")
+
         try:
-            files_found = self.fs.glob(self._full_path(pattern))
-            logging.info(f"Glob found {len(files_found)} potential course files: {files_found}") # Log files found
+            # Use fs.glob to find matching files
+            files_found = self.fs.glob(full_pattern_path)
+            logging.info(f"Glob found {len(files_found)} potential course files: {files_found}")
 
             for file_path_with_container in files_found:
                 logging.debug(f"Processing potential course file: {file_path_with_container}")
+                # Split the full path including container name
                 parts = file_path_with_container.split('/')
-                # Example path: your-container/course/fall2024/cs101/course.json
-                # Indices:        0             1      2       3     4          5
-                if len(parts) >= 6 and parts[1] == 'course' and parts[4] == 'course.json': # Adjust indices based on actual path structure
-                    semester = parts[2]
-                    course_id = parts[3]
+                # Expected path: container/course/semester/course_id/course.json
+                # Indices:           0       1      2         3         4
+
+                # <<< --- CORRECTED THE CONDITION --- >>>
+                # Check length is at least 5, parts[1] is 'course', last part is 'course.json'
+                if len(parts) >= 5 and parts[1] == 'course' and parts[-1] == 'course.json':
+                    semester = parts[2]  # Index 2 is semester
+                    course_id = parts[3] # Index 3 is course_id
                     course_tuple = (semester, course_id)
                     logging.debug(f"Parsed path: semester='{semester}', course_id='{course_id}'")
 
-                    # <<< --- THE CRITICAL CHECK --- >>>
+                    # Check if the user is authorized for this specific course tuple
                     if course_tuple in user.authenticated_courses:
                         logging.info(f"Authorization GRANTED for {course_tuple}. Downloading JSON...")
-                        relative_path = file_path_with_container.split('/', 1)[1]
+                        # Get relative path for download_json (removes container)
+                        relative_path = '/'.join(parts[1:]) # Rejoin parts starting from index 1
                         data = self.download_json(relative_path)
                         if data:
                             try:
+                                # Attempt to parse and validate the data using the Course model
                                 courses.append(Course(**data))
                             except Exception as pydantic_error:
-                                logging.error(f"Failed to validate Course data from {relative_path}: {pydantic_error}", exc_info=True)
+                                logging.error(f"Failed to validate Course data from {relative_path} for {course_tuple}: {pydantic_error}", exc_info=True)
+                                # Decide whether to skip this course or raise a bigger error
+                        # else: # download_json already logs failure (NotFound or InvalidJSON)
+                        #    logging.warning(f"Failed to download or parse JSON for authorized course: {relative_path}")
                     else:
-                        # <<< --- LOG WHY IT WAS SKIPPED --- >>>
+                        # Log clearly if authorization was the reason for skipping
                         logging.warning(f"Authorization DENIED for {course_tuple}. User '{user.user_email}' does not have it in authenticated_courses.")
                 else:
-                    logging.warning(f"Skipping file with unexpected path structure: {file_path_with_container}")
+                    # Log if the path structure didn't match expectations
+                    logging.warning(f"Skipping file with unexpected path structure (len={len(parts)}): {file_path_with_container}")
 
             logging.info(f"Finished processing. Returning {len(courses)} authorized courses for user {user.user_email}.")
             return courses
 
         except Exception as e:
-            logging.error(f"Error during fs.glob or file processing in list_courses: {e}", exc_info=True)
-                # Re-raise or return empty list based on desired error handling
-                # Returning empty list might hide underlying storage issues
-            raise HTTPException(status_code=500, detail="Failed to list courses from storage") from e
-
+            # Catch potential errors during the glob operation or other unexpected issues
+            logging.error(f"Error during fs.glob or file processing in list_courses with pattern '{full_pattern_path}': {e}", exc_info=True)
+            # Raise HTTPException to signal a server-side problem to FastAPI
+            raise HTTPException(status_code=500, detail=f"Failed to list courses from storage: {e}") from e
     def list_course_materials(self, semester_key: str, course_id: str) -> List[CourseMaterial]:
         """
         Lists all course materials for a given course.

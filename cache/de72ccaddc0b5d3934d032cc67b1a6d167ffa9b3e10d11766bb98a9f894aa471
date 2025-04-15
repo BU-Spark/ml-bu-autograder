@@ -1,0 +1,20 @@
+{
+    "user_email": "admin@autograder.com",
+    "first_name": "Bob",
+    "last_name": "Norris",
+    "authenticated_courses": [
+        [
+            "summer2025",
+            "cs109"
+        ],
+        [
+            "spring2025",
+            "cs581"
+        ],
+        [
+            "spring2025",
+            "cs101"
+        ]
+    ],
+    "dark_mode": true
+}

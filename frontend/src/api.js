@@ -20,9 +20,10 @@ const api = axios.create({
 
 // Request interceptor to add auth token
 // Request interceptor to add auth token
+const token = "123bob";
 api.interceptors.request.use(
   (config) => {
-    const token = typeof window !== 'undefined' ? sessionStorage.getItem('authToken') : null;
+   // const token = typeof window !== 'undefined' ? sessionStorage.getItem('authToken') : null;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     } else {
