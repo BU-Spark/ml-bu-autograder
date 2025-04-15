@@ -20,7 +20,7 @@ import logging
 class EditQuestionRequest(BaseModel):
     semester: str = Field(..., description="Semester of the course.")
     course_id: str = Field(..., description="Identifier of the course.")
-    assignment_id: int = Field(..., description="Identifier of the assignment.")
+    assignment_id: str = Field(..., description="Identifier of the assignment.")
     question_index: int = Field(..., description="Index of the question.")
     question: Question = Field(..., description="The updated question data.")
 
@@ -39,7 +39,7 @@ class EditQuestionRequest(BaseModel):
 class AddQuestionRequest(BaseModel):
     semester: str = Field(..., description="Semester of the course.")
     course_id: str = Field(..., description="Identifier of the course.")
-    assignment_id: int = Field(..., description="Identifier of the assignment to update.")
+    assignment_id: str = Field(..., description="Identifier of the assignment to update.")
     question: Question = Field(..., description="The data of the new question. (Notice: You cannot specify "
                                                         "the index for this question. If you wish to re-order this "
                                                         "question, you must make a separate modify order request.)")
@@ -58,7 +58,7 @@ class AddQuestionRequest(BaseModel):
 class ModifyOrderRequest(BaseModel):
     semester: str = Field(..., description="Semester of the course.")
     course_id: str = Field(..., description="Identifier of the course.")
-    assignment_id: int = Field(..., description="Identifier of the assignment.")
+    assignment_id: str = Field(..., description="Identifier of the assignment.")
     list_of_question_indexes: List[int] = Field(..., description="New order for question indexes.")
 
     @classmethod
@@ -115,6 +115,7 @@ async def create_assignment(
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found, authentication issue.") # Use status module
     if not user.authenticated_courses.__contains__((assignment.semester, assignment.course_id)):
+<<<<<<< HEAD
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Authenticated but access is not allowed.") # Use status module
     # Check if this assignment id already exists
     if blob_uploader.assignment_exists(assignment.semester, assignment.course_id, assignment.assignment_id):
@@ -139,6 +140,12 @@ async def create_assignment(
                         continue # Skip this assignment title
         assignment_number = 1 if assignment_number is None else assignment_number + 1
         assignment.assignment_title = new_title + str(assignment_number)
+=======
+        raise HTTPException(status_code=403, detail="Authenticated but access is not allowed.")
+    # Ensure assignment name isn't duplicated
+    if blob_uploader.assignment_exists(assignment.semester, assignment.course_id, assignment.assignment_id):
+        raise HTTPException(status_code=400, detail="Assignment already exists.")
+>>>>>>> 0970be0196c1f884fe2beb5170d5c53670c79a3c
     # upload assignment metadata
     blob_uploader.upload_assignment_metadata(assignment)
     # upload assignment questions (only if provided in the initial request)
@@ -209,7 +216,7 @@ async def add_question(
 async def remove_question(
         semester: str = Query(..., description="Semester of the course."),
         course_id: str = Query(..., description="Identifier of the course."),
-        assignment_id: int = Query(..., description="Identifier of the assignment."),
+        assignment_id: str = Query(..., description="Identifier of the assignment."),
         question_index: int = Query(..., description="Index of the question to remove."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
@@ -331,10 +338,15 @@ async def modify_order(
 
     # Assert the length of the list of question indices matches number of questions
     num_questions = blob_uploader.count_questions(reorder_request.semester, reorder_request.course_id, reorder_request.assignment_id)
+<<<<<<< HEAD
     # --- Corrected Logic for length check ---
     if num_questions != len(reorder_request.list_of_question_indexes):
         # Use 400 Bad Request for invalid input data
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Number of indexes ({len(reorder_request.list_of_question_indexes)}) must match number of questions ({num_questions}).")
+=======
+    if num_questions != len(reorder_request.list_of_question_indexes):
+        raise HTTPException(status_code=404, detail="Number of indexes must match number of questions.")
+>>>>>>> 0970be0196c1f884fe2beb5170d5c53670c79a3c
 
     # Assert the list contains all indices from 0 to num_questions - 1 exactly once
     if sorted(reorder_request.list_of_question_indexes) != list(range(num_questions)):
@@ -367,8 +379,8 @@ async def modify_order(
 async def get_assignment(
         semester: str = Query(..., description="Semester of the course."),
         course_id: str = Query(..., description="Identifier of the course."),
-        assignment_id: int = Query(..., description="Identifier of the assignment."),
-        include_questions: bool = Query(False, description="Whether to include questions in the response."),
+        assignment_id: str = Query(..., description="Identifier of the assignment."),
+        include_questions: bool = Query(True, description="Whether to include questions in the response."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
     # validate params
@@ -553,7 +565,7 @@ async def delete_assignment(
 async def list_assignments(
         semester: str = Query(..., description="Semester of the course."),
         course_id: str = Query(..., description="Identifier of the course."),
-        include_questions: bool = Query(False, description="Whether to include questions in the response."),
+        include_questions: bool = Query(True, description="Whether to include questions in the response."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
     # validate params
@@ -584,8 +596,56 @@ async def list_assignments(
             # Fetch questions for each assignment individually
             assignment.questions = blob_uploader.list_questions(semester, course_id, assignment.assignment_id)
     else:
+<<<<<<< HEAD
         # Ensure questions list exists but is empty if not included
         for assignment in assignments:
             assignment.questions = []
 
     return assignments
+=======
+        for assignment in assignments:
+            assignment.questions = None
+
+    return assignments
+
+
+@router.delete(
+    "/assignment",
+    summary="Delete Assignment",
+    description="Deletes a specified assignment.",
+    responses={
+        404: {"detail": "Assignment not found."},
+        401: {"detail": "Requester is not authenticated."},
+        403: {"detail": "Authenticated but access is not allowed."}
+    }
+)
+async def delete_assignment(
+        semester: str = Query(..., description="Semester of the course."),
+        course_id: str = Query(..., description="Identifier of the course."),
+        assignment_id: str = Query(..., description="Identifier of the assignment to delete."),
+        user_meta: UserToken = Depends(user_from_auth),
+):
+    # validate params
+    semester = Course.validate_semester(semester)
+    course_id = Course.normalize_lowercase(course_id)
+
+    blob_uploader = AzureBlobService.get_instance()
+    # Check if the course exists
+    course_exists = blob_uploader.course_exists(semester, course_id)
+    if not course_exists:
+        raise HTTPException(status_code=404, detail="Course does not exist.")
+    
+    # Check if user has perms on course
+    user = blob_uploader.get_user(user_meta.user_email)
+    if not user.authenticated_courses.__contains__((semester, course_id)):
+        raise HTTPException(status_code=403, detail="Authenticated but access is not allowed.")
+    
+    # Check if assignment exists
+    if not blob_uploader.assignment_exists(semester, course_id, assignment_id):
+        raise HTTPException(status_code=404, detail="Assignment does not exist.")
+
+    # Delete assignment metadata
+    blob_uploader.delete_assignment(semester, course_id, assignment_id)
+    
+    return {"detail":  "Assignment deleted successfully"}
+>>>>>>> 0970be0196c1f884fe2beb5170d5c53670c79a3c

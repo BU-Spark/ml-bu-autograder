@@ -196,10 +196,6 @@ async def add_course_instructor(
     instructor = Course.normalize_instructor_email(instructor)
 
     blob_uploader = AzureBlobService.get_instance()
-    # normalize query params
-    semester = semester.strip().lower()
-    course_id = course_id.strip().lower()
-    instructor = instructor.strip().lower()
 
     course = blob_uploader.get_course(semester, course_id)
     if course is None:
@@ -240,11 +236,12 @@ async def remove_course_instructor(
         instructor: EmailStr = Query(..., description="Email of the instructor to remove."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
+    # validate params
+    semester = Course.validate_semester(semester)
+    course_id = Course.normalize_lowercase(course_id)
+    instructor = Course.normalize_instructor_email(instructor)
+
     blob_uploader = AzureBlobService.get_instance()
-    # normalize query params
-    semester = semester.strip().lower()
-    course_id = course_id.strip().lower()
-    instructor = instructor.strip().lower()
 
     course = blob_uploader.get_course(semester, course_id)
     if course is None:
