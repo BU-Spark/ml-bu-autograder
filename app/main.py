@@ -5,7 +5,7 @@ from azure.identity import DefaultAzureCredential
 from dotenv import load_dotenv
 from pydantic import FilePath, HttpUrl
 
-from app.utils import get_str_var, get_bool_var, setup_loggers, JWTService
+from app.utils import get_str_var, get_bool_var, get_int_var, setup_loggers, JWTService
 from app.utils.llm_service import LLMService
 
 load_dotenv()  # Load environment variables first
@@ -36,7 +36,7 @@ AZURE_LLM_DEPLOYMENT_KEY = get_str_var("AZURE_LLM_DEPLOYMENT_KEY")
 AZURE_SEARCH_ENDPOINT = HttpUrl(get_str_var("AZURE_SEARCH_ENDPOINT"))
 AZURE_SEARCH_API_KEY = get_str_var("AZURE_SEARCH_API_KEY")
 AZURE_SEARCH_INDEX_NAME = get_str_var("AZURE_SEARCH_INDEX_NAME")
-AZURE_SEARCH_EMBEDDING_DIMS = int(get_str_var("AZURE_SEARCH_EMBEDDING_DIMS"))
+AZURE_SEARCH_EMBEDDING_DIMS = get_int_var("AZURE_SEARCH_EMBEDDING_DIMS")
 
 
 # Setup logging level
