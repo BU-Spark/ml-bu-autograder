@@ -8,6 +8,7 @@ from app.models import Course
 from app.models.rubric import Rubric, SubRubric, GradingFlag
 from app.utils import JWTService, UserToken
 from app.utils.azure_blob_service import AzureBlobService
+from app.utils.llm_service import LLMService, PromptBuilder, PromptRole
 
 router = APIRouter()
 user_from_auth = JWTService.get_instance().from_authorization_header
@@ -89,13 +90,117 @@ async def get_ai_rubric(
     # Get the rubric
     rubric = blob_uploader.get_rubric(semester, course_id, assignment_id)
     if rubric is None:
-        # TODO: generate it from scratch
-        ...
-    else:
-        # TODO: AI improvement
-        ...
+        # Get the assignment details to inform the LLM
+        assignment = blob_uploader.get_assignment(semester, course_id, assignment_id)
+        if assignment is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found.")
 
-    return rubric
+        # Use LLM to generate a rubric from scratch
+        llm_service = LLMService.get_instance()
+
+        # Build the prompt for creating a rubric
+        prompt = (PromptBuilder.builder()
+            .add_message(PromptRole.SYSTEM, 
+                "You are an expert in creating educational assessment rubrics. "
+                "Your task is to create a fair, consistent, and organized rubric for an assignment. "
+                "The rubric should have clear criteria and point allocations that add up to the total points. "
+                "Use the assignment details to guide your rubric creation.")
+            .add_message(PromptRole.USER, 
+                f"Create a comprehensive rubric for the following assignment:\n\n"
+                f"Course: {course_id.upper()}, Semester: {semester}\n"
+                f"Assignment ID: {assignment_id}\n"
+                f"Assignment Details: {assignment.title} - {assignment.description}\n\n"
+                f"Number of questions: {len(assignment.questions)}")
+        )
+
+        # Add each question to the prompt
+        for i, question in enumerate(assignment.questions):
+            prompt.add_message(PromptRole.USER, 
+                f"Question {i+1}: {question.text}\n"
+                f"Points: {question.max_points}")
+
+        # Add any additional instructions if provided
+        if instructions:
+            prompt.add_message(PromptRole.USER, f"Additional instructions: {instructions}")
+
+        # Build the final prompt
+        prompt_list = prompt.build()
+
+        try:
+            # Generate a structured response matching the Rubric model
+            rubric = llm_service.generate_structured_response(prompt_list, Rubric)
+            
+            # Ensure the rubric has the correct metadata
+            rubric.semester = semester
+            rubric.course_id = course_id
+            rubric.assignment_id = assignment_id
+            
+            # Upload the generated rubric
+            blob_uploader.upload_rubric(semester, course_id, assignment_id, rubric)
+            
+            return rubric
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Failed to generate rubric using LLM: {str(e)}"
+            )
+    else:
+        # Get the assignment details
+        assignment = blob_uploader.get_assignment(semester, course_id, assignment_id)
+        if assignment is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found.")
+
+        # Use LLM to enhance the existing rubric
+        llm_service = LLMService.get_instance()
+
+        # Build the prompt for enhancing a rubric
+        prompt = (PromptBuilder.builder()
+            .add_message(PromptRole.SYSTEM, 
+                "You are an expert in educational assessment who specializes in improving rubrics. "
+                "Your task is to enhance an existing rubric to make it more organized, fair, and consistent. "
+                "Maintain the core structure and intent of the original rubric while improving clarity, "
+                "alignment with learning objectives, and point distribution fairness.")
+            .add_message(PromptRole.USER, 
+                f"Enhance the following rubric for this assignment:\n\n"
+                f"Course: {course_id.upper()}, Semester: {semester}\n"
+                f"Assignment ID: {assignment_id}\n"
+                f"Assignment Details: {assignment.title} - {assignment.description}")
+        )
+
+        # Add the existing rubric as JSON input
+        prompt.add_json_input(PromptRole.USER, rubric)
+
+        # Add any additional instructions if provided
+        if instructions:
+            prompt.add_message(PromptRole.USER, f"Specific improvement instructions: {instructions}")
+        else:
+            prompt.add_message(PromptRole.USER, 
+                "Please enhance this rubric by:\n"
+                "1. Making criteria more specific and measurable\n"
+                "2. Ensuring point distribution aligns with question importance\n"
+                "3. Adding clear instructor guidelines where missing\n"
+                "4. Organizing criteria logically\n"
+                "5. Adding appropriate grading flags if needed\n"
+                "6. Ensuring all grading criteria for each question sum to the max points")
+
+        # Build the final prompt
+        prompt_list = prompt.build()
+
+        try:
+            # Generate a structured response matching the Rubric model
+            enhanced_rubric = llm_service.generate_structured_response(prompt_list, Rubric)
+            
+            # Ensure the enhanced rubric has the correct metadata 
+            enhanced_rubric.semester = semester
+            enhanced_rubric.course_id = course_id
+            enhanced_rubric.assignment_id = assignment_id
+            
+            return enhanced_rubric
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Failed to enhance rubric using LLM: {str(e)}"
+        )
 
 
 @router.get(
