@@ -1,6 +1,6 @@
 import logging
-from typing import Optional, List, Mapping
-
+from typing import Optional, List, Mapping, Any
+import requests
 from azure.core.credentials import AzureKeyCredential
 from azure.search.documents import SearchClient
 from azure.search.documents.indexes import SearchIndexClient
@@ -48,7 +48,6 @@ class AzureVectorService:
                 vector_search_profile_name="my-vector-profile"
             )
         ]
-
         vector_search = VectorSearch(
             profiles=[
                 VectorSearchProfile(
@@ -64,6 +63,63 @@ class AzureVectorService:
         index = SearchIndex(name=self.index_name, fields=fields, vector_search=vector_search)
         self.index_client.create_or_update_index(index)
         logging.info(f"✅ Index '{self.index_name}' created successfully.")
+
+    def search_vectors(self, query_vectors: List[List[float]], top_k: int = 5) -> List[List[dict]]: #keyword will always be empty since its vector search
+        results_batch = []
+
+        for i, vector in enumerate(query_vectors):
+            try:
+                search_url = f"{self.endpoint}/indexes/{self.index_name}/docs/search?api-version=2023-07-01-Preview"
+
+                headers = {
+                    "Content-Type": "application/json",
+                    "api-key": self.api_key
+                }
+
+                payload = {
+                    "search": "",  # Required for POST body format
+                    "top": top_k,
+                    "vector": {
+                        "value": vector,
+                        "fields": "content_vector",
+                        "k": top_k
+                    }
+                }
+
+
+                # Clean None values from payload
+                payload = {k: v for k, v in payload.items() if v is not None}
+
+                response = requests.post(search_url, headers=headers, json=payload)
+                response.raise_for_status()
+
+                data = response.json().get("value", [])
+                formatted_results = []
+                for result in data:
+                    formatted_results.append({
+                        "id": result.get("id"),
+                        "score": result.get("@search.score"),
+                        "file_path": result.get("file_path"),
+                        "raw": result
+                    })
+
+                results_batch.append(formatted_results)
+                logging.info(f"🔍 Retrieved {len(formatted_results)} results for vector #{i}.")
+
+            except Exception as e:
+                logging.error(f"❌ Error searching vector #{i}: {str(e)}", exc_info=True)
+                results_batch.append([])
+
+        return results_batch
+    def delete_documents_by_ids(self, ids: List[str]):
+
+        try:
+            documents = [{"id": doc_id} for doc_id in ids]
+            self.client.delete_documents(documents)
+            logging.info(f"Deleted {len(ids)} documents from Azure Search.")
+        except Exception as e:
+            logging.error("Failed to delete documents by ID", exc_info=True)
+        
 
     def add_vectors(self, ids: List[str], vectors: List[List[float]], metadatas: List[Mapping] = None):
         documents = []
