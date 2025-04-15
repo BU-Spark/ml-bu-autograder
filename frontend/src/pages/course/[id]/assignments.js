@@ -60,13 +60,11 @@ const NoAssignmentsBox = styled(Box)(({ theme }) => ({
 // Main component
 export default function Assignments() {
   const router = useRouter();
-  const { id: courseIdParam, semester: semesterParam, assignmentId: assignmentIdParam } = router.query;
+  const { id: courseIdParam, semester: semesterParam} = router.query;
   const courseId = typeof courseIdParam === 'string' ? courseIdParam : null;
   const semester = typeof semesterParam === 'string' ? semesterParam : null;
   // Parse ID from URL as integer for selection logic and comparisons
-  const selectedAssignmentId = assignmentIdParam ? parseInt(assignmentIdParam, 10) : null;
 
-  console.log('[Assignments Page Render] Router Query:', router.query, 'Parsed selectedAssignmentId:', selectedAssignmentId);
 
   // States
   const [assignments, setAssignments] = useState([]);
@@ -174,24 +172,13 @@ export default function Assignments() {
   }, [courseId, semester]);
 
   // Fetch Detail based on URL param (numeric ID)
-  useEffect(() => {
-     console.log('[useEffect - Detail] Running. selectedAssignmentId (number|null):', selectedAssignmentId);
-     if (selectedAssignmentId !== null) { // Check if valid number selected
-        // Fetch only if selected ID doesn't match current detail view ID
-        if(selectedAssignment?.assignment_id !== selectedAssignmentId) {
-             fetchAssignmentDetails(selectedAssignmentId);
-        }
-     } else {
-      setSelectedAssignment(null);
-      setDetailsError(null);
-    }
-  }, [selectedAssignmentId, fetchAssignmentDetails, selectedAssignment?.assignment_id]); // Depend on numeric ID
 
   // --- Event Handlers ---
   const handleSelectAssignment = (assignment) => {
      // Ensure assignment_id is a number before navigating
+     const assignmentId = assignment?.assignment_id;
      if (!courseId || !semester || typeof assignment?.assignment_id !== 'number') return;
-    const newRoute = `/course/${courseId}/assignments?semester=${semester}&assignmentId=${assignment.assignment_id}`; // Use numeric ID
+    const newRoute = `/course/${courseId}/assignments?semester=${semester}&assignmentId=${assignmentId}`; // Use numeric ID
     if (router.asPath !== newRoute) {
       router.push(newRoute, undefined, { shallow: true });
     }
@@ -225,8 +212,7 @@ export default function Assignments() {
       // --- PAYLOAD WITHOUT assignment_id ---
       // Backend will check `if assignment.assignment_id is None:` and generate the ID
       const assignmentPayload = {
-        // assignment_id is OMITTED
-        assignmentId: assignmentIdParam, // Optional for backend
+        // assignment_id is OMITTED from payload
         course_id: courseId,
         semester: semester,
         assignment_title: newAssignmentData.assignment_title.trim(),
@@ -241,10 +227,6 @@ export default function Assignments() {
       console.log('[handleCreateAssignment] API Success. Received:', newAssignment);
 
       // Validate backend returned a numeric ID
-      if (!newAssignment || typeof newAssignment.assignment_id !== 'number') {
-           console.error("Backend did not return a valid numeric assignment ID.", newAssignment);
-           throw new Error("Received invalid assignment data from server after creation.");
-      }
 
       // Update Frontend State
       setAssignments(prev => [...prev, newAssignment]);
@@ -296,10 +278,6 @@ export default function Assignments() {
       // Ensure service call expects and sends numeric ID
       const updatedAssignment = await assignmentService.updateAssignmentMetadata(semester, courseId, selectedAssignment.assignment_id, updatePayload);
        // Validate response ID type
-       if (typeof updatedAssignment?.assignment_id !== 'number') {
-           console.error("Received updated assignment with non-numeric ID:", updatedAssignment);
-           throw new Error("Invalid assignment data received from server after update.");
-       }
       setAssignments(prev => prev.map(a => a.assignment_id === selectedAssignment.assignment_id ? { ...a, ...updatedAssignment } : a));
       setSelectedAssignment(prev => ({ ...prev, ...updatedAssignment }));
       setEditAssignmentDialogOpen(false);
@@ -312,25 +290,58 @@ export default function Assignments() {
     }
    };
   // DELETE (Assignment) - Confirm Submit
-  const handleDeleteAssignment = async () => {
-     // Ensure selectedAssignment and its ID are valid numbers
-    if (!selectedAssignment || typeof selectedAssignment.assignment_id !== 'number' || !semester || !courseId) return;
-    setActionLoading(true);
-    try {
-      // Ensure service call expects and sends numeric ID
-      await assignmentService.deleteAssignment(courseId, semester, selectedAssignment.assignment_id);
-      setAssignments(prev => prev.filter(a => a.assignment_id !== selectedAssignment.assignment_id));
+    // DELETE (Assignment) - Confirm Submit
+    const handleDeleteAssignment = async () => {
+      // Basic guard: Ensure we have the necessary context before proceeding.
+      // We assume selectedAssignment and its ID are valid here based on how the dialog was opened.
+      if (!selectedAssignment || !semester || !courseId) {
+          console.error('[handleDeleteAssignment] Missing context:', { selectedAssignment, semester, courseId });
+          showAlert('Cannot delete: context is missing.', 'error');
+          setDeleteAssignmentDialogOpen(false); // Ensure dialog closes if somehow opened incorrectly
+          return;
+      }
+  
+      // Set loading and close the confirmation dialog immediately for better UX
+      setActionLoading(true);
       setDeleteAssignmentDialogOpen(false);
-      showAlert('Assignment deleted.');
-      handleClearSelection();
-    } catch (error) {
-      console.error('Delete Assignment Error:', error);
-      showAlert(error.message || 'Failed to delete assignment.', 'error');
-      setDeleteAssignmentDialogOpen(false);
-    } finally {
-      setActionLoading(false);
-    }
-   };
+      console.log(`[handleDeleteAssignment] Attempting to delete assignment ID: ${selectedAssignment.assignment_id}`);
+  
+      try {
+        // Call the API service - Ensure it sends the assignment_id correctly (as a number)
+        // Expects a simple success response or throws error on failure
+        await assignmentService.deleteAssignment(
+            courseId,
+            semester,
+            selectedAssignment.assignment_id // Assumed to be a number here
+          );
+        console.log(`[handleDeleteAssignment] API call successful for ID: ${selectedAssignment.assignment_id}`);
+  
+        // --- Success State Updates ---
+        // Remove the assignment from the list
+        setAssignments(prev => prev.filter(a => a.assignment_id !== selectedAssignment.assignment_id));
+  
+        // Show success alert
+        showAlert(`Assignment "${selectedAssignment.assignment_title || selectedAssignment.assignment_id}" deleted successfully.`);
+  
+        // Clear the selected assignment detail view and URL parameter
+        handleClearSelection();
+        // --- End Success State Updates ---
+  
+      } catch (error) {
+        // --- Error Handling ---
+        console.error('[handleDeleteAssignment] API Error:', error);
+        // Extract the best error message to display
+        const displayError = error.response?.data?.detail || error.message || 'Failed to delete assignment.';
+        showAlert(displayError, 'error');
+        // --- End Error Handling ---
+  
+      } finally {
+        // --- Cleanup ---
+        setActionLoading(false); // Ensure loading indicator stops
+        console.log('[handleDeleteAssignment] Finished.');
+        // --- End Cleanup ---
+      }
+    };
 
   // --- Question CRUD ---
   const openAddQuestionDialog = () => {

@@ -4,16 +4,16 @@
     "last_name": "Norris",
     "authenticated_courses": [
         [
+            "spring2025",
+            "ndsnd"
+        ],
+        [
             "summer2025",
-            "cs109"
+            "skdmkdsk"
         ],
         [
             "spring2025",
-            "cs581"
-        ],
-        [
-            "spring2025",
-            "cs101"
+            "met505"
         ]
     ],
     "dark_mode": true

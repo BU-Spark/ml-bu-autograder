@@ -242,6 +242,24 @@ export default function Courses() {
         <Typography variant="h4" component="h1">Courses</Typography>
       </Box>
 
+      {/* <<< MODIFICATION START >>> */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
+        <Typography variant="h4" component="h1">
+          Courses
+        </Typography>
+        {/* Add the Create Course Button here */}
+        <Button
+          variant="contained"
+          color="primary"
+          startIcon={<AddIcon />}
+          onClick={() => setCreateDialogOpen(true)}
+          // Disable button if any action is already loading to prevent conflicts
+          disabled={createLoading || deleteLoading}
+        >
+          Create Course
+        </Button>
+      </Box>
+
       {/* Display Callback Processing / Errors */}
       {callbackLoading && <Alert severity="info" sx={{ mb: 3 }}>Processing login...</Alert>}
       {callbackError && <Alert severity="error" sx={{ mb: 3 }}>Login Error: {callbackError}</Alert>}
