@@ -348,7 +348,7 @@ export default function CourseDetail() {
                         Instructors
                       </Typography>
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
-                        {course?.instructors.map((instructor) => (
+                      {(course?.instructors || []).map((instructor) => (
                           <Chip
                             key={instructor}
                             label={instructor}
@@ -399,8 +399,7 @@ export default function CourseDetail() {
                         }}
                       >
                         <Typography variant="h5" color="primary">
-                          {/* This would come from a real API call */}
-                          {assignments.reduce((sum, assignment) => sum + (assignment.questions?.length || 0), 0)}
+                          {/* Add || [] before .reduce */}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
                           Total Questions
@@ -419,7 +418,7 @@ export default function CourseDetail() {
                       >
                         <Typography variant="h5" color="primary">
                           {/* This would come from a real API call */}
-                          {course?.instructors.length}
+                          {course?.instructors?.length || 0}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
                           Instructors
@@ -532,7 +531,7 @@ export default function CourseDetail() {
                     </Box>
                   ) : (
                     <Grid container spacing={2}>
-                      {assignments.slice(0, 3).map((assignment) => (
+                      {assignment.length == 0 || assignments.slice(0, 3).map((assignment) => (
                         <Grid item xs={12} sm={4} key={assignment.assignment_id}>
                           <Paper
                             elevation={0}

@@ -1,807 +1,538 @@
-import React, { useState, useEffect, useCallback } from 'react'; // Added useCallback
+/**
+ * Course Assignments Page for BU MET Autograder
+ * Allows instructors to manage assignments and their questions (CRUD).
+ */
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardActionArea,
-  CardActions, // Added for potential buttons on card
-  CardContent,
-  CircularProgress, // Added for loading states
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Divider,
-  Grid,
-  IconButton,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemSecondaryAction,
-  ListItemText,
-  Paper,
-  Snackbar,
-  TextField,
-  Typography,
+  Alert, Box, Button, Card, CardActionArea, CardActions, CardContent,
+  CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle,
+  Divider, Grid, IconButton, List, ListItem, ListItemIcon, ListItemText,
+  Paper, Snackbar, TextField, Typography,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import {
-  Add as AddIcon,
-  ArrowBack as ArrowBackIcon,
-  Assignment as AssignmentIcon,
-  Delete as DeleteIcon,
-  Edit as EditIcon,
-  DragIndicator as DragIndicatorIcon,
+  Add as AddIcon, ArrowBack as ArrowBackIcon, Assignment as AssignmentIcon,
+  Delete as DeleteIcon, Edit as EditIcon, DragIndicator as DragIndicatorIcon,
   QuestionAnswer as QuestionIcon,
 } from '@mui/icons-material';
-import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd'; // Added DropResult type
-// Assuming these exist and are correctly implemented (api.js needs to be imported)
-import { assignmentService } from '../../../api'; // Make sure path is correct
-import CardSkeleton from '../../../components/CardSkeleton'; // Assuming this exists
-import ConfirmationDialog from '../../../components/ConfirmationDialog'; // Assuming this exists
+import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
+// ** VERIFY THIS IMPORT PATH is correct for your project structure **
+import { assignmentService } from '../../../api'; // Ensure this path is correct
+import CardSkeleton from '../../../components/CardSkeleton';
+import ConfirmationDialog from '../../../components/ConfirmationDialog';
 
-// Styled components (Keep as they are)
+// Styled components (Keep as is)
 const AssignmentCard = styled(Card)(({ theme }) => ({
-  height: '100%',
-  display: 'flex',
-  flexDirection: 'column',
-  transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
-  '&:hover': {
-    transform: 'translateY(-4px)',
-    boxShadow: theme.shadows[6],
-  },
+    height: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
+    '&:hover': {
+      transform: 'translateY(-4px)',
+      boxShadow: theme.shadows[6],
+    },
 }));
-
 const AssignmentCardContent = styled(CardContent)({
-  flexGrow: 1,
-  display: 'flex',
-  flexDirection: 'column',
-  minHeight: '100px', // Ensure minimum height
-});
-
+    flexGrow: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    minHeight: '100px',
+ });
 const QuestionItem = styled(ListItem)(({ theme, isDragging }) => ({
-  border: `1px solid ${theme.palette.divider}`,
-  borderRadius: theme.shape.borderRadius,
-  marginBottom: theme.spacing(1),
-  backgroundColor: isDragging ? theme.palette.action.hover : theme.palette.background.paper,
-  boxShadow: isDragging ? theme.shadows[3] : 'none',
-  // Ensure enough space for actions
-  paddingRight: theme.spacing(16), // Adjust as needed
-}));
-
+    border: `1px solid ${theme.palette.divider}`,
+    borderRadius: theme.shape.borderRadius,
+    marginBottom: theme.spacing(1),
+    backgroundColor: isDragging ? theme.palette.action.hover : theme.palette.background.paper,
+    boxShadow: isDragging ? theme.shadows[3] : 'none',
+    paddingRight: theme.spacing(16), // Ensure space for actions
+    position: 'relative',
+ }));
 const NoAssignmentsBox = styled(Box)(({ theme }) => ({
-  textAlign: 'center',
-  padding: theme.spacing(4),
-  backgroundColor: theme.palette.background.default, // Use default background
-  borderRadius: theme.shape.borderRadius,
-  marginTop: theme.spacing(4),
-  border: `1px dashed ${theme.palette.divider}`,
+    textAlign: 'center',
+    padding: theme.spacing(4),
+    backgroundColor: theme.palette.background.default,
+    borderRadius: theme.shape.borderRadius,
+    marginTop: theme.spacing(4),
+    border: `1px dashed ${theme.palette.divider}`,
 }));
 
 // Main component
 export default function Assignments() {
   const router = useRouter();
-  // Ensure assignmentId query param is treated as string/number if present
-  const { id: courseId, semester, assignmentId: assignmentIdParam } = router.query;
-  const selectedAssignmentId = assignmentIdParam ? parseInt(assignmentIdParam, 10) : null; // Parse ID to integer
+  const { id: courseIdParam, semester: semesterParam, assignmentId: assignmentIdParam } = router.query;
+  const courseId = typeof courseIdParam === 'string' ? courseIdParam : null;
+  const semester = typeof semesterParam === 'string' ? semesterParam : null;
+  // Parse ID from URL as integer for selection logic and comparisons
+  const selectedAssignmentId = assignmentIdParam ? parseInt(assignmentIdParam, 10) : null;
 
-  // State for assignments list
+  console.log('[Assignments Page Render] Router Query:', router.query, 'Parsed selectedAssignmentId:', selectedAssignmentId);
+
+  // States
   const [assignments, setAssignments] = useState([]);
-  const [loadingAssignments, setLoadingAssignments] = useState(true); // Specific loading for list
-  const [listError, setListError] = useState(null); // Specific error for list
-
-  // State for the currently selected assignment details
+  const [loadingAssignments, setLoadingAssignments] = useState(true);
+  const [listError, setListError] = useState(null);
   const [selectedAssignment, setSelectedAssignment] = useState(null);
-  const [loadingDetails, setLoadingDetails] = useState(false); // Specific loading for details
-  const [detailsError, setDetailsError] = useState(null); // Specific error for details
-
-  // State for dialogs
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  const [detailsError, setDetailsError] = useState(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editAssignmentDialogOpen, setEditAssignmentDialogOpen] = useState(false);
   const [addQuestionDialogOpen, setAddQuestionDialogOpen] = useState(false);
   const [editQuestionDialogOpen, setEditQuestionDialogOpen] = useState(false);
   const [deleteAssignmentDialogOpen, setDeleteAssignmentDialogOpen] = useState(false);
   const [deleteQuestionDialogOpen, setDeleteQuestionDialogOpen] = useState(false);
-
-  // State for general loading (e.g., during updates/deletes)
   const [actionLoading, setActionLoading] = useState(false);
-
-  // State for form data
-  const [newAssignmentData, setNewAssignmentData] = useState({
-    assignment_title: '',
-    assignment_guidelines: '',
-  });
-
-  // Holds the data being edited in the assignment metadata dialog
-  const [editAssignmentFormData, setEditAssignmentFormData] = useState({
-    assignment_title: '',
-    assignment_guidelines: '',
-  });
-
-  // State for question form (add/edit)
-  const [questionData, setQuestionData] = useState({
-    question_text: '',
-    question_index: null, // Use null when no question is being edited/added context
-    question_graphics_figures: null, // Base64 string or null
-  });
-
-  const [questionToDeleteIndex, setQuestionToDeleteIndex] = useState(null); // Holds the index to delete
-
-  // State for alerts
+  const [newAssignmentData, setNewAssignmentData] = useState({ assignment_title: '', assignment_guidelines: '' });
+  const [editAssignmentFormData, setEditAssignmentFormData] = useState({ assignment_title: '', assignment_guidelines: '' });
+  const [questionData, setQuestionData] = useState({ question_text: '', question_index: null, question_graphics_figures: null });
+  const [questionToDeleteIndex, setQuestionToDeleteIndex] = useState(null);
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
-  const [alertSeverity, setAlertSeverity] = useState('success'); // 'success' | 'error' | 'warning' | 'info'
+  const [alertSeverity, setAlertSeverity] = useState('success');
 
 
   // --- Helper Functions ---
-
-  // Function to handle input changes for forms
   const handleInputChange = useCallback((event, setter) => {
     const { name, value } = event.target;
-    setter((prevData) => ({
-      ...prevData,
-      [name]: value,
-    }));
-  }, []); // Empty dependency array means this function is stable
+    setter((prevData) => ({ ...prevData, [name]: value }));
+    console.log(`[Input Change] Field: ${name}, New Value: ${value}`);
+  }, []);
 
-  // Function to show alerts
   const showAlert = useCallback((message, severity = 'success') => {
+    console.log(`[Show Alert] Severity: ${severity}, Message: ${message}`);
     setAlertMessage(message);
     setAlertSeverity(severity);
     setAlertOpen(true);
-  }, []); // Empty dependency array
+  }, []);
 
-  // Fetches full assignment details (including questions)
+  // --- Data Fetching ---
+  // Fetch details - ensures it sends and expects numeric ID
   const fetchAssignmentDetails = useCallback(async (idToFetch) => {
-    if (!courseId || !semester || idToFetch === null) return;
+    if (!courseId || !semester || typeof idToFetch !== 'number') {
+         console.warn('[fetchAssignmentDetails] Skipping fetch, invalid params:', { courseId, semester, idToFetch});
+         return;
+    }
     setLoadingDetails(true);
     setDetailsError(null);
+    console.log(`[fetchAssignmentDetails] Fetching: C=${courseId}, S=${semester}, A=${idToFetch}`);
     try {
-        const assignmentWithQuestions = await assignmentService.getAssignment(
-            courseId,
-            semester,
-            idToFetch,
-            true // include_questions = true
-        );
-        setSelectedAssignment(assignmentWithQuestions);
-    } catch (err) {
-        console.error(`Error fetching details for assignment ${idToFetch}:`, err);
-        const errorMsg = err.message || `Failed to load details for assignment ${idToFetch}.`;
-        setDetailsError(errorMsg);
-        showAlert(errorMsg, 'error');
-        setSelectedAssignment(null); // Reset selection on error
-        // Optionally clear the assignmentId param from URL if fetch fails
-        router.replace(`/course/${courseId}/assignments?semester=${semester}`, undefined, { shallow: true });
-    } finally {
-        setLoadingDetails(false);
-    }
-  }, [courseId, semester, showAlert, router]); // Dependencies for fetchAssignmentDetails
-
-  // --- useEffect Hooks ---
-
-  // Fetch assignment list
-  useEffect(() => {
-    const fetchAssignments = async () => {
-      if (!courseId || !semester) {
-        setLoadingAssignments(false); // Stop loading if params missing
-        return;
+      // Ensure service call sends integer ID
+      const assignmentWithQuestions = await assignmentService.getAssignment(courseId, semester, idToFetch, true);
+      // Validate received ID type
+      if (typeof assignmentWithQuestions?.assignment_id !== 'number') {
+          console.error("Received assignment detail with non-numeric ID:", assignmentWithQuestions);
+          throw new Error("Invalid assignment data received from server.");
       }
-      setLoadingAssignments(true);
-      setListError(null);
-      try {
-        const assignmentsData = await assignmentService.getAssignments(courseId, semester);
-        setAssignments(assignmentsData || []);
-      } catch (err) {
-        console.error('Error fetching assignments:', err);
-        const errorMsg = err.message || 'Failed to load assignments list.';
-        setListError(errorMsg);
-        showAlert(errorMsg, 'error');
-      } finally {
-        setLoadingAssignments(false);
-      }
-    };
-    fetchAssignments();
-  }, [courseId, semester, showAlert]); // Fetch list when course/semester changes
-
-  // Fetch details when selectedAssignmentId from URL changes
-  useEffect(() => {
-      if (selectedAssignmentId !== null) {
-          fetchAssignmentDetails(selectedAssignmentId);
+      if (assignmentWithQuestions.questions && Array.isArray(assignmentWithQuestions.questions)) {
+         assignmentWithQuestions.questions.sort((a, b) => a.question_index - b.question_index);
       } else {
-          setSelectedAssignment(null); // Clear details if no ID in URL
-          setDetailsError(null);
+         assignmentWithQuestions.questions = [];
       }
-  }, [selectedAssignmentId, fetchAssignmentDetails]); // Depend on ID from URL and the fetch function
+      setSelectedAssignment(assignmentWithQuestions);
+    } catch (err) {
+      console.error(`[fetchAssignmentDetails] Error fetching assignment ${idToFetch}:`, err);
+      setDetailsError(err.message || `Failed to load details.`);
+      setSelectedAssignment(null);
+    } finally {
+      setLoadingDetails(false);
+    }
+   }, [courseId, semester]);
+
+  // Fetch list - ensures it handles numeric IDs in response
+  useEffect(() => {
+    console.log('[useEffect - List] Running. Params:', { courseId, semester });
+    if (courseId && semester) {
+        const fetchAssignments = async () => {
+        setLoadingAssignments(true);
+        setListError(null);
+        setAssignments([]);
+        try {
+          const assignmentsData = await assignmentService.getAssignments(courseId, semester);
+          // Validate assignments have numeric IDs if needed upon fetch
+          const validAssignments = Array.isArray(assignmentsData)
+             ? assignmentsData.filter(a => typeof a.assignment_id === 'number')
+             : [];
+          if (validAssignments.length !== (assignmentsData?.length || 0)) {
+             console.warn("[useEffect - List] Filtered out assignments with non-numeric IDs from API response.");
+          }
+          setAssignments(validAssignments);
+        } catch (err) {
+          console.error('[useEffect - List] Error fetching assignments:', err);
+          setListError(err.message || 'Failed to load assignments list.');
+          setAssignments([]);
+        } finally {
+          setLoadingAssignments(false);
+        }
+      };
+      fetchAssignments();
+     } else {
+      setAssignments([]);
+      setLoadingAssignments(false);
+      setListError(null);
+      setSelectedAssignment(null);
+    }
+  }, [courseId, semester]);
+
+  // Fetch Detail based on URL param (numeric ID)
+  useEffect(() => {
+     console.log('[useEffect - Detail] Running. selectedAssignmentId (number|null):', selectedAssignmentId);
+     if (selectedAssignmentId !== null) { // Check if valid number selected
+        // Fetch only if selected ID doesn't match current detail view ID
+        if(selectedAssignment?.assignment_id !== selectedAssignmentId) {
+             fetchAssignmentDetails(selectedAssignmentId);
+        }
+     } else {
+      setSelectedAssignment(null);
+      setDetailsError(null);
+    }
+  }, [selectedAssignmentId, fetchAssignmentDetails, selectedAssignment?.assignment_id]); // Depend on numeric ID
 
   // --- Event Handlers ---
-
-  // Function to handle selecting an assignment card
   const handleSelectAssignment = (assignment) => {
-    // Update URL, which will trigger the useEffect hook to fetch details
-    const newRoute = `/course/${courseId}/assignments?semester=${semester}&assignmentId=${assignment.assignment_id}`;
+     // Ensure assignment_id is a number before navigating
+     if (!courseId || !semester || typeof assignment?.assignment_id !== 'number') return;
+    const newRoute = `/course/${courseId}/assignments?semester=${semester}&assignmentId=${assignment.assignment_id}`; // Use numeric ID
     if (router.asPath !== newRoute) {
-        router.push(newRoute, undefined, { shallow: true }); // Use shallow routing
+      router.push(newRoute, undefined, { shallow: true });
     }
-    // No need to call fetchAssignmentDetails here, useEffect handles it
-  };
-
-  // Function to clear selection
+   };
   const handleClearSelection = () => {
-      const newRoute = `/course/${courseId}/assignments?semester=${semester}`;
-      if (router.asPath !== newRoute) {
-          router.push(newRoute, undefined, { shallow: true });
-      }
-      // useEffect will clear selectedAssignment based on assignmentIdParam being null
+     if (!courseId || !semester) return;
+    const newRoute = `/course/${courseId}/assignments?semester=${semester}`;
+    if (router.asPath !== newRoute) {
+      router.push(newRoute, undefined, { shallow: true });
+    }
+   };
+
+  // --- Assignment CRUD ---
+
+  // CREATE (Assignment) - Open Dialog
+  const openCreateDialog = () => {
+      console.log('[Open Create Dialog]');
+      setNewAssignmentData({ assignment_title: '', assignment_guidelines: '' });
+      setCreateDialogOpen(true);
   };
 
-
-  // Open Edit Assignment Dialog
-  const openEditAssignmentDialog = (assignmentToEdit) => {
-      if (!assignmentToEdit) return;
-      setEditAssignmentFormData({
-          assignment_title: assignmentToEdit.assignment_title || '',
-          assignment_guidelines: assignmentToEdit.assignment_guidelines || '',
-      });
-      setEditAssignmentDialogOpen(true);
-  };
-
-
-  // Handle updating assignment metadata using the corrected service function
-  const handleUpdateAssignment = async () => {
-    if (!selectedAssignment) return;
-
-    const updatePayload = {
-      assignment_title: editAssignmentFormData.assignment_title?.trim(), // Trim whitespace
-      assignment_guidelines: editAssignmentFormData.assignment_guidelines, // Allow empty string maybe? Or trim?
-    };
-
-    // Basic validation
-    if (!updatePayload.assignment_title) {
-        showAlert('Assignment Title cannot be empty.', 'warning');
-        return;
-    }
-
-    // Prevent sending update if nothing changed
-    if (updatePayload.assignment_title === selectedAssignment.assignment_title &&
-        updatePayload.assignment_guidelines === selectedAssignment.assignment_guidelines) {
-        setEditAssignmentDialogOpen(false);
-        return;
-    }
-
-    setActionLoading(true);
-    try {
-      // Call the *correct* service function: updateAssignmentMetadata
-      const updatedAssignmentFromServer = await assignmentService.updateAssignmentMetadata(
-          semester, // query param
-          courseId, // query param
-          selectedAssignment.assignment_id, // query param
-          updatePayload // request body
-      );
-
-      // Update the assignments list state
-      setAssignments(prevAssignments => prevAssignments.map(a =>
-        a.assignment_id === selectedAssignment.assignment_id
-         ? { ...a, ...updatedAssignmentFromServer } // Merge updates
-         : a
-      ));
-
-      // Update the selected assignment state (keeping existing questions)
-      setSelectedAssignment(prev => ({
-          ...prev,
-          ...updatedAssignmentFromServer // Apply updates from server response
-      }));
-
-      setEditAssignmentDialogOpen(false);
-      showAlert('Assignment updated successfully');
-
-    } catch (error) {
-      console.error('Error updating assignment:', error);
-      showAlert(error.message || 'Failed to update assignment', 'error');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Handle creating a new assignment
+  // CREATE (Assignment) - Submit Handler (Aligned with Backend Auto-Increment)
   const handleCreateAssignment = async () => {
-    if (!newAssignmentData.assignment_title?.trim()) {
-        showAlert('Assignment Title is required.', 'warning');
-        return;
+    console.log('[handleCreateAssignment] Triggered. Form data:', newAssignmentData);
+    if (!courseId || !semester || !newAssignmentData.assignment_title?.trim()) {
+      showAlert(!courseId || !semester ? 'Course context missing.' : 'Title is required.', 'warning');
+      return;
     }
     setActionLoading(true);
     try {
-      // Backend needs { course_id, semester, assignment_title?, assignment_guidelines?, questions? }
-      // Backend assigns assignment_id
+      // --- PAYLOAD WITHOUT assignment_id ---
+      // Backend will check `if assignment.assignment_id is None:` and generate the ID
       const assignmentPayload = {
-        // assignment_id: should be assigned by backend
+        // assignment_id is OMITTED
+        assignmentId: assignmentIdParam, // Optional for backend
         course_id: courseId,
         semester: semester,
-        assignment_title: newAssignmentData.assignment_title,
+        assignment_title: newAssignmentData.assignment_title.trim(),
         assignment_guidelines: newAssignmentData.assignment_guidelines || null,
-        questions: [], // Start empty
+        questions: [],
       };
+      // ------------------------------------
+      console.log('[handleCreateAssignment] Calling API with payload (NO ID):', assignmentPayload);
 
+      // Call API - expects backend to return full Assignment with the *generated integer ID*
       const newAssignment = await assignmentService.createAssignment(assignmentPayload);
+      console.log('[handleCreateAssignment] API Success. Received:', newAssignment);
 
-      setAssignments(prev => [...prev, newAssignment]); // Add to list
-      setNewAssignmentData({ // Reset form
-        assignment_title: '',
-        assignment_guidelines: '',
-      });
+      // Validate backend returned a numeric ID
+      if (!newAssignment || typeof newAssignment.assignment_id !== 'number') {
+           console.error("Backend did not return a valid numeric assignment ID.", newAssignment);
+           throw new Error("Received invalid assignment data from server after creation.");
+      }
+
+      // Update Frontend State
+      setAssignments(prev => [...prev, newAssignment]);
+      setNewAssignmentData({ assignment_title: '', assignment_guidelines: '' }); // Reset form
       setCreateDialogOpen(false);
-      showAlert('Assignment created successfully');
-
-      // Select the new assignment
-      handleSelectAssignment(newAssignment); // Updates URL -> triggers useEffect for details
+      showAlert(`Assignment "${newAssignment.assignment_title}" created (ID: ${newAssignment.assignmentId}).`);
+      handleSelectAssignment(newAssignment); // Select it
 
     } catch (error) {
-      console.error('Error creating assignment:', error);
-      showAlert(error.message || 'Failed to create assignment', 'error');
+      console.error('[handleCreateAssignment] API Error:', error);
+      showAlert(error.response?.data?.detail || error.message || 'Failed to create assignment.', 'error');
     } finally {
-        setActionLoading(false);
+      setActionLoading(false);
+      console.log('[handleCreateAssignment] Finished.');
     }
   };
 
-  // Handle deleting an assignment
-  const handleDeleteAssignment = async () => {
-    if (!selectedAssignment) return;
+
+  // UPDATE (Assignment) - Open Dialog
+  const openEditAssignmentDialog = (assignmentToEdit) => {
+     if (!assignmentToEdit || typeof assignmentToEdit.assignment_id !== 'number') return; // Check ID type
+    setSelectedAssignment(assignmentToEdit); // Ensure context
+    setEditAssignmentFormData({
+      assignment_title: assignmentToEdit.assignment_title || '',
+      assignment_guidelines: assignmentToEdit.assignment_guidelines || '',
+    });
+    setEditAssignmentDialogOpen(true);
+   };
+  // UPDATE (Assignment) - Submit
+  const handleUpdateAssignment = async () => {
+    // Ensure selectedAssignment and its ID are valid numbers
+    if (!selectedAssignment || typeof selectedAssignment.assignment_id !== 'number' || !semester || !courseId) return;
+    const { assignment_title, assignment_guidelines } = editAssignmentFormData;
+    if (assignment_title !== null && !assignment_title?.trim()) {
+      showAlert('Title cannot be empty.', 'warning'); return;
+    }
+    const updatePayload = {
+        assignment_title: assignment_title?.trim() || null,
+        assignment_guidelines: assignment_guidelines || null
+    };
+    // Prevent no-change update
+    if ((updatePayload.assignment_title === (selectedAssignment.assignment_title || null) &&
+         updatePayload.assignment_guidelines === (selectedAssignment.assignment_guidelines || null)) ||
+        (updatePayload.assignment_title === null && updatePayload.assignment_guidelines === null)) {
+       setEditAssignmentDialogOpen(false); return;
+    }
     setActionLoading(true);
     try {
-      await assignmentService.deleteAssignment(
-          semester,
-          courseId,
-          selectedAssignment.assignment_id
-        );
-
-      setAssignments(prev => prev.filter(
-        (a) => a.assignment_id !== selectedAssignment.assignment_id
-      ));
-      setDeleteAssignmentDialogOpen(false);
-      showAlert('Assignment deleted successfully');
-      handleClearSelection(); // Clear selection and update URL
-
+      // Ensure service call expects and sends numeric ID
+      const updatedAssignment = await assignmentService.updateAssignmentMetadata(semester, courseId, selectedAssignment.assignment_id, updatePayload);
+       // Validate response ID type
+       if (typeof updatedAssignment?.assignment_id !== 'number') {
+           console.error("Received updated assignment with non-numeric ID:", updatedAssignment);
+           throw new Error("Invalid assignment data received from server after update.");
+       }
+      setAssignments(prev => prev.map(a => a.assignment_id === selectedAssignment.assignment_id ? { ...a, ...updatedAssignment } : a));
+      setSelectedAssignment(prev => ({ ...prev, ...updatedAssignment }));
+      setEditAssignmentDialogOpen(false);
+      showAlert('Assignment updated.');
     } catch (error) {
-      console.error('Error deleting assignment:', error);
-      showAlert(error.message || 'Failed to delete assignment', 'error');
+      console.error('Update Assignment Error:', error);
+      showAlert(error.message || 'Failed to update assignment.', 'error');
     } finally {
       setActionLoading(false);
     }
-  };
+   };
+  // DELETE (Assignment) - Confirm Submit
+  const handleDeleteAssignment = async () => {
+     // Ensure selectedAssignment and its ID are valid numbers
+    if (!selectedAssignment || typeof selectedAssignment.assignment_id !== 'number' || !semester || !courseId) return;
+    setActionLoading(true);
+    try {
+      // Ensure service call expects and sends numeric ID
+      await assignmentService.deleteAssignment(courseId, semester, selectedAssignment.assignment_id);
+      setAssignments(prev => prev.filter(a => a.assignment_id !== selectedAssignment.assignment_id));
+      setDeleteAssignmentDialogOpen(false);
+      showAlert('Assignment deleted.');
+      handleClearSelection();
+    } catch (error) {
+      console.error('Delete Assignment Error:', error);
+      showAlert(error.message || 'Failed to delete assignment.', 'error');
+      setDeleteAssignmentDialogOpen(false);
+    } finally {
+      setActionLoading(false);
+    }
+   };
 
-
-  // --- Question Handlers ---
-
-  // Open Add Question Dialog
+  // --- Question CRUD ---
   const openAddQuestionDialog = () => {
-      setQuestionData({ // Reset form
-          question_text: '',
-          question_index: null,
-          question_graphics_figures: null,
-      });
-      setAddQuestionDialogOpen(true);
-  };
-
-  // Handle adding a question using the corrected service function
+     if (!selectedAssignment || typeof selectedAssignment.assignment_id !== 'number') {
+         showAlert('Select a valid assignment first.', 'warning');
+         return;
+     }
+    setQuestionData({ question_text: '', question_index: null, question_graphics_figures: null });
+    setAddQuestionDialogOpen(true);
+   };
   const handleAddQuestion = async () => {
-    if (!selectedAssignment || !questionData.question_text?.trim()) {
-        showAlert('Question text cannot be empty.', 'warning');
-        return;
+     // Ensure selectedAssignment and its ID are valid numbers
+    if (!selectedAssignment || typeof selectedAssignment.assignment_id !== 'number' || !semester || !courseId || !questionData.question_text?.trim()) {
+      showAlert(!selectedAssignment ? 'No assignment selected.' : 'Question text required.', 'warning'); return;
     }
-
-    const questionPayload = {
-        question_text: questionData.question_text,
-        question_graphics_figures: questionData.question_graphics_figures
-    };
-
+    const questionPayload = { question_text: questionData.question_text.trim(), question_graphics_figures: null };
     setActionLoading(true);
     try {
-      // Call the *correct* service function
-      const response = await assignmentService.addQuestion(
-          semester, // Now part of the body via service func
-          courseId, // Now part of the body via service func
-          selectedAssignment.assignment_id, // Now part of the body via service func
-          questionPayload // This is the 'question' part of the body
-        );
-
-      // Construct the new question using index from response
-      const newQuestionFromServer = {
-          ...questionPayload,
-          question_index: response.question_index
-      };
-
-      // Update state
-      setSelectedAssignment(prev => ({
-          ...prev,
-          questions: [...(prev?.questions || []), newQuestionFromServer]
-      }));
-       setAssignments(prevAssignments => prevAssignments.map(a =>
-          a.assignment_id === selectedAssignment.assignment_id
-              ? { ...a, questions: [...(a.questions || []), newQuestionFromServer] }
-              : a
-      ));
-
-
-      setAddQuestionDialogOpen(false);
-      showAlert('Question added successfully');
-
-    } catch (error) {
-      console.error('Error adding question:', error);
-      showAlert(error.message || 'Failed to add question', 'error');
-    } finally {
-        setActionLoading(false);
-    }
-  };
-
-  // Open Edit Question Dialog
-  const openEditQuestionDialog = (question) => {
-      if (!question) return;
-      setQuestionData({
-          question_text: question.question_text || '',
-          question_index: question.question_index,
-          question_graphics_figures: question.question_graphics_figures || null,
+       // Ensure service call expects and sends numeric assignment_id
+      const response = await assignmentService.addQuestion(semester, courseId, selectedAssignment.assignment_id, questionPayload);
+      // Backend returns { question_index: number }
+      const newQuestion = { ...questionPayload, question_index: response.question_index };
+      setSelectedAssignment(prev => {
+         const updatedQuestions = [...(prev?.questions || []), newQuestion].sort((a, b) => a.question_index - b.question_index);
+         return { ...prev, questions: updatedQuestions };
       });
-      setEditQuestionDialogOpen(true);
-  };
-
-  // Handle editing a question using the corrected service function
-  const handleEditQuestion = async () => {
-    if (!selectedAssignment || questionData.question_index === null || !questionData.question_text?.trim()) {
-        showAlert('Question text cannot be empty.', 'warning');
-        return;
-    }
-
-    const questionPayload = {
-        question_text: questionData.question_text,
-        question_graphics_figures: questionData.question_graphics_figures
-    };
-
-    setActionLoading(true);
-    try {
-      // Call the *correct* service function
-      const updatedQuestionFromServer = await assignmentService.editQuestion(
-          semester, // Now part of the body via service func
-          courseId, // Now part of the body via service func
-          selectedAssignment.assignment_id, // Now part of the body via service func
-          questionData.question_index, // Now part of the body via service func
-          questionPayload // This is the 'question' part of the body
-        );
-
-      // Update state
-      setSelectedAssignment(prev => ({
-          ...prev,
-          questions: (prev?.questions || []).map(q =>
-              q.question_index === questionData.question_index
-                  ? { ...q, ...updatedQuestionFromServer } // Use data from server
-                  : q
-          )
-      }));
-       setAssignments(prevAssignments => prevAssignments.map(a => {
-           if (a.assignment_id === selectedAssignment.assignment_id) {
-               return {
-                   ...a,
-                   questions: (a.questions || []).map(q =>
-                       q.question_index === questionData.question_index
-                           ? { ...q, ...updatedQuestionFromServer }
-                           : q
-                   )
-               };
-           }
-           return a;
-       }));
-
-      setEditQuestionDialogOpen(false);
-      showAlert('Question updated successfully');
-
+      setAddQuestionDialogOpen(false);
+      showAlert('Question added.');
+      setQuestionData({ question_text: '', question_index: null, question_graphics_figures: null });
     } catch (error) {
-      console.error('Error editing question:', error);
-      showAlert(error.message || 'Failed to edit question', 'error');
+      console.error('Add Question Error:', error);
+      showAlert(error.message || 'Failed to add question.', 'error');
     } finally {
-        setActionLoading(false);
+      setActionLoading(false);
     }
-  };
-
-  // Open Delete Question Dialog
-  const openDeleteQuestionDialog = (index) => {
-      setQuestionToDeleteIndex(index);
-      setDeleteQuestionDialogOpen(true);
-  };
-
-  // Handle deleting a question using the corrected service function
-  const handleDeleteQuestion = async () => {
-    if (!selectedAssignment || questionToDeleteIndex === null) return;
-
+   };
+  const openEditQuestionDialog = (question) => {
+     if (!question || typeof question.question_index !== 'number') return; // Check question index type
+    setQuestionData({
+      question_text: question.question_text || '',
+      question_index: question.question_index, // Store numeric index
+      question_graphics_figures: question.question_graphics_figures || null,
+    });
+    setEditQuestionDialogOpen(true);
+   };
+  const handleEditQuestion = async () => {
+     // Ensure selectedAssignment and its ID are valid numbers, and question index is valid
+    if (!selectedAssignment || typeof selectedAssignment.assignment_id !== 'number' || questionData.question_index === null || typeof questionData.question_index !== 'number' || !semester || !courseId || !questionData.question_text?.trim()) {
+      showAlert('Invalid data or context for editing question.', 'warning'); return;
+    }
+    const questionPayload = { question_text: questionData.question_text.trim(), question_graphics_figures: null };
     setActionLoading(true);
     try {
-      // Call the *correct* service function
-      await assignmentService.removeQuestion(
-          semester, // Query param
-          courseId, // Query param
-          selectedAssignment.assignment_id, // Query param
-          questionToDeleteIndex // Query param
-        );
-
-        showAlert('Question deleted successfully. Refreshing assignment details...');
-
-        // Re-fetch the entire assignment to get the correctly re-indexed questions from backend
-        await fetchAssignmentDetails(selectedAssignment.assignment_id);
-
-        // Also update the main assignments list state (metadata is same, but questions updated)
-        setAssignments(prev => prev.map(a =>
-            a.assignment_id === selectedAssignment.assignment_id
-                ? selectedAssignment // Use the newly fetched assignment data
-                : a
-        ));
-
-
+       // Ensure service call expects and sends numeric assignment_id and question_index
+      const updatedQuestion = await assignmentService.editQuestion(semester, courseId, selectedAssignment.assignment_id, questionData.question_index, questionPayload);
+      // Backend returns the updated Question object
+      setSelectedAssignment(prev => {
+        const updatedQuestions = (prev?.questions || [])
+            .map(q => q.question_index === questionData.question_index ? updatedQuestion : q)
+            .sort((a, b) => a.question_index - b.question_index);
+         return { ...prev, questions: updatedQuestions };
+      });
+      setEditQuestionDialogOpen(false);
+      showAlert('Question updated.');
+      setQuestionData({ question_text: '', question_index: null, question_graphics_figures: null });
     } catch (error) {
-      console.error('Error deleting question:', error);
-      showAlert(error.message || 'Failed to delete question', 'error');
+      console.error('Edit Question Error:', error);
+      showAlert(error.message || 'Failed to edit question.', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+   };
+  const onDragEnd = useCallback(async (result) => {
+     const { source, destination } = result;
+     // Ensure selectedAssignment and its ID are valid numbers
+     if (!destination || !selectedAssignment || typeof selectedAssignment.assignment_id !== 'number' || !selectedAssignment.questions || selectedAssignment.questions.length < 2 || !semester || !courseId) return;
+     if (destination.droppableId === source.droppableId && destination.index === source.index) return;
+
+    const currentQuestions = Array.from(selectedAssignment.questions).sort((a,b) => a.question_index - b.question_index);
+    const [reorderedItem] = currentQuestions.splice(source.index, 1);
+    currentQuestions.splice(destination.index, 0, reorderedItem);
+    setSelectedAssignment(prev => ({ ...prev, questions: currentQuestions })); // Optimistic update
+
+    const newIndexOrder = currentQuestions.map(q => q.question_index);
+    setActionLoading(true);
+    try {
+       // Ensure service call expects and sends numeric assignment_id
+      await assignmentService.modifyQuestionOrder(semester, courseId, selectedAssignment.assignment_id, newIndexOrder);
+      showAlert('Order updated. Refreshing details...');
+      await fetchAssignmentDetails(selectedAssignment.assignment_id); // Re-fetch takes numeric ID
+    } catch (error) {
+      console.error('Modify Order Error:', error);
+      showAlert(error.message || 'Failed to update order.', 'error');
+      showAlert('Reverting order due to error. Refreshing...', 'warning');
+      await fetchAssignmentDetails(selectedAssignment.assignment_id); // Re-fetch to revert
+    } finally {
+      setActionLoading(false);
+    }
+   }, [selectedAssignment, semester, courseId, showAlert, fetchAssignmentDetails]);
+  const openDeleteQuestionDialog = (index) => {
+     // Ensure index is a number
+     if (typeof index !== 'number') return;
+     setQuestionToDeleteIndex(index);
+     setDeleteQuestionDialogOpen(true);
+   };
+  const handleDeleteQuestion = async () => {
+     // Ensure selectedAssignment and its ID are valid numbers, and index is valid number
+     if (!selectedAssignment || typeof selectedAssignment.assignment_id !== 'number' || questionToDeleteIndex === null || typeof questionToDeleteIndex !== 'number' || !semester || !courseId) return;
+    setActionLoading(true);
+    try {
+       // Ensure service call expects and sends numeric assignment_id and question_index
+      await assignmentService.removeQuestion(semester, courseId, selectedAssignment.assignment_id, questionToDeleteIndex);
+      showAlert('Question deleted. Refreshing details...');
+      await fetchAssignmentDetails(selectedAssignment.assignment_id); // Re-fetch takes numeric ID
+    } catch (error) {
+      console.error('Delete Question Error:', error);
+      showAlert(error.message || 'Failed to delete question.', 'error');
     } finally {
       setDeleteQuestionDialogOpen(false);
       setQuestionToDeleteIndex(null);
       setActionLoading(false);
     }
-  };
-
-
-  // Handle Drag and Drop using the corrected service function
-  const onDragEnd = useCallback(async (result) => {
-      const { source, destination } = result;
-
-      if (!destination || !selectedAssignment || !selectedAssignment.questions || selectedAssignment.questions.length < 2) {
-          return; // No drop target, no assignment, or not enough items to reorder
-      }
-      if (destination.droppableId === source.droppableId && destination.index === source.index) {
-          return; // Dropped in the same place
-      }
-
-      // --- Optimistic UI Update ---
-      const currentQuestions = Array.from(selectedAssignment.questions);
-      const [reorderedItem] = currentQuestions.splice(source.index, 1);
-      currentQuestions.splice(destination.index, 0, reorderedItem);
-
-      // Update local state immediately
-      setSelectedAssignment(prev => ({ ...prev, questions: currentQuestions }));
-      setAssignments(prevAssignments => prevAssignments.map(a =>
-          a.assignment_id === selectedAssignment.assignment_id
-              ? { ...a, questions: currentQuestions }
-              : a
-      ));
-      // --- End Optimistic Update ---
-
-      // Prepare the payload for the backend: list of the *original* question indexes in the new order
-      const newIndexOrder = currentQuestions.map(q => q.question_index);
-
-      setActionLoading(true); // Indicate network activity
-      try {
-          // Call the *correct* service function
-          await assignmentService.modifyQuestionOrder(
-              semester, // Part of body via service
-              courseId, // Part of body via service
-              selectedAssignment.assignment_id, // Part of body via service
-              newIndexOrder // This is list_of_question_indexes in body
-          );
-          showAlert('Question order updated successfully. Refreshing...');
-
-          // Re-fetch the assignment to get the source-of-truth order and indexes
-          await fetchAssignmentDetails(selectedAssignment.assignment_id);
-
-      } catch (error) {
-           console.error('Error modifying question order:', error);
-           showAlert(error.message || 'Failed to update question order.', 'error');
-           // Revert optimistic update by re-fetching
-           showAlert('Reverting order due to error. Refreshing...', 'warning');
-           await fetchAssignmentDetails(selectedAssignment.assignment_id); // Re-fetch to revert
-      } finally {
-          setActionLoading(false);
-      }
-  }, [selectedAssignment, semester, courseId, showAlert, fetchAssignmentDetails]); // Dependencies
-
+   };
 
   // --- Render Functions ---
-
   const renderAssignmentList = () => {
-    if (loadingAssignments) {
-        return (
-            <Grid container spacing={3} sx={{ mb: 4 }}>
-                {[1, 2, 3].map((n) => (
-                    <Grid item xs={12} sm={6} md={4} key={n}>
-                        <CardSkeleton />
-                    </Grid>
-                ))}
-            </Grid>
-        );
-    }
-
-    if (!loadingAssignments && assignments.length === 0 && !listError) {
-        return (
-            <NoAssignmentsBox>
-                <AssignmentIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
-                <Typography variant="h6">No assignments found for this course.</Typography>
-                <Typography color="text.secondary" sx={{ mb: 2 }}>
-                    Get started by creating a new assignment.
-                </Typography>
-                <Button
-                    variant="contained"
-                    startIcon={<AddIcon />}
-                    onClick={() => setCreateDialogOpen(true)}
-                    >
-                    Create First Assignment
-                </Button>
-            </NoAssignmentsBox>
-        );
-    }
-
-     if (listError) {
-        return <Alert severity="error" sx={{ mb: 3 }}>{listError}</Alert>;
-     }
+    if (loadingAssignments) return <Grid container spacing={3} sx={{ mb: 4 }}>{[1, 2, 3].map((n) => (<Grid item xs={12} sm={6} md={4} key={n}><CardSkeleton /></Grid>))}</Grid>;
+    if (listError) return <Alert severity="error" sx={{ mb: 3 }}>{listError}</Alert>;
+    if (!assignments.length) return <NoAssignmentsBox><AssignmentIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} /><Typography variant="h6">No assignments found.</Typography><Typography color="text.secondary" sx={{ mb: 2 }}>Create one to get started.</Typography><Button variant="contained" startIcon={<AddIcon />} onClick={openCreateDialog}>Create Assignment</Button></NoAssignmentsBox>;
 
     return (
       <Grid container spacing={3} sx={{ mb: 4 }}>
         {assignments.map((assignment) => (
+          // Ensure assignment.assignment_id is treated as number for key/comparison
           <Grid item xs={12} sm={6} md={4} key={assignment.assignment_id}>
-            <AssignmentCard variant="outlined" sx={{ borderColor: selectedAssignment?.assignment_id === assignment.assignment_id ? 'primary.main' : undefined }}>
-              <CardActionArea onClick={() => handleSelectAssignment(assignment)} sx={{ flexGrow: 1 }}>
+            <AssignmentCard variant="outlined" sx={{ borderColor: selectedAssignment?.assignment_id === assignment.assignment_id ? 'primary.main' : 'divider' }}>
+              <CardActionArea onClick={() => handleSelectAssignment(assignment)} sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
                 <AssignmentCardContent>
-                  <Typography gutterBottom variant="h6" component="div" noWrap title={assignment.assignment_title || `Assignment ${assignment.assignment_id}`}>
-                    {assignment.assignment_title || `Assignment ${assignment.assignment_id}`}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    ID: {assignment.assignment_id}
-                  </Typography>
-                   <Typography variant="body2" color="text.secondary" sx={{
-                       overflow: 'hidden',
-                       textOverflow: 'ellipsis',
-                       display: '-webkit-box',
-                       WebkitLineClamp: 3, // Show max 3 lines
-                       WebkitBoxOrient: 'vertical',
-                       flexGrow: 1, // Allow text to take available space
-                   }}>
-                    {assignment.assignment_guidelines || 'No guidelines provided.'}
-                  </Typography>
+                  <Typography gutterBottom variant="h6" component="div" noWrap title={assignment.assignment_title || `Assignment ${assignment.assignment_id}`}>{assignment.assignment_title || `Assignment ${assignment.assignment_id}`}</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>ID: {assignment.assignment_id}</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', flexGrow: 1 }}>{assignment.assignment_guidelines || 'No guidelines.'}</Typography>
                 </AssignmentCardContent>
               </CardActionArea>
-               <CardActions sx={{ justifyContent: 'flex-end', pt: 0 }}>
-                   <IconButton title="Edit Assignment Info" size="small" onClick={(e) => { e.stopPropagation(); openEditAssignmentDialog(assignment); }}>
-                       <EditIcon fontSize="small" />
-                   </IconButton>
-                   <IconButton title="Delete Assignment" size="small" onClick={(e) => { e.stopPropagation(); setSelectedAssignment(assignment); setDeleteAssignmentDialogOpen(true); }}>
-                       <DeleteIcon fontSize="small" />
-                   </IconButton>
-               </CardActions>
+              <CardActions sx={{ justifyContent: 'flex-end', pt: 0, pb: 1, px: 1 }}>
+                <IconButton title="Edit Assignment Info" size="small" onClick={(e) => { e.stopPropagation(); openEditAssignmentDialog(assignment); }} disabled={actionLoading}><EditIcon fontSize="small" /></IconButton>
+                <IconButton title="Delete Assignment" size="small" onClick={(e) => { e.stopPropagation(); setSelectedAssignment(assignment); setDeleteAssignmentDialogOpen(true); }} disabled={actionLoading} color="error"><DeleteIcon fontSize="small" /></IconButton>
+              </CardActions>
             </AssignmentCard>
           </Grid>
         ))}
       </Grid>
     );
-  };
-
-
+   };
   const renderAssignmentDetails = () => {
-    if (loadingDetails) {
-        return (
-            <Paper elevation={0} sx={{ mt: 4, p: 3, textAlign: 'center' }}>
-                <CircularProgress />
-                <Typography sx={{ mt: 1 }}>Loading assignment details...</Typography>
-            </Paper>
-        );
-    }
-
-    if (detailsError) {
-         return (
-            <Paper elevation={0} sx={{ mt: 4, p: 3 }}>
-                <Alert severity="error">{detailsError}</Alert>
-            </Paper>
-         );
-    }
-
-    if (!selectedAssignment) {
-        // Only show this if assignments exist but none are selected
-        if (assignments.length > 0 && !loadingAssignments) {
-             return (
-                <Paper elevation={0} variant="outlined" sx={{ mt: 4, p: 3, textAlign: 'center' }}>
-                    <Typography color="text.secondary">Select an assignment above to view its details and questions.</Typography>
-                </Paper>
-             );
+     if (loadingDetails) return <Paper elevation={0} sx={{ mt: 4, p: 3, textAlign: 'center' }}><CircularProgress /><Typography sx={{ mt: 1 }}>Loading details...</Typography></Paper>;
+    if (detailsError) return <Paper elevation={0} sx={{ mt: 4, p: 3 }}><Alert severity="error">{detailsError}</Alert></Paper>;
+    if (!selectedAssignment || typeof selectedAssignment.assignment_id !== 'number') { // Check if valid assignment selected
+        if (!loadingAssignments && assignments.length > 0) {
+             return <Paper elevation={0} variant="outlined" sx={{ mt: 4, p: 3, textAlign: 'center' }}><Typography color="text.secondary">Select an assignment to view details.</Typography></Paper>;
         }
-        return null; // Don't render anything if still loading assignments or none exist
+        return null;
     }
-
 
     return (
-      <Paper elevation={3} sx={{ mt: 4, p: 3 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
-              <Typography variant="h5" component="h2">
-                  {selectedAssignment.assignment_title} - Details
-              </Typography>
-              <Box>
-                   <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<EditIcon />}
-                      onClick={() => openEditAssignmentDialog(selectedAssignment)}
-                      sx={{ mr: 1 }}
-                      disabled={actionLoading}
-                   >
-                      Edit Info
-                   </Button>
-                   <Button
-                      variant="outlined"
-                      size="small"
-                      color="error"
-                      startIcon={<DeleteIcon />}
-                      onClick={() => setDeleteAssignmentDialogOpen(true)}
-                      disabled={actionLoading}
-                   >
-                      Delete Assignment
-                   </Button>
-              </Box>
+      <Paper elevation={3} sx={{ mt: 4, p: {xs: 1, sm: 2, md: 3} }}>
+        {/* Header */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+          <Typography variant="h5" component="h2">{selectedAssignment.assignment_title}</Typography>
+          <Box>
+            <Button variant="outlined" size="small" startIcon={<EditIcon />} onClick={() => openEditAssignmentDialog(selectedAssignment)} sx={{ mr: 1 }} disabled={actionLoading}>Edit Info</Button>
+            <Button variant="outlined" size="small" color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteAssignmentDialogOpen(true)} disabled={actionLoading}>Delete Assignment</Button>
           </Box>
-
-         <Typography variant="body1" color="text.secondary" paragraph sx={{ whiteSpace: 'pre-wrap' }}>
-          {selectedAssignment.assignment_guidelines || 'No guidelines provided.'}
-        </Typography>
-
-        <Divider sx={{ my: 3 }} />
-
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="h6">Questions</Typography>
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={<AddIcon />}
-              onClick={openAddQuestionDialog}
-              disabled={actionLoading}
-            >
-              Add Question
-            </Button>
         </Box>
-
-
-        {!selectedAssignment.questions?.length && (
-            <Typography color="text.secondary" sx={{ fontStyle: 'italic' }}>No questions added yet.</Typography>
-        )}
-
-        {selectedAssignment.questions?.length > 0 && (
+        {/* Guidelines */}
+        <Typography variant="body2" color="text.secondary" paragraph sx={{ whiteSpace: 'pre-wrap', maxHeight: '150px', overflowY: 'auto', border: '1px solid #eee', p: 1, borderRadius: 1, background: '#f9f9f9' }}>{selectedAssignment.assignment_guidelines || 'No guidelines.'}</Typography>
+        <Divider sx={{ my: 3 }} />
+        {/* Questions Section */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h6">Questions</Typography>
+          <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={openAddQuestionDialog} disabled={actionLoading}>Add Question</Button>
+        </Box>
+        {(!selectedAssignment.questions || !selectedAssignment.questions.length) && <Typography color="text.secondary" sx={{ fontStyle: 'italic', textAlign: 'center', py: 2 }}>No questions added yet.</Typography>}
+        {/* Drag and Drop List */}
+        {selectedAssignment.questions && selectedAssignment.questions.length > 0 && (
           <DragDropContext onDragEnd={onDragEnd}>
             <Droppable droppableId="questions">
               {(provided) => (
                 <List {...provided.droppableProps} ref={provided.innerRef}>
                   {selectedAssignment.questions.map((question, index) => (
-                    <Draggable
-                        key={`${selectedAssignment.assignment_id}-${question.question_index}`} // Use a more stable key if index changes
-                        draggableId={`${selectedAssignment.assignment_id}-${question.question_index}`}
-                        index={index}
-                        isDragDisabled={actionLoading} // Disable drag during actions
-                    >
+                    // Ensure keys and draggableId use numeric assignment_id and question_index
+                    <Draggable key={`${selectedAssignment.assignment_id}-${question.question_index}`} draggableId={`${selectedAssignment.assignment_id}-${question.question_index}`} index={index} isDragDisabled={actionLoading}>
                       {(providedDraggable, snapshot) => (
-                        <QuestionItem
-                          ref={providedDraggable.innerRef}
-                          {...providedDraggable.draggableProps}
-                          isDragging={snapshot.isDragging}
+                        <QuestionItem ref={providedDraggable.innerRef} {...providedDraggable.draggableProps} isDragging={snapshot.isDragging}
                           secondaryAction={
                             <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                              <IconButton edge="end" title="Edit Question" aria-label="edit" sx={{ mr: 0.5 }} onClick={() => openEditQuestionDialog(question)} disabled={actionLoading}>
-                                <EditIcon fontSize="small"/>
-                              </IconButton>
-                              <IconButton edge="end" title="Delete Question" aria-label="delete" onClick={() => openDeleteQuestionDialog(question.question_index)} disabled={actionLoading}>
-                                <DeleteIcon fontSize="small"/>
-                              </IconButton>
-                              <Box {...providedDraggable.dragHandleProps} sx={{ display: 'inline-flex', alignItems: 'center', ml: 1, cursor: actionLoading? 'not-allowed' : 'grab', color: actionLoading? 'text.disabled' : 'inherit' }}>
-                                  <DragIndicatorIcon />
-                              </Box>
+                              <IconButton edge="end" title="Edit Question" sx={{ mr: 0.5 }} onClick={() => openEditQuestionDialog(question)} disabled={actionLoading}><EditIcon fontSize="small"/></IconButton>
+                              <IconButton edge="end" title="Delete Question" onClick={() => openDeleteQuestionDialog(question.question_index)} disabled={actionLoading}><DeleteIcon fontSize="small"/></IconButton>
+                              <Box {...providedDraggable.dragHandleProps} sx={{ display: 'inline-flex', alignItems: 'center', ml: 1, cursor: actionLoading ? 'not-allowed' : 'grab', color: actionLoading ? 'text.disabled' : 'inherit' }} title="Drag to reorder"><DragIndicatorIcon /></Box>
                             </Box>
-                          }
-                        >
-                          <ListItemIcon sx={{ minWidth: 'auto', mr: 1.5 }}>
-                            <QuestionIcon fontSize="small"/>
-                          </ListItemIcon>
-                          <ListItemText
-                            primary={`Q${index + 1}: ${question.question_text}`}
-                            primaryTypographyProps={{ sx: { wordBreak: 'break-word' } }}
-                          />
+                          }>
+                          <ListItemIcon sx={{ minWidth: 'auto', mr: 1.5 }}><Typography variant="body2" sx={{ fontWeight: 'bold' }}>Q{index + 1}:</Typography></ListItemIcon>
+                          <ListItemText primary={`${question.question_text}`} primaryTypographyProps={{ sx: { wordBreak: 'break-word' } }} />
                         </QuestionItem>
                       )}
                     </Draggable>
@@ -814,223 +545,85 @@ export default function Assignments() {
         )}
       </Paper>
     );
-  };
+   };
 
-  // --- Main Return ---
+
+  // --- Main Component Return ---
   return (
-    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}> {/* Responsive padding */}
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 1 }}>
-        <IconButton
-          title="Back to Course"
-          aria-label="back to course"
-          onClick={() => router.push(`/course/${courseId}?semester=${semester}`)}
-          sx={{ mr: 1 }}
-        >
-          <ArrowBackIcon />
-        </IconButton>
-        <Typography variant="h4" component="h1" sx={{ flexGrow: 1 }}>
-          Course Assignments
-        </Typography>
-         <Button
-          variant="contained"
-          color="primary"
-          size="small"
-          startIcon={<AddIcon />}
-          onClick={() => setCreateDialogOpen(true)}
-          disabled={actionLoading}
-        >
-          Create Assignment
-        </Button>
+        <IconButton title="Back" aria-label="back" onClick={() => (courseId && semester) && router.push(`/course/${courseId}?semester=${semester}`)} disabled={!courseId || !semester} sx={{ mr: 1 }} ><ArrowBackIcon /></IconButton>
+        <Typography variant="h4" component="h1" sx={{ flexGrow: 1 }}>Course Assignments</Typography>
+        <Button variant="contained" color="primary" size="small" startIcon={<AddIcon />} onClick={openCreateDialog} disabled={actionLoading || !courseId || !semester} >Create Assignment</Button>
       </Box>
 
-      {/* Render Assignment List Section */}
+      {/* Assignment List */}
       <Typography variant="h5" sx={{ mb: 2 }}>Assignments List</Typography>
       {renderAssignmentList()}
 
       <Divider sx={{ my: 4 }} />
 
-      {/* Render Details of Selected Assignment Section */}
-       <Typography variant="h5" sx={{ mb: 2 }}>Selected Assignment Details</Typography>
+      {/* Selected Assignment Details */}
+      <Typography variant="h5" sx={{ mb: 2 }}>Selected Assignment Details</Typography>
       {renderAssignmentDetails()}
 
-
-      {/* --- DIALOGS --- */}
-      {/* Note: Moved dialog implementations outside render functions for clarity */}
+      {/* --- All Dialogs --- */}
       {/* Create Assignment Dialog */}
-      <Dialog open={createDialogOpen} onClose={() => !actionLoading && setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Create New Assignment</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            id="new-assignment-title" // Added id
-            name="assignment_title"
-            label="Assignment Title"
-            fullWidth
-            value={newAssignmentData.assignment_title}
-            onChange={(e) => handleInputChange(e, setNewAssignmentData)}
-            margin="dense" // Use dense margin
-            required
-            error={!newAssignmentData.assignment_title?.trim()} // Validate on trimmed value
-            helperText={!newAssignmentData.assignment_title?.trim() ? "Title is required" : ""}
-          />
-          <TextField
-             id="new-assignment-guidelines" // Added id
-            name="assignment_guidelines"
-            label="Assignment Guidelines"
-            fullWidth
-            multiline
-            rows={4}
-            value={newAssignmentData.assignment_guidelines}
-            onChange={(e) => handleInputChange(e, setNewAssignmentData)}
-            margin="dense" // Use dense margin
-            helperText="General instructions or requirements (optional)"
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCreateDialogOpen(false)} disabled={actionLoading}>Cancel</Button>
-          <Button onClick={handleCreateAssignment} variant="contained" color="primary" disabled={actionLoading || !newAssignmentData.assignment_title?.trim()}>
-            {actionLoading ? <CircularProgress size={24} /> : 'Create'}
-          </Button>
-        </DialogActions>
+       <Dialog open={createDialogOpen} onClose={() => !actionLoading && setCreateDialogOpen(false)} maxWidth="sm" fullWidth aria-labelledby="create-assignment-dialog-title">
+         <DialogTitle id="create-assignment-dialog-title">Create New Assignment</DialogTitle>
+         <DialogContent>
+            <TextField autoFocus id="new-assignment-title" name="assignment_title" label="Assignment Title" fullWidth value={newAssignmentData.assignment_title} onChange={(e) => handleInputChange(e, setNewAssignmentData)} margin="dense" required error={!newAssignmentData.assignment_title?.trim() && newAssignmentData.assignment_title !== ''} helperText={!newAssignmentData.assignment_title?.trim() && newAssignmentData.assignment_title !== '' ? "Title is required" : ""}/>
+            <TextField id="new-assignment-guidelines" name="assignment_guidelines" label="Assignment Guidelines (Optional)" fullWidth multiline rows={4} value={newAssignmentData.assignment_guidelines} onChange={(e) => handleInputChange(e, setNewAssignmentData)} margin="dense"/>
+         </DialogContent>
+         <DialogActions>
+            <Button onClick={() => setCreateDialogOpen(false)} disabled={actionLoading}>Cancel</Button>
+            <Button onClick={handleCreateAssignment} variant="contained" color="primary" disabled={actionLoading || !newAssignmentData.assignment_title?.trim()}>{actionLoading ? <CircularProgress size={24} /> : 'Create'}</Button>
+         </DialogActions>
       </Dialog>
-
       {/* Edit Assignment Dialog */}
-      <Dialog open={editAssignmentDialogOpen} onClose={() => !actionLoading && setEditAssignmentDialogOpen(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>Edit Assignment Info</DialogTitle>
+      <Dialog open={editAssignmentDialogOpen} onClose={() => !actionLoading && setEditAssignmentDialogOpen(false)} maxWidth="sm" fullWidth aria-labelledby="edit-assignment-dialog-title">
+         <DialogTitle id="edit-assignment-dialog-title">Edit Assignment Info</DialogTitle>
+         <DialogContent>
+            <TextField autoFocus id="edit-assignment-title" name="assignment_title" label="Assignment Title" fullWidth value={editAssignmentFormData.assignment_title} onChange={(e) => handleInputChange(e, setEditAssignmentFormData)} margin="dense" required error={!editAssignmentFormData.assignment_title?.trim() && editAssignmentFormData.assignment_title !== ''} helperText={!editAssignmentFormData.assignment_title?.trim() && editAssignmentFormData.assignment_title !== '' ? "Title is required" : ""}/>
+            <TextField id="edit-assignment-guidelines" name="assignment_guidelines" label="Assignment Guidelines (Optional)" fullWidth multiline rows={4} value={editAssignmentFormData.assignment_guidelines} onChange={(e) => handleInputChange(e, setEditAssignmentFormData)} margin="dense"/>
+         </DialogContent>
+         <DialogActions>
+            <Button onClick={() => setEditAssignmentDialogOpen(false)} disabled={actionLoading}>Cancel</Button>
+            <Button onClick={handleUpdateAssignment} variant="contained" color="primary" disabled={actionLoading || !editAssignmentFormData.assignment_title?.trim()}>{actionLoading ? <CircularProgress size={24} /> : 'Save Changes'}</Button>
+         </DialogActions>
+       </Dialog>
+       {/* Add Question Dialog */}
+      <Dialog open={addQuestionDialogOpen} onClose={() => !actionLoading && setAddQuestionDialogOpen(false)} maxWidth="md" fullWidth aria-labelledby="add-question-dialog-title">
+         <DialogTitle id="add-question-dialog-title">Add New Question</DialogTitle>
+         <DialogContent>
+             <TextField autoFocus id="add-question-text" name="question_text" label="Question Text" fullWidth multiline rows={6} value={questionData.question_text} onChange={(e) => handleInputChange(e, setQuestionData)} margin="dense" required error={!questionData.question_text?.trim() && questionData.question_text !== ''} helperText={!questionData.question_text?.trim() && questionData.question_text !== '' ? "Question text is required" : ""}/>
+             <Typography variant="caption" display="block" sx={{ mt: 1 }}>Graphics/Figures not yet supported.</Typography>
+         </DialogContent>
+         <DialogActions>
+            <Button onClick={() => setAddQuestionDialogOpen(false)} disabled={actionLoading}>Cancel</Button>
+            <Button onClick={handleAddQuestion} variant="contained" color="primary" disabled={actionLoading || !questionData.question_text?.trim()}>{actionLoading ? <CircularProgress size={24} /> : 'Add Question'}</Button>
+         </DialogActions>
+       </Dialog>
+       {/* Edit Question Dialog */}
+      <Dialog open={editQuestionDialogOpen} onClose={() => !actionLoading && setEditQuestionDialogOpen(false)} maxWidth="md" fullWidth aria-labelledby="edit-question-dialog-title">
+          <DialogTitle id="edit-question-dialog-title">Edit Question {questionData.question_index !== null ? `(Original Index ${questionData.question_index})` : ''}</DialogTitle>
           <DialogContent>
-              <TextField
-                  autoFocus
-                  id="edit-assignment-title" // Added id
-                  name="assignment_title"
-                  label="Assignment Title"
-                  fullWidth
-                  value={editAssignmentFormData.assignment_title}
-                  onChange={(e) => handleInputChange(e, setEditAssignmentFormData)}
-                  margin="dense"
-                  required
-                  error={!editAssignmentFormData.assignment_title?.trim()}
-                  helperText={!editAssignmentFormData.assignment_title?.trim() ? "Title is required" : ""}
-              />
-              <TextField
-                  id="edit-assignment-guidelines" // Added id
-                  name="assignment_guidelines"
-                  label="Assignment Guidelines"
-                  fullWidth
-                  multiline
-                  rows={4}
-                  value={editAssignmentFormData.assignment_guidelines}
-                  onChange={(e) => handleInputChange(e, setEditAssignmentFormData)}
-                  margin="dense"
-                  helperText="General instructions or requirements (optional)"
-              />
+             <TextField autoFocus id="edit-question-text" name="question_text" label="Question Text" fullWidth multiline rows={6} value={questionData.question_text} onChange={(e) => handleInputChange(e, setQuestionData)} margin="dense" required error={!questionData.question_text?.trim() && questionData.question_text !== ''} helperText={!questionData.question_text?.trim() && questionData.question_text !== '' ? "Question text is required" : ""}/>
+             <Typography variant="caption" display="block" sx={{ mt: 1 }}>Graphics/Figures not yet supported.</Typography>
           </DialogContent>
           <DialogActions>
-              <Button onClick={() => setEditAssignmentDialogOpen(false)} disabled={actionLoading}>Cancel</Button>
-              <Button onClick={handleUpdateAssignment} variant="contained" color="primary" disabled={actionLoading || !editAssignmentFormData.assignment_title?.trim()}>
-                 {actionLoading ? <CircularProgress size={24} /> : 'Save Changes'}
-              </Button>
+             <Button onClick={() => setEditQuestionDialogOpen(false)} disabled={actionLoading}>Cancel</Button>
+             <Button onClick={handleEditQuestion} variant="contained" color="primary" disabled={actionLoading || !questionData.question_text?.trim()}>{actionLoading ? <CircularProgress size={24} /> : 'Save Changes'}</Button>
           </DialogActions>
-      </Dialog>
+       </Dialog>
+       {/* Delete Assignment Confirmation Dialog */}
+      <ConfirmationDialog open={deleteAssignmentDialogOpen} onClose={() => !actionLoading && setDeleteAssignmentDialogOpen(false)} onConfirm={handleDeleteAssignment} title="Delete Assignment?" description={`Delete "${selectedAssignment?.assignment_title || 'this assignment'}" (ID: ${selectedAssignment?.assignment_id}) and all its questions/data? Cannot be undone.`} confirmText="Delete" cancelText="Cancel" confirmColor="error" loading={actionLoading}/>
+      {/* Delete Question Confirmation Dialog */}
+      <ConfirmationDialog open={deleteQuestionDialogOpen} onClose={() => !actionLoading && setDeleteQuestionDialogOpen(false)} onConfirm={handleDeleteQuestion} title="Delete Question?" description={`Delete question (Original Index ${questionToDeleteIndex !== null ? questionToDeleteIndex : ''}) from "${selectedAssignment?.assignment_title}"? Cannot be undone.`} confirmText="Delete" cancelText="Cancel" confirmColor="error" loading={actionLoading}/>
+      {/* Alert Snackbar */}
+      <Snackbar open={alertOpen} autoHideDuration={6000} onClose={() => setAlertOpen(false)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}><Alert onClose={() => setAlertOpen(false)} severity={alertSeverity} variant="filled" sx={{ width: '100%' }}>{alertMessage}</Alert></Snackbar>
 
-       {/* Add Question Dialog */}
-        <Dialog open={addQuestionDialogOpen} onClose={() => !actionLoading && setAddQuestionDialogOpen(false)} maxWidth="md" fullWidth>
-            <DialogTitle>Add New Question</DialogTitle>
-            <DialogContent>
-                <TextField
-                    autoFocus
-                    id="add-question-text" // Added id
-                    name="question_text"
-                    label="Question Text"
-                    fullWidth
-                    multiline
-                    rows={6}
-                    value={questionData.question_text}
-                    onChange={(e) => handleInputChange(e, setQuestionData)}
-                    margin="dense"
-                    required
-                    error={!questionData.question_text?.trim()}
-                    helperText={!questionData.question_text?.trim() ? "Question text is required" : ""}
-                />
-                {/* TODO: Add input for question_graphics_figures (e.g., file upload) */}
-                <Typography variant="caption" display="block" sx={{ mt: 1 }}>Graphics/Figures can be added later if needed.</Typography>
-            </DialogContent>
-            <DialogActions>
-                <Button onClick={() => setAddQuestionDialogOpen(false)} disabled={actionLoading}>Cancel</Button>
-                <Button onClick={handleAddQuestion} variant="contained" color="primary" disabled={actionLoading || !questionData.question_text?.trim()}>
-                   {actionLoading ? <CircularProgress size={24} /> : 'Add Question'}
-                </Button>
-            </DialogActions>
-        </Dialog>
-
-        {/* Edit Question Dialog */}
-        <Dialog open={editQuestionDialogOpen} onClose={() => !actionLoading && setEditQuestionDialogOpen(false)} maxWidth="md" fullWidth>
-            <DialogTitle>Edit Question {questionData.question_index !== null ? `(Q${questionData.question_index + 1})` : ''}</DialogTitle>
-            <DialogContent>
-                 <TextField
-                    autoFocus
-                    id="edit-question-text" // Added id
-                    name="question_text"
-                    label="Question Text"
-                    fullWidth
-                    multiline
-                    rows={6}
-                    value={questionData.question_text}
-                    onChange={(e) => handleInputChange(e, setQuestionData)}
-                    margin="dense"
-                    required
-                    error={!questionData.question_text?.trim()}
-                    helperText={!questionData.question_text?.trim() ? "Question text is required" : ""}
-                />
-                 {/* TODO: Add input for question_graphics_figures (e.g., file upload and preview) */}
-                 <Typography variant="caption" display="block" sx={{ mt: 1 }}>Graphics/Figures can be added later if needed.</Typography>
-            </DialogContent>
-            <DialogActions>
-                <Button onClick={() => setEditQuestionDialogOpen(false)} disabled={actionLoading}>Cancel</Button>
-                <Button onClick={handleEditQuestion} variant="contained" color="primary" disabled={actionLoading || !questionData.question_text?.trim()}>
-                    {actionLoading ? <CircularProgress size={24} /> : 'Save Changes'}
-                </Button>
-            </DialogActions>
-        </Dialog>
-
-      {/* Delete Assignment Confirmation */}
-      <ConfirmationDialog
-          open={deleteAssignmentDialogOpen}
-          onClose={() => !actionLoading && setDeleteAssignmentDialogOpen(false)}
-          onConfirm={handleDeleteAssignment}
-          title="Delete Assignment?"
-          description={`Are you sure you want to delete the assignment "${selectedAssignment?.assignment_title || 'this assignment'}"? This action will delete the assignment, all its questions, rubrics, and submitted responses. This cannot be undone.`}
-          confirmText="Delete"
-          cancelText="Cancel"
-          confirmColor="error"
-          loading={actionLoading}
-      />
-
-      {/* Delete Question Confirmation */}
-       <ConfirmationDialog
-          open={deleteQuestionDialogOpen}
-          onClose={() => !actionLoading && setDeleteQuestionDialogOpen(false)}
-          onConfirm={handleDeleteQuestion}
-          title="Delete Question?"
-          description={`Are you sure you want to delete question ${questionToDeleteIndex !== null ? questionToDeleteIndex + 1 : ''}? This will remove the question and may affect associated rubrics or responses. This cannot be undone.`}
-          confirmText="Delete"
-          cancelText="Cancel"
-          confirmColor="error"
-          loading={actionLoading}
-      />
-
-      {/* Snackbar for Alerts */}
-      <Snackbar
-          open={alertOpen}
-          autoHideDuration={6000}
-          onClose={() => setAlertOpen(false)}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        >
-          {/* Ensure Alert component is correctly imported from @mui/material */}
-          <Alert onClose={() => setAlertOpen(false)} severity={alertSeverity} variant="filled" sx={{ width: '100%' }}>
-            {alertMessage}
-          </Alert>
-      </Snackbar>
     </Box>
   );
 }
