@@ -305,6 +305,7 @@ class AzureVectorService:
 
 
 
+#will remove later 
 if __name__ == "__main__":
     # Setup logging configuration
     logging.basicConfig(level=logging.INFO)
