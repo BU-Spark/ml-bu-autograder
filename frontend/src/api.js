@@ -198,8 +198,8 @@ export const assignmentService = {
     }),
 
   // POST /assignment (Body: Assignment)
-  createAssignment: (assignmentData) =>
-    api.post('/assignment', assignmentData),
+  createAssignment: (Assignment) =>
+    api.post('/assignment', Assignment), // Expects full Assignment object
 
   // DELETE /assignment?course_id=...&semester=...&assignment_id=...
   deleteAssignment: (courseId, semester, assignmentId) =>

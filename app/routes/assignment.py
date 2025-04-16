@@ -77,24 +77,35 @@ user_from_auth = JWTService.get_instance().from_authorization_header
     }
 )
 async def create_assignment(
-        assignment: Assignment = Body(..., description="The assignment which to create."),
-        user_meta: UserToken = Depends(user_from_auth),
+    assignment: Assignment = Body(..., description="The assignment to create."),
+    user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
+    
     # Check if the course exists
-    course_exists = blob_uploader.course_exists(assignment.semester, assignment.course_id)
-    if not course_exists:
+    if not blob_uploader.course_exists(assignment.semester, assignment.course_id):
         raise HTTPException(status_code=404, detail="Course does not exist.")
-    # Check if user has perms on course
+    
+    # Check user permissions
     user = blob_uploader.get_user(user_meta.user_email)
-    if not user.authenticated_courses.__contains__((assignment.semester, assignment.course_id)):
+    if (assignment.semester, assignment.course_id) not in user.authenticated_courses:
         raise HTTPException(status_code=403, detail="Authenticated but access is not allowed.")
-    # Ensure assignment name isn't duplicated
+    
+    # Determine the next assignment_id.
+    # List all existing assignments for the course. Ensure that assignment_id can be parsed as integer.
+    if assignment.assignment_id is None:
+        # Either generate via a UUID or a sequence/querying the existing assignments.
+        # Example using uuid:
+        import uuid
+        assignment.assignment_id = str(uuid.uuid4())
+        print(f"Generated assignment_id: {assignment.assignment_id}")
+
+    # Check that the new assignment_id isn't already used (should be redundant if our method is correct)
     if blob_uploader.assignment_exists(assignment.semester, assignment.course_id, assignment.assignment_id):
         raise HTTPException(status_code=400, detail="Assignment already exists.")
-    # upload assignment metadata
+    
+    # Upload assignment metadata and questions
     blob_uploader.upload_assignment_metadata(assignment)
-    # upload assignment questions
     for i, question in enumerate(assignment.questions):
         blob_uploader.upload_question_metadata(
             assignment.semester, assignment.course_id, assignment.assignment_id, i, question
