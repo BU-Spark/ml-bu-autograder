@@ -3,6 +3,7 @@ from typing import List, Optional
 from fastapi import APIRouter, HTTPException, status, Query, Depends
 from pydantic import FilePath
 
+from Proof_of_Concept import StudentResponse
 from app.models import Course
 from app.models.grade import Grade
 from app.utils import JWTService, UserToken, get_str_var
@@ -15,20 +16,28 @@ user_from_auth = JWTService.get_instance().from_authorization_header
 def process_grading(json_str: str):
     # TODO: This function is called by bg_material_processor.py. It is responsible
     #  for processing the grading logic.
+
     #  Step 0: Convert the json string into a student response object
+    student_response = StudentResponse.model_validate_json(json_str)
     #  Step 1: Convert the student's response (which might be a pdf, txt, etc)
     #          into a Document object that we can work with.
+
     #  Step 2: Grab the rubric for the assignment and the question instructions
+
     #  Step 3: Query the vector database with the student's response grabbing all topn
     #          relevant documents.
+
     #  Step 4: Go grab those documents (texts and images) from Azure blob storage. It might
     #          also be possible to simply get azure to generate a URL for these documents
     #          and then send that to the LLM.
+
     #  Step 5: Once we have the RAG-ed documents associated with the prompt, use the
     #          assignment instructions, rubric, RAG-ed course material chunks, and student
     #          response to generate a prompt for auto-grading.
+
     #  Step 6: Grab the auto-graded response, upload it to Azure, and move on to the next assignment
     #          in the queue (if any).
+
     ...
 
 
