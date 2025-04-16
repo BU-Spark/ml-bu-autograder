@@ -35,7 +35,7 @@ class AzureEmbeddingService:
         )
         self.model = azure_embedding_model
 
-    def embed_text(self, texts: List[str], purpose: EmbeddingInputType) -> List[List[float]]:
+    def embed_texts(self, texts: List[str], purpose: EmbeddingInputType) -> List[List[float]]:
         """
         Generates embeddings for a list of text inputs.
 
@@ -53,7 +53,10 @@ class AzureEmbeddingService:
         )
         return [item.embedding for item in response.data]
 
-    def embed_image(self, image_format: Literal['png', 'jpeg'], base_64_image: str, text: Optional[str]) -> List[float]:
+    def embed_text(self, text: str, purpose: EmbeddingInputType) -> List[float]:
+        return self.embed_texts([text], purpose)[0]
+
+    def embed_image(self, mime_type: Literal['image/png', 'image/jpeg'], base_64_image: str, text: Optional[str]) -> List[float]:
         """
         Generates an embedding for a single image, optionally including associated text.
 
@@ -65,7 +68,7 @@ class AzureEmbeddingService:
         Returns:
             List[float]: The embedding for the given image as a list of float values.
         """
-        input_image = ImageEmbeddingInput(image=f"data:image/{image_format};base64,{base_64_image}", text=text)
+        input_image = ImageEmbeddingInput(image=f"data:{mime_type};base64,{base_64_image}", text=text)
         response = self.image_client.embed(
             input=[input_image],
             model=self.model,

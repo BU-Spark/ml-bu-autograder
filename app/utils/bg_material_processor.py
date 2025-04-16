@@ -35,7 +35,11 @@ class BackgroundMaterialProcessor:
         self.save_dir = save_dir
         self.job_manager = BackgroundJobManager(num_threads=4)
 
-    async def start_task_scan_loop(self):
+    def start_task_scan_loop(self):
+        loop = asyncio.get_event_loop()
+        loop.create_task(self._scan_loop())
+
+    async def _scan_loop(self):
         while True:
             files = os.listdir(self.save_dir)
             # randomly permute to improve the chances

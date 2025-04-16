@@ -1,13 +1,17 @@
 import uuid
-from typing import List
+from typing import List, Dict
 
+from azure.ai.inference.models import EmbeddingInputType
 from fastapi import APIRouter, HTTPException, Query, Body, Depends
 from pydantic import FilePath
 
 from app.models import Course
 from app.models.course_material import CourseMaterialData, CourseMaterialReference
-from app.utils import JWTService, UserToken, get_str_var, BackgroundJobManager
+from app.models.uploaded_file import DataType
+from app.utils import JWTService, UserToken, get_str_var, BackgroundJobManager, AzureEmbeddingService
+from app.utils.azure_ai_search_retriever import AzureAISearchRetriever
 from app.utils.azure_blob_service import AzureBlobService
+from app.utils.bytes_to_doc_util import Document
 
 router = APIRouter()
 user_from_auth = JWTService.get_instance().from_authorization_header
@@ -16,14 +20,48 @@ user_from_auth = JWTService.get_instance().from_authorization_header
 def process_course_material(json_str: str):
     # TODO: This function is called by bg_material_processor.py. It is responsible
     #       for processing the grading logic.
+
     #  Step 0: Convert the json string into CourseMaterialData
+    course_material = CourseMaterialData.model_validate_json(json_str)
     #  Step 2: Convert the binary data of the course material into document chunks using
     #          bytes_to_doc_util.py.
+    to_doc = course_material.data.data_type.get_to_doc_func()
+    document: Document = to_doc(f"{course_material.material_id}.{course_material.data.data_type.extension}",
+                                course_material.data.content)
     #  Step 3: Upload these chunks to azure and get the blob paths
+    blob_uploader = AzureBlobService.get_instance()
+    uploaded_chunks: Dict[int, str] = blob_uploader.upload_material_chunks(
+        course_material.semester,
+        course_material.course_id,
+        course_material.material_id,
+        document
+    )
     #  Step 4: Vectorize the chunks (text or images).
+    embedding_service = AzureEmbeddingService.get_instance()
+    vectorized_chunks: Dict[str, List[float]] = {}  # the key is blob_path, value is vector
+    text_paths: List[str] = []
+    texts: List[str] = []
+    for chunk_id, chunk_path in uploaded_chunks.items():
+        # if the way this is handled looks a bit convoluted, just know there is logic to the madness:
+        # specifically there are performance benefits to vectorizing a batch of texts together
+        # but on the other hand, images cannot be batched and must be processed individually
+        chunked_doc = document.get_chunk(chunk_id)
+        if chunked_doc.data_type.is_image():
+            vectorized_chunks[chunk_path] = embedding_service.embed_image(
+                chunked_doc.data_type.mime_type, chunked_doc.get_as_bytes()
+            )
+        elif chunked_doc.data_type == DataType.TEXT:
+            text_paths.append(chunk_path)
+            texts.append(chunked_doc.get_as_string())
+        else:
+            # the data types should only be either image or text
+            raise Exception(f"Unsupported data type: {course_material.data.data_type}")
+    vectors = embedding_service.embed_texts(texts, EmbeddingInputType.TEXT)
+    for blob_path, vector in zip(text_paths, vectors):
+        vectorized_chunks[blob_path] = vector
     #  Step 5: Take the pairs of the blob paths and vectorized chunks, and upload them
     #          to Azure's AI search. And thats it!
-    ...
+    # TODO: josh you do this
 
 @router.get(
     "/course_materials",

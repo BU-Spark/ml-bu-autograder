@@ -50,6 +50,9 @@ class Document:
         self.file_name = file_name
         self.contents = contents
 
+    def get_chunk(self, chunk_id) -> DocumentChunk:
+        return self.contents[chunk_id]
+
     # This method was AI generated: https://aistudio.google.com/app/prompts?state=%7B%22ids%22:%5B%2210BYwhnSJqSXol4OhtKIwAbFk6qUN3oZ7%22%5D,%22action%22:%22open%22,%22userId%22:%22112153521177605316268%22,%22resourceKeys%22:%7B%7D%7D&usp=sharing
     @classmethod
     def from_pdf(cls,

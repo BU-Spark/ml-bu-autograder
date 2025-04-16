@@ -1,8 +1,8 @@
-import asyncio
 import json
 import logging
 import mimetypes
 import shutil
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta, datetime, UTC
 from typing import List, Dict, Optional, Set
 
@@ -905,28 +905,25 @@ class AzureBlobService:
         logging.debug(f"Found {count} course materials for course {course_id} in semester {semester_key}")
         return count
 
-    async def upload_material_chunks(self, semester_key: str, course_id: str, material_id: str,
-                                     document: Document) -> Dict[int, str]:
-        """Asynchronously uploads RAG-able chunks of the course material. Returns a mapping of chunk index to blob name."""
+    def upload_material_chunks(self, semester_key: str, course_id: str, material_id: str,
+                               document: Document) -> Dict[int, str]:
         base_path = f"course/{semester_key}/{course_id}/course_material/{material_id}/chunks"
         full_base_path = self._full_path(base_path)
+        self.fs.rm(full_base_path, recursive=True)
 
-        # Delete existing chunks using thread offloading
-        await asyncio.to_thread(self.fs.rm, full_base_path, recursive=True)
-
-        mappings: Dict[int, str] = {}
-
-        async def upload_one(chunk_id, document_chunk):
+        def upload_one(chunk_id, document_chunk):
             blob_path = f"{full_base_path}/{chunk_id}.{document_chunk.data_type.extension}"
-            await asyncio.to_thread(self.upload_binary_data, document_chunk.content, blob_path, document_chunk.metadata)
-            mappings[chunk_id] = blob_path
+            self.upload_binary_data(document_chunk.content, blob_path, document_chunk.metadata)
             logging.info(f"Uploaded chunk {chunk_id} for {material_id}")
+            return chunk_id, blob_path
 
-        # Launch all uploads concurrently
-        await asyncio.gather(*[
-            upload_one(chunk_id, document_chunk)
-            for chunk_id, document_chunk in document.contents.items()
-        ])
+        # This is a IO-bound task so using multiple threads speeds stuff up a lot
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            results = executor.map(lambda chunk_id, document_chunk:
+                                   upload_one(chunk_id, document_chunk),
+                                   document.contents.items())
+
+        mappings = dict(results)
 
         return mappings
 
