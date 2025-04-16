@@ -6,6 +6,7 @@ and perform vector-based searches.
 
 import logging
 from typing import Optional, List, Mapping, Any
+import time 
 import requests
 from azure.core.credentials import AzureKeyCredential
 from azure.search.documents import SearchClient
@@ -244,3 +245,93 @@ class AzureVectorService:
         if azure_instance is None:
             logging.error("AzureVectorService instance not initialized. Call init_singleton first.")
         return azure_instance
+
+    def retrieve_closest_vectors_and_blob_paths(self, query_vector: List[float], top_k: int = 1) -> List[dict]:
+        """
+        Retrieve the closest matching documents based on the given vector.
+        Each result contains only the stored vector and associated metadata,
+        which includes the document's id and the blob file path.
+
+        Args:
+            query_vector (List[float]): The vector to search with.
+            top_k (int, optional): The number of closest results to return. Defaults to 1.
+
+        Returns:
+            List[dict]: A list of dictionaries, each containing:
+                - content_vector: The stored vector.
+                - metadata: A dictionary containing additional metadata such as 'id' and 'file_path'.
+        """
+        try:
+            # Build the search URL for your Azure Search index.
+            search_url = f"{self.endpoint}/indexes/{self.index_name}/docs/search?api-version=2023-07-01-Preview"
+            headers = {
+                "Content-Type": "application/json",
+                "api-key": self.api_key
+            }
+            
+            # Construct the payload for a vector search.
+            payload = {
+                "search": "",  # Must be provided even if not doing a keyword search.
+                "top": top_k,
+                "vector": {
+                    "value": query_vector,
+                    "fields": "content_vector",
+                    "k": top_k
+                }
+            }
+            payload = {k: v for k, v in payload.items() if v is not None}
+            
+            # Execute the POST request.
+            response = requests.post(search_url, headers=headers, json=payload)
+            response.raise_for_status()
+            
+            # Parse the response and extract only the vector and metadata.
+            data = response.json().get("value", [])
+            results = []
+            for result in data:
+                results.append({
+                    "content_vector": result.get("content_vector"),
+                    "metadata": {
+                        "id": result.get("id"),
+                        "file_path": result.get("file_path")
+                    }
+                })
+                logging.info(f"Retrieved Document - ID: {result.get('id')}, File Path: {result.get('file_path')}")
+                logging.info(f"Vector score: {result.get("content_vector")}")
+            return results
+        except Exception as e:
+            logging.error("❌ Error retrieving closest vectors: " + str(e), exc_info=True)
+            return []
+
+
+
+if __name__ == "__main__":
+    # Setup logging configuration
+    logging.basicConfig(level=logging.INFO)
+
+    # Replace these with your actual Azure Search service details.
+    endpoint = "endpoint"
+    api_key = "api_key"
+    index_name = "index_name"
+
+    # Initialize the AzureVectorService singleton.
+    AzureVectorService.init_singleton(endpoint, api_key, index_name)
+    service = AzureVectorService.get_instance()
+
+    # Prepare a test document with a dummy vector (ensure the vector length matches the embedding dimensions)
+    test_vector = [0.1] * 1536  # Example vector for testing.
+    test_doc_id = "test-doc-1"
+    test_blob_path = "blob/test/doc1"
+
+    # Wait a short moment to allow the indexing process to complete.
+    logging.info("Waiting for the document to be indexed...")
+    time.sleep(5)
+
+    # Retrieve the closest matching vectors and associated metadata (vector and metadata include id and file_path).
+    logging.info("Retrieving the closest matching vectors and metadata...")
+    results = service.retrieve_closest_vectors_and_blob_paths(test_vector, top_k=2)
+
+    # Display the results.
+    print("\nSearch Results:")
+    for result in results:
+        print(result)
