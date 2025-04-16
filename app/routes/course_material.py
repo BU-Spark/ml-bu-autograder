@@ -13,6 +13,18 @@ router = APIRouter()
 user_from_auth = JWTService.get_instance().from_authorization_header
 
 
+def process_course_material(json_str: str):
+    # TODO: This function is called by bg_material_processor.py. It is responsible
+    #       for processing the grading logic.
+    #  Step 0: Convert the json string into CourseMaterialData
+    #  Step 2: Convert the binary data of the course material into document chunks using
+    #          bytes_to_doc_util.py.
+    #  Step 3: Upload these chunks to azure and get the blob paths
+    #  Step 4: Vectorize the chunks (text or images).
+    #  Step 5: Take the pairs of the blob paths and vectorized chunks, and upload them
+    #          to Azure's AI search. And thats it!
+    ...
+
 @router.get(
     "/course_materials",
     response_model=List[CourseMaterialReference],
@@ -130,7 +142,7 @@ async def upload_course_material(
     # Save object to file otherwise if too many requests
     # accumulate we will run out of ram very quick
     random_uuid = uuid.uuid4()
-    save_path = FilePath(f"{get_str_var('AZURE_BLOB_CACHE_DIR')}/{random_uuid}.{material.data.data_type.extension}")
+    save_path = FilePath(f"{get_str_var('AZURE_BLOB_CACHE_DIR')}/{random_uuid}.course_materials.json")
 
     # A background process will pick this up and process it trust.
     # See app/utils/bg_material_processor.py.

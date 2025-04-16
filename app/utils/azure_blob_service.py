@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import mimetypes
@@ -14,7 +15,7 @@ from pydantic import EmailStr, FilePath, BaseModel, HttpUrl
 
 from app.models import *
 from app.models.uploaded_file import UploadedFileReference, DataType, UploadedFileData
-from app.utils.file_to_doc_util import Document, DocumentChunk
+from app.utils.bytes_to_doc_util import Document, DocumentChunk
 
 azure_blob_uploader: Optional["AzureBlobService"] = None
 
@@ -692,21 +693,11 @@ class AzureBlobService:
 
     def delete_course_material(self, semester_key: str, course_id: str, material_id: str):
         """Deletes specific course material."""
-        pattern = f"course/{semester_key}/{course_id}/course_material/{material_id}.*"
-        full_pattern = self._full_path(pattern)
-        logging.debug(f"Deleting course material using pattern: {full_pattern}")
-
-        # Expect exactly one matching file.
-        matching_files = self.fs.glob(full_pattern)
-        if not matching_files:
-            logging.debug(f"No course material found for material_id {material_id} in course {course_id}")
-            return
-
-        # As we expect only one file, delete the first (and only) match.
-        file_path = matching_files[0]
-        relative_path = file_path.split('/', 1)[1] if '/' in file_path else file_path
-        self.delete_blob(relative_path)
-
+        prefix = f"course/{semester_key}/{course_id}/course_material/{material_id}/"
+        full_prefix = self._full_path(prefix)
+        # Even though there is only one course material, because we also store the course material's
+        # processed chunks here, there can be multiple matching files
+        self.fs.rm(full_prefix, recursive=True)
         logging.info(f"Deleted course material {material_id} for course {course_id}")
 
     def delete_question_metadata(self, semester_key: str, course_id: str, assignment_id: str, question_index: int):
@@ -787,7 +778,7 @@ class AzureBlobService:
         """
         Lists all course materials for a given course.
         """
-        pattern = f"course/{semester_key}/{course_id}/course_material/*.*"
+        pattern = f"course/{semester_key}/{course_id}/course_material/*/material.*"
         materials = []
         full_pattern = self._full_path(pattern)
         logging.debug(f"Listing course materials for course {course_id} using pattern: {full_pattern}")
@@ -882,7 +873,7 @@ class AzureBlobService:
         """
         Checks if course material exists for the given semester, course, and material_id.
         """
-        pattern = f"course/{semester_key}/{course_id}/course_material/{material_id}.*"
+        pattern = f"course/{semester_key}/{course_id}/course_material/{material_id}/material.*"
         full_pattern = self._full_path(pattern)
         logging.debug(f"Checking existence of course material with pattern: {full_pattern}")
 
@@ -908,32 +899,35 @@ class AzureBlobService:
 
     def count_course_materials(self, semester_key: str, course_id: str) -> int:
         """Counts course materials for a given semester, course, and material_id."""
-        pattern = f"course/{semester_key}/{course_id}/course_material/*"
+        pattern = f"course/{semester_key}/{course_id}/course_material/*/material.*"
         files = self.fs.glob(self._full_path(pattern))
         count = len(files)
         logging.debug(f"Found {count} course materials for course {course_id} in semester {semester_key}")
         return count
 
-    def upload_material_chunk(self, semester_key: str, course_id: str,
-                              material_id: str, chunk_id: int, document_chunk: DocumentChunk):
-        blob_path = (f"course/{semester_key}/{course_id}/course_material/"
-                     f"{material_id}/chunks/{chunk_id}.{document_chunk.data_type.extension}")
-        full_path = self._full_path(blob_path)
-
-    def upload_material_chunks(self, semester_key: str, course_id: str, material_id: str,
-                               document: Document) -> Dict[int, str]:
-        """Uploads RAG-able chunks of the course material. Returns a mapping of chunk index to blob name."""
+    async def upload_material_chunks(self, semester_key: str, course_id: str, material_id: str,
+                                     document: Document) -> Dict[int, str]:
+        """Asynchronously uploads RAG-able chunks of the course material. Returns a mapping of chunk index to blob name."""
         base_path = f"course/{semester_key}/{course_id}/course_material/{material_id}/chunks"
         full_base_path = self._full_path(base_path)
-        # first delete existing chunks (may or may not be there)
-        self.fs.rm(full_base_path, recursive=True)
-        # then upload the new chunks
-        mappings = {}
-        for chunk_id, document_chunk in document.contents.items():
+
+        # Delete existing chunks using thread offloading
+        await asyncio.to_thread(self.fs.rm, full_base_path, recursive=True)
+
+        mappings: Dict[int, str] = {}
+
+        async def upload_one(chunk_id, document_chunk):
             blob_path = f"{full_base_path}/{chunk_id}.{document_chunk.data_type.extension}"
-            self.upload_binary_data(document_chunk.content, blob_path, document_chunk.metadata)
+            await asyncio.to_thread(self.upload_binary_data, document_chunk.content, blob_path, document_chunk.metadata)
             mappings[chunk_id] = blob_path
             logging.info(f"Uploaded chunk {chunk_id} for {material_id}")
+
+        # Launch all uploads concurrently
+        await asyncio.gather(*[
+            upload_one(chunk_id, document_chunk)
+            for chunk_id, document_chunk in document.contents.items()
+        ])
+
         return mappings
 
     @staticmethod

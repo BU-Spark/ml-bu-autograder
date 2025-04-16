@@ -7,6 +7,7 @@ from typing import Optional, TextIO, Callable
 import portalocker
 from pydantic import FilePath
 
+from app.routes import grading, course_material
 from app.utils import BackgroundJobManager
 
 """
@@ -41,22 +42,30 @@ class BackgroundMaterialProcessor:
             # of a fair distribution between processes
             random.shuffle(files)
             for file in files:
+
+                process_func: Callable[[str], None]
+                if file.endswith(".course_materials.json"):
+                    process_func = course_material.process_course_material
+                elif file.endswith(".student_response.json"):
+                    process_func = grading.process_grading
+                else:
+                    logging.warning(f"Unknown file type: {file} in unprocessed files. Skipping.")
+                    continue
+
                 self.job_manager.submit_job(
                     self.process,
                     self.save_dir / file,
-                    self.process_course_material_job if
-                    # TODO: is this even a good way?
-                    file.startswith("course_material_job_")
-                    else self.process_grading,
+                    process_func,
                 )
+
                 # add a small random delay between to improve the
                 # chances of a fair distribution between processes
-                await asyncio.sleep(random.random())
+                await asyncio.sleep(random.random() * 0.25)
             # sleep for 30 seconds
             await asyncio.sleep(30)
 
     @classmethod
-    def process(cls, file_path: FilePath, process_func: Callable[[TextIO], None] = None):
+    def process(cls, file_path: FilePath, process_func: Callable[[str], None] = None):
         f = cls.open_file_with_lock(file_path, "r+")
         if f is None:
             return
@@ -68,7 +77,8 @@ class BackgroundMaterialProcessor:
             f.close()
             return
         logging.info(f"Processing {file_path}")
-        process_func(f)
+        json_str = f.read()
+        process_func(json_str)
         # can't delete the file in all platforms without releasing the lock
         # and so to prevent duplicate processing (since we will need to release the
         # lock to actually delete it), we first wipe the contents of the file
@@ -77,16 +87,6 @@ class BackgroundMaterialProcessor:
         f.close()
         # attempt safe deletion
         cls.safe_delete(file_path)
-
-    @classmethod
-    def process_grading(cls, io: TextIO):
-        # TODO
-        ...
-
-    @classmethod
-    def process_course_material_job(cls, io: TextIO):
-        # TODO
-        ...
 
     """
     Open a file for reading and locking it. Must do so since there might be multiple processes

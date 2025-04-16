@@ -1,11 +1,12 @@
+import base64
 import logging
+from builtins import bytes
+from io import BytesIO
+from pathlib import Path
+from typing import Dict, List, Tuple, Any, Optional
 
 import fitz  # PyMuPDF
-import base64
-from typing import Dict, List, Tuple, Any, Optional
-from pathlib import Path
-
-from pydantic import FilePath, BaseModel, Field  # Use pydantic BaseModel for DocumentChunk
+from pydantic import BaseModel  # Use pydantic BaseModel for DocumentChunk
 
 from app.models.uploaded_file import DataType
 
@@ -49,19 +50,11 @@ class Document:
         self.file_name = file_name
         self.contents = contents
 
-    @classmethod
-    def _validate_path(cls, file_path: FilePath) -> Path:
-        """Helper to validate file path existence."""
-        if not file_path.exists():
-            raise FileNotFoundError(f"No such file: {file_path}")
-        if not file_path.is_file():
-            raise ValueError(f"Path is not a file: {file_path}")
-        return file_path
-
     # This method was AI generated: https://aistudio.google.com/app/prompts?state=%7B%22ids%22:%5B%2210BYwhnSJqSXol4OhtKIwAbFk6qUN3oZ7%22%5D,%22action%22:%22open%22,%22userId%22:%22112153521177605316268%22,%22resourceKeys%22:%7B%7D%7D&usp=sharing
     @classmethod
     def from_pdf(cls,
-                 file_path: FilePath,
+                 file_name: str,
+                 file_bytes: bytes,
                  split_len: Optional[int] = 500,
                  overlap: int = 50,
                  min_image_bytes: int = 0) -> Optional["Document"]:
@@ -69,7 +62,8 @@ class Document:
         Extracts text and images from a PDF file in reading order, chunking text content.
 
         Args:
-            file_path: Path to the PDF file.
+            file_name: Path to the PDF file.
+            file_bytes: Bytes of the PDF file.
             split_len: Maximum number of words for text chunks. Chunks are created when
                        this limit is reached, an image is encountered, or the document ends.
                        If set to None, text splitting based on length is disabled, and text
@@ -88,7 +82,6 @@ class Document:
             ValueError: If overlap is greater than or equal to split_len when split_len is not None.
             Exception: For errors during PDF processing.
         """
-        file_path = Document._validate_path(file_path)
 
         if split_len is not None and overlap >= split_len:
             raise ValueError(
@@ -104,7 +97,8 @@ class Document:
 
         doc = None
         try:
-            doc = fitz.open(str(file_path))  # PyMuPDF needs a string path
+            binary_stream = BytesIO(file_bytes)
+            doc = fitz.open(stream=binary_stream, filetype="pdf")
 
             for page_num_zero_based, page in enumerate(doc):
                 page_num_one_based = page_num_zero_based + 1
@@ -262,7 +256,7 @@ class Document:
                 )
 
         except fitz.FileNotFoundError as e:
-            logging.error(f"PyMuPDF could not find or open file {file_path}: {e}")
+            logging.error(f"PyMuPDF could not find or open file {file_name}: {e}")
             return None
         except Exception as e:
             logging.error(f"An error occurred during PDF processing: {e}")
@@ -271,12 +265,13 @@ class Document:
             if doc:
                 doc.close()
 
-        return cls(file_name=file_path.name, contents=contents)
+        return cls(file_name=file_name, contents=contents)
 
     # This method was generated using AI: https://aistudio.google.com/app/prompts?state=%7B%22ids%22:%5B%221LjDioKGc-5H78OUXySRbPlJh0TUB0nYv%22%5D,%22action%22:%22open%22,%22userId%22:%22112153521177605316268%22,%22resourceKeys%22:%7B%7D%7D&usp=sharing
     @classmethod
     def from_txt(cls,
-                 file_path: FilePath,
+                 file_name: str,
+                 file_bytes: bytes,
                  split_len: int = 500,  # Default split length for text
                  overlap: int = 50,  # Default overlap for text
                  encoding: str = 'utf-8') -> Optional["Document"]:
@@ -284,7 +279,8 @@ class Document:
         Extracts text from a plain text file, chunking the content by words.
 
         Args:
-            file_path: Path to the TXT file.
+            file_name: Name of the file
+            file_bytes: Bytes of the text file.
             split_len: Maximum number of words per text chunk.
             overlap: Number of words from the end of the previous text chunk to include
                      at the beginning of the next chunk. Must be less than split_len.
@@ -297,7 +293,6 @@ class Document:
             FileNotFoundError: If the file_path does not exist or is not a file.
             ValueError: If overlap is greater than or equal to split_len.
         """
-        file_path = Document._validate_path(file_path)
 
         if overlap >= split_len:
             raise ValueError(f"Overlap ({overlap}) must be less than split_len ({split_len}).")
@@ -306,7 +301,7 @@ class Document:
         chunk_id_counter = 0
 
         try:
-            full_text = file_path.read_text(encoding=encoding)
+            full_text = file_bytes.decode(encoding)  # Read the entire file content to a string
             words = full_text.split()  # Split by whitespace
             words = [w for w in words if w]  # Remove empty strings resulting from multiple spaces
 
@@ -347,63 +342,47 @@ class Document:
                 else:
                     current_word_index = next_start_index
 
-
-        except FileNotFoundError:  # Already handled by _validate_path, but good practice
-            return None
         except UnicodeDecodeError as e:
-            logging.error(f"Encoding error reading {file_path} with {encoding}: {e}")
-            return None
-        except IOError as e:
-            logging.error(f"IO error reading {file_path}: {e}")
+            logging.error(f"Encoding error reading {file_name} with {encoding}: {e}")
             return None
         except Exception as e:
-            logging.error(f"An unexpected error occurred during TXT processing '{file_path}': {e}", exc_info=True)
+            logging.error(f"An unexpected error occurred during TXT processing '{file_name}': {e}", exc_info=True)
             return None
 
-        return cls(file_name=file_path.name, contents=contents)
+        return cls(file_name=file_name, contents=contents)
 
     # This method was generated using AI: https://aistudio.google.com/app/prompts?state=%7B%22ids%22:%5B%221LjDioKGc-5H78OUXySRbPlJh0TUB0nYv%22%5D,%22action%22:%22open%22,%22userId%22:%22112153521177605316268%22,%22resourceKeys%22:%7B%7D%7D&usp=sharing
     @classmethod
     def _from_binary_file(cls,
-                          file_path: FilePath,
+                          file_name: str,
+                          file_bytes: bytes,
                           data_type: DataType) -> Optional["Document"]:
         """Reads a binary file entirely into a single chunk."""
-        validated_path = cls._validate_path(file_path)
+
         contents: Dict[int, DocumentChunk] = {}
 
         try:
-            file_bytes = validated_path.read_bytes()
-
-            if not file_bytes:
-                logging.warning(f"Binary file is empty: {validated_path}")
-                return None
-
             chunk = DocumentChunk(
                 data_type=data_type,
                 content=file_bytes,
             )
             contents[0] = chunk  # Single chunk with ID 0
-
-        except FileNotFoundError:  # Should be caught by _validate_path
-            return None
-        except IOError as e:
-            logging.error(f"IO error reading binary file {validated_path}: {e}")
-            return None
         except Exception as e:
-            logging.error(f"An unexpected error occurred during binary file processing '{validated_path}': {e}",
+            logging.error(f"An unexpected error occurred during binary file processing '{file_name}': {e}",
                           exc_info=True)
             return None
 
-        return cls(file_name=validated_path.name, contents=contents)
+        return cls(file_name=file_name, contents=contents)
 
     # This method was generated using AI: https://aistudio.google.com/app/prompts?state=%7B%22ids%22:%5B%221LjDioKGc-5H78OUXySRbPlJh0TUB0nYv%22%5D,%22action%22:%22open%22,%22userId%22:%22112153521177605316268%22,%22resourceKeys%22:%7B%7D%7D&usp=sharing
     @classmethod
-    def from_png(cls, file_path: FilePath) -> "Document":
+    def from_png(cls, file_name: str, file_bytes: bytes,) -> "Document":
         """
         Loads a PNG image file into a single DocumentChunk.
 
         Args:
-            file_path: Path to the PNG file.
+            file_name: Name of the file
+            file_bytes: Bytes of the png image file.
 
         Returns:
             A Document object containing one image chunk.
@@ -411,18 +390,19 @@ class Document:
         Raises:
             FileNotFoundError: If the file_path does not exist or is not a file.
         """
-        logging.info(f"Processing PNG file: {file_path}")
+        logging.info(f"Processing PNG file: {file_name}")
         # Delegate to the helper method
-        return cls._from_binary_file(file_path, DataType.PNG)
+        return cls._from_binary_file(file_name, file_bytes, DataType.PNG)
 
     # This method was generated using AI: https://aistudio.google.com/app/prompts?state=%7B%22ids%22:%5B%221LjDioKGc-5H78OUXySRbPlJh0TUB0nYv%22%5D,%22action%22:%22open%22,%22userId%22:%22112153521177605316268%22,%22resourceKeys%22:%7B%7D%7D&usp=sharing
     @classmethod
-    def from_jpeg(cls, file_path: FilePath) -> "Document":
+    def from_jpeg(cls, file_name: str, file_bytes: bytes,) -> "Document":
         """
         Loads a JPG/JPEG image file into a single DocumentChunk.
 
         Args:
-            file_path: Path to the JPG/JPEG file.
+            file_name: Name of the file
+            file_bytes: Bytes of the jpeg image file.
 
         Returns:
             A Document object containing one image chunk.
@@ -430,44 +410,44 @@ class Document:
         Raises:
             FileNotFoundError: If the file_path does not exist or is not a file.
         """
-        logging.info(f"Processing JPG/JPEG file: {file_path}")
+        logging.info(f"Processing JPG/JPEG file: {file_name}")
         # Delegate to the helper method
-        return cls._from_binary_file(file_path, DataType.JPEG)
+        return cls._from_binary_file(file_name, file_bytes, DataType.JPEG)
 
     @classmethod
-    def from_mp3(cls, file_path: FilePath, split_min: float = 2.0, overlap: float = 0.33) -> "Document":
+    def from_mp3(cls, file_name: str, file_bytes: bytes, split_min: float = 2.0, overlap: float = 0.33) -> "Document":
         raise NotImplementedError("from_mp3 is not implemented")
 
     @classmethod
-    def from_wav(cls, file_path: FilePath, split_min: float = 2.0, overlap: float = 0.33) -> "Document":
+    def from_wav(cls, file_name: str, file_bytes: bytes, split_min: float = 2.0, overlap: float = 0.33) -> "Document":
         raise NotImplementedError("from_wav is not implemented")
 
     @classmethod
-    def from_mp4(cls, file_path: FilePath, split_min: float = 2.0, overlap: float = 0.33) -> "Document":
+    def from_mp4(cls, file_name: str, file_bytes: bytes, split_min: float = 2.0, overlap: float = 0.33) -> "Document":
         raise NotImplementedError("from_mp4 is not implemented")
 
     @classmethod
-    def from_xlsx(cls, file_path: FilePath, split_len: int = 5000, overlap: int = 0) -> "Document":
+    def from_xlsx(cls, file_name: str, file_bytes: bytes, split_len: int = 5000, overlap: int = 0) -> "Document":
         raise NotImplementedError("from_xlsx is not implemented")
 
     @classmethod
-    def from_csv(cls, file_path: FilePath, split_len: int = 5000, overlap: int = 0) -> "Document":
+    def from_csv(cls, file_name: str, file_bytes: bytes, split_len: int = 5000, overlap: int = 0) -> "Document":
         raise NotImplementedError("from_csv is not implemented")
 
     @classmethod
-    def from_json(cls, file_path: FilePath, split_len: int = 5000, overlap: int = 0) -> "Document":
+    def from_json(cls, file_name: str, file_bytes: bytes, split_len: int = 5000, overlap: int = 0) -> "Document":
         raise NotImplementedError("from_json is not implemented")
 
     @classmethod
-    def from_doc(cls, file_path: FilePath, split_len: int = 5000, overlap: int = 0) -> "Document":
+    def from_doc(cls, file_name: str, file_bytes: bytes, split_len: int = 5000, overlap: int = 0) -> "Document":
         raise NotImplementedError("from_doc is not implemented")
 
     @classmethod
-    def from_pptx(self, file_path: FilePath, split_len: int = 5000, overlap: int = 0) -> "Document":
+    def from_pptx(cls, file_name: str, file_bytes: bytes, split_len: int = 5000, overlap: int = 0) -> "Document":
         raise NotImplementedError("from_pptx is not implemented")
 
     @classmethod
-    def from_html(self, file_path: FilePath, split_len: int = 5000, overlap: int = 0) -> "Document":
+    def from_html(cls, file_name: str, file_bytes: bytes, split_len: int = 5000, overlap: int = 0) -> "Document":
         raise NotImplementedError("from_html is not implemented")
 
 
@@ -510,7 +490,11 @@ if __name__ == '__main__':
         # Test Case 1: Standard splitting with overlap
         split_words = 50
         overlap_words = 10
-        document1 = Document.from_pdf(dummy_pdf_path,
+
+        bytes = open(dummy_pdf_path, "rb").read()
+        file_name = "dummy.pdf"
+
+        document1 = Document.from_pdf(file_name, bytes,
                                       split_len=split_words,
                                       overlap=overlap_words,
                                       min_image_bytes=0)  # Include all "images" (none in this dummy)
@@ -518,7 +502,7 @@ if __name__ == '__main__':
                                f"Test 1: split_len={split_words}, overlap={overlap_words}, min_image_bytes=0")
 
         # Test Case 2: No length splitting (split_len=None)
-        document2 = Document.from_pdf(dummy_pdf_path,
+        document2 = Document.from_pdf(file_name, bytes,
                                       split_len=None,
                                       overlap=overlap_words,  # Overlap will be ignored
                                       min_image_bytes=0)
@@ -529,7 +513,7 @@ if __name__ == '__main__':
         # Test Case 3: Splitting with high min_image_bytes (won't affect this dummy PDF)
         # If the dummy PDF had real images, this setting could cause them to be skipped.
         high_min_bytes = 1024 * 1024  # 1 MB
-        document3 = Document.from_pdf(dummy_pdf_path,
+        document3 = Document.from_pdf(file_name, bytes,
                                       split_len=split_words,
                                       overlap=overlap_words,
                                       min_image_bytes=high_min_bytes)

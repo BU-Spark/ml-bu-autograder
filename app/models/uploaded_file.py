@@ -33,8 +33,8 @@ class DataType(Enum):
     def __str__(self):
         return f"{self.extension} ({self.mime_type})"
 
-    def get_to_doc_func(self):
-        from app.utils.file_to_doc_util import Document
+    def get_to_doc_func(self) -> Callable[[str, bytes], "Document"]:
+        from app.utils.bytes_to_doc_util import Document
         if self == DataType.PNG:
             return Document.from_png
         elif self == DataType.JPEG:
