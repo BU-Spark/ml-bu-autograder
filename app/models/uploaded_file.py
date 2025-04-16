@@ -1,8 +1,7 @@
-import base64
 from enum import Enum
-from typing import Optional, Dict, Callable
+from typing import Optional, Callable
 
-from pydantic import BaseModel, Field, field_validator, HttpUrl, FilePath
+from pydantic import BaseModel, Field, HttpUrl, FilePath
 
 
 class DataType(Enum):

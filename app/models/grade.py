@@ -19,13 +19,11 @@ class Grade(BaseModel):
         None, description="Optional explanation for the grade, based on the rubric."
     )
 
-    
     @field_validator("student_id", "course_id", mode="before")
     def normalize_lowercase(cls, value: str) -> str:
         """Converts course_id and semester to lowercase and trims spaces."""
         return value.strip().lower()
 
-    
     @field_validator("semester", mode='before')
     def validate_semester(cls, value: str) -> str:
         """Converts to lowercase and trims spaces."""

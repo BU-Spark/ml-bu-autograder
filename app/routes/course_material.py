@@ -8,8 +8,7 @@ from pydantic import FilePath
 from app.models import Course
 from app.models.course_material import CourseMaterialData, CourseMaterialReference
 from app.models.uploaded_file import DataType
-from app.utils import JWTService, UserToken, get_str_var, BackgroundJobManager, AzureEmbeddingService
-from app.utils.azure_ai_search_retriever import AzureAISearchRetriever
+from app.utils import JWTService, UserToken, get_str_var, AzureEmbeddingService
 from app.utils.azure_blob_service import AzureBlobService
 from app.utils.bytes_to_doc_util import Document
 

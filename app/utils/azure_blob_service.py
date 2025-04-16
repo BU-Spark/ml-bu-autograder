@@ -2,7 +2,7 @@ import json
 import logging
 import mimetypes
 import shutil
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import timedelta, datetime, UTC
 from typing import List, Dict, Optional, Set
 
@@ -69,6 +69,9 @@ class AzureBlobService:
         self.account_name = self.abfs.account_name
         self.account_url = f"https://{self.account_name}.blob.core.windows.net"
         self.blob_service_client = BlobServiceClient(self.account_url, credential=self.abfs.credential)
+
+        # init a thread pool executor since there is plenty of IO-bound tasks here...
+        self.executor = ThreadPoolExecutor(max_workers=4)
 
         self.container = container_name
         logging.info(f"Initialized AzureBlobService for container '{container_name}'")
@@ -918,10 +921,9 @@ class AzureBlobService:
             return chunk_id, blob_path
 
         # This is a IO-bound task so using multiple threads speeds stuff up a lot
-        with ThreadPoolExecutor(max_workers=4) as executor:
-            results = executor.map(lambda chunk_id, document_chunk:
-                                   upload_one(chunk_id, document_chunk),
-                                   document.contents.items())
+        results = self.executor.map(lambda chunk_id, document_chunk:
+                                    upload_one(chunk_id, document_chunk),
+                                    document.contents.items())
 
         mappings = dict(results)
 

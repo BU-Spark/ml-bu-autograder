@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, field_validator
 from app.models import Grade
 from app.models.uploaded_file import UploadedFileData, UploadedFileReference
 
+
 class StudentResponseBase(BaseModel):
     student_id: str = Field(
         ..., description="Unique identifier for the student submitting the response."

@@ -2,13 +2,13 @@ import asyncio
 import logging
 import os
 import random
+from concurrent.futures import ThreadPoolExecutor
 from typing import Optional, TextIO, Callable
 
 import portalocker
 from pydantic import FilePath
 
 from app.routes import grading, course_material
-from app.utils import BackgroundJobManager
 
 """
 Process material files in the background including processing the RAG pipeline for the course
@@ -25,7 +25,6 @@ The reason we do it like this is because:
 
 class BackgroundMaterialProcessor:
     save_dir: FilePath
-    job_manager: BackgroundJobManager
 
     def __init__(self, save_dir: FilePath):
         if not save_dir.exists():
@@ -33,7 +32,7 @@ class BackgroundMaterialProcessor:
         if not save_dir.is_dir():
             raise ValueError(f"save_dir must be a directory, got {save_dir}")
         self.save_dir = save_dir
-        self.job_manager = BackgroundJobManager(num_threads=4)
+        self.executor = ThreadPoolExecutor(max_workers=4)
 
     def start_task_scan_loop(self):
         loop = asyncio.get_event_loop()
@@ -56,11 +55,8 @@ class BackgroundMaterialProcessor:
                     logging.warning(f"Unknown file type: {file} in unprocessed files. Skipping.")
                     continue
 
-                self.job_manager.submit_job(
-                    self.process,
-                    self.save_dir / file,
-                    process_func,
-                )
+                future = self.executor.submit(self.process, self.save_dir / file, process_func)
+                future.add_done_callback(self._log_future_exceptions)
 
                 # add a small random delay between to improve the
                 # chances of a fair distribution between processes
@@ -81,8 +77,7 @@ class BackgroundMaterialProcessor:
             f.close()
             return
         logging.info(f"Processing {file_path}")
-        json_str = f.read()
-        process_func(json_str)
+        process_func(content)
         # can't delete the file in all platforms without releasing the lock
         # and so to prevent duplicate processing (since we will need to release the
         # lock to actually delete it), we first wipe the contents of the file
@@ -96,7 +91,6 @@ class BackgroundMaterialProcessor:
     Open a file for reading and locking it. Must do so since there might be multiple processes
     trying to read the same file.
     """
-
     @classmethod
     def open_file_with_lock(cls, file_path: FilePath, mode: str) -> Optional[TextIO]:
         try:
@@ -116,3 +110,10 @@ class BackgroundMaterialProcessor:
             logging.warning(f"Couldn't delete {path}: Permission denied")
         except Exception as e:
             logging.warning(f"Failed to delete {path}: {e}")
+
+    @classmethod
+    def _log_future_exceptions(cls, future):
+        try:
+            future.result()  # will re-raise the exception if one occurred
+        except Exception as e:
+            logging.exception(f"Background task raised an exception: {e}")
