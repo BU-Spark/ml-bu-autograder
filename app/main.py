@@ -5,7 +5,8 @@ from azure.identity import DefaultAzureCredential
 from dotenv import load_dotenv
 from pydantic import FilePath, HttpUrl
 
-from app.utils import get_str_var, get_bool_var, setup_loggers, JWTService, AzureEmbeddingService
+from app.utils import get_str_var, get_bool_var, setup_loggers, JWTService, AzureEmbeddingService, BackgroundJobManager
+from app.utils.bg_material_processor import BackgroundMaterialProcessor
 from app.utils.llm_service import LLMService
 
 load_dotenv()  # Load environment variables first
@@ -26,7 +27,7 @@ APPLICATION_VERSION = get_str_var("APPLICATION_VERSION")
 GOOGLE_OAUTH_CLIENT_FILE = get_str_var("GOOGLE_OAUTH_CLIENT_FILE")
 PRODUCTION = get_bool_var("PRODUCTION")
 JWT_ENCRYPTION_SECRET_FILE = FilePath(get_str_var("JWT_ENCRYPTION_SECRET_FILE"))
-AZURE_BLOB_CACHE_DIR = FilePath(get_str_var("AZURE_BLOB_CACHE_DIR"))
+TEMP_FILES_DIR = FilePath(get_str_var("TEMP_FILES_DIR"))
 ENV_TEST_API_KEY = get_str_var("ENV_TEST_API_KEY")
 AZURE_LLM_DEPLOYMENT_URL = HttpUrl(get_str_var("AZURE_LLM_DEPLOYMENT_URL"))
 AZURE_LLM_DEPLOYMENT_KEY = get_str_var("AZURE_LLM_DEPLOYMENT_KEY")
@@ -41,10 +42,11 @@ logging.info("Loading Azure services...")
 # Credentials are automatically recognized based of the values of these env variables:
 # AZURE_CLIENT_ID, AZURE_TENANT_ID, and AZURE_CLIENT_SECRET
 credential = DefaultAzureCredential()
-AzureBlobService.init_singleton(credential, AZURE_STORAGE_ACCOUNT_NAME, AZURE_CONTAINER_NAME, AZURE_BLOB_CACHE_DIR)
+AzureBlobService.init_singleton(credential, AZURE_STORAGE_ACCOUNT_NAME, AZURE_CONTAINER_NAME, TEMP_FILES_DIR)
 JWTService.init_singleton(JWT_ENCRYPTION_SECRET_FILE, ENV_TEST_API_KEY)
 LLMService.init_singleton(AZURE_LLM_DEPLOYMENT_URL, AZURE_LLM_DEPLOYMENT_KEY)
 AzureEmbeddingService.init_singleton(AZURE_EMBEDDING_DEPLOYMENT_URL, AZURE_EMBEDDING_MODEL, AZURE_EMBEDDING_DEPLOYMENT_KEY)
+BackgroundMaterialProcessor(TEMP_FILES_DIR).start_task_scan_loop()
 
 logging.info("Starting FastAPI server...")
 

@@ -5,22 +5,15 @@ import base64
 from typing import Dict, List, Tuple, Any, Optional
 from pathlib import Path
 
-from enum import Enum
-
 from pydantic import FilePath, BaseModel, Field  # Use pydantic BaseModel for DocumentChunk
 
-
-# Define DocumentContentType using standard Enum
-class ContentModality(Enum):
-    TEXT = 1
-    IMAGE = 2
-    AUDIO = 3
+from app.models.uploaded_file import DataType
 
 
 # Define DocumentChunk using Pydantic for potential validation/structure
 class DocumentChunk(BaseModel):
     # The modality of the data
-    content_modality: ContentModality
+    data_type: DataType
     # The raw bytes of this data
     content: bytes
     # metadata associated with the data
@@ -28,14 +21,14 @@ class DocumentChunk(BaseModel):
     metadata: Optional[Dict[str, Any]] = None
 
     def get_as_string(self) -> str:
-        if self.content_modality == ContentModality.TEXT:
+        if self.data_type == DataType.TEXT:
             try:
                 return self.content.decode("utf-8")
             except UnicodeDecodeError:
                 return f"[Non-UTF8 Text: {len(self.content)} bytes]"
         else:
             # Provide a representation for non-text types
-            return f"[{self.content_modality.name}: {len(self.content)} bytes]"
+            return f"[{self.data_type.name}: {len(self.content)} bytes]"
 
     def get_as_bytes(self) -> bytes:
         return self.content
@@ -62,7 +55,7 @@ class Document:
         if not file_path.exists():
             raise FileNotFoundError(f"No such file: {file_path}")
         if not file_path.is_file():
-             raise ValueError(f"Path is not a file: {file_path}")
+            raise ValueError(f"Path is not a file: {file_path}")
         return file_path
 
     # This method was AI generated: https://aistudio.google.com/app/prompts?state=%7B%22ids%22:%5B%2210BYwhnSJqSXol4OhtKIwAbFk6qUN3oZ7%22%5D,%22action%22:%22open%22,%22userId%22:%22112153521177605316268%22,%22resourceKeys%22:%7B%7D%7D&usp=sharing
@@ -120,6 +113,7 @@ class Document:
                 page_items: List[Dict[str, Any]] = []
 
                 # 1. Get text blocks
+                # todo: worth considering extracting html instead
                 text_blocks = page.get_text("blocks")
                 for tb in text_blocks:
                     x0, y0, x1, y1, text_content, block_no, block_type = tb
@@ -203,7 +197,7 @@ class Document:
                                 metadata = {'page_num': chunk_pages}
 
                                 contents[chunk_id_counter] = DocumentChunk(
-                                    content_modality=ContentModality.TEXT,
+                                    data_type=DataType.TEXT,
                                     content=chunk_bytes,
                                     metadata=metadata
                                 )
@@ -231,7 +225,7 @@ class Document:
                             metadata = {'page_num': chunk_pages}
 
                             contents[chunk_id_counter] = DocumentChunk(
-                                content_modality=ContentModality.TEXT,
+                                data_type=DataType.TEXT,
                                 content=chunk_bytes,
                                 metadata=metadata
                             )
@@ -240,9 +234,13 @@ class Document:
 
                         # 2. Create the image chunk (it was already checked for size earlier)
                         img_bytes = item['content']
-                        metadata = {'page_num': [item_page], 'ext': item['ext'], 'xref': item['xref']}
+                        metadata = {'page_num': [item_page], 'xref': item['xref']}
+                        data_type = DataType.from_extension(item['ext'])
+                        if data_type is None:
+                            logging.warning(f"Skipping image chunk due to unknown extension: {item['ext']}")
+                            continue
                         contents[chunk_id_counter] = DocumentChunk(
-                            content_modality=ContentModality.IMAGE,
+                            data_type=data_type,
                             content=img_bytes,
                             metadata=metadata
                         )
@@ -258,7 +256,7 @@ class Document:
                 metadata = {'page_num': chunk_pages}
 
                 contents[chunk_id_counter] = DocumentChunk(
-                    content_modality=ContentModality.TEXT,
+                    data_type=DataType.TEXT,
                     content=chunk_bytes,
                     metadata=metadata
                 )
@@ -331,7 +329,7 @@ class Document:
 
                 # Create and store the chunk
                 contents[chunk_id_counter] = DocumentChunk(
-                    content_modality=ContentModality.TEXT,
+                    data_type=DataType.TEXT,
                     content=chunk_bytes,
                 )
                 chunk_id_counter += 1
@@ -368,8 +366,7 @@ class Document:
     @classmethod
     def _from_binary_file(cls,
                           file_path: FilePath,
-                          content_modality: ContentModality,
-                          content_format: str) -> Optional["Document"]:
+                          data_type: DataType) -> Optional["Document"]:
         """Reads a binary file entirely into a single chunk."""
         validated_path = cls._validate_path(file_path)
         contents: Dict[int, DocumentChunk] = {}
@@ -381,12 +378,9 @@ class Document:
                 logging.warning(f"Binary file is empty: {validated_path}")
                 return None
 
-            metadata = {'ext': content_format}
-
             chunk = DocumentChunk(
-                content_modality=content_modality,
+                data_type=data_type,
                 content=file_bytes,
-                metadata=metadata
             )
             contents[0] = chunk  # Single chunk with ID 0
 
@@ -419,7 +413,7 @@ class Document:
         """
         logging.info(f"Processing PNG file: {file_path}")
         # Delegate to the helper method
-        return cls._from_binary_file(file_path, ContentModality.IMAGE, "png")
+        return cls._from_binary_file(file_path, DataType.PNG)
 
     # This method was generated using AI: https://aistudio.google.com/app/prompts?state=%7B%22ids%22:%5B%221LjDioKGc-5H78OUXySRbPlJh0TUB0nYv%22%5D,%22action%22:%22open%22,%22userId%22:%22112153521177605316268%22,%22resourceKeys%22:%7B%7D%7D&usp=sharing
     @classmethod
@@ -438,39 +432,44 @@ class Document:
         """
         logging.info(f"Processing JPG/JPEG file: {file_path}")
         # Delegate to the helper method
-        return cls._from_binary_file(file_path, ContentModality.IMAGE, "jpeg")
+        return cls._from_binary_file(file_path, DataType.JPEG)
 
     @classmethod
-    def from_mp3(cls, file_path: FilePath, split_min: float = 2.0, overlap: float = 0.33):
+    def from_mp3(cls, file_path: FilePath, split_min: float = 2.0, overlap: float = 0.33) -> "Document":
         raise NotImplementedError("from_mp3 is not implemented")
 
     @classmethod
-    def from_mp4(cls, file_path: FilePath, split_min: float = 2.0, overlap: float = 0.33):
+    def from_wav(cls, file_path: FilePath, split_min: float = 2.0, overlap: float = 0.33) -> "Document":
+        raise NotImplementedError("from_wav is not implemented")
+
+    @classmethod
+    def from_mp4(cls, file_path: FilePath, split_min: float = 2.0, overlap: float = 0.33) -> "Document":
         raise NotImplementedError("from_mp4 is not implemented")
 
     @classmethod
-    def from_xlsx(cls, file_path: FilePath, split_len: int = 5000, overlap: int = 0):
+    def from_xlsx(cls, file_path: FilePath, split_len: int = 5000, overlap: int = 0) -> "Document":
         raise NotImplementedError("from_xlsx is not implemented")
 
     @classmethod
-    def from_csv(cls, file_path: FilePath, split_len: int = 5000, overlap: int = 0):
+    def from_csv(cls, file_path: FilePath, split_len: int = 5000, overlap: int = 0) -> "Document":
         raise NotImplementedError("from_csv is not implemented")
 
     @classmethod
-    def from_json(cls, file_path: FilePath, split_len: int = 5000, overlap: int = 0):
+    def from_json(cls, file_path: FilePath, split_len: int = 5000, overlap: int = 0) -> "Document":
         raise NotImplementedError("from_json is not implemented")
 
     @classmethod
-    def from_doc(cls, file_path: FilePath, split_len: int = 5000, overlap: int = 0):
+    def from_doc(cls, file_path: FilePath, split_len: int = 5000, overlap: int = 0) -> "Document":
         raise NotImplementedError("from_doc is not implemented")
 
     @classmethod
-    def from_pptx(self, file_path: FilePath, split_len: int = 5000, overlap: int = 0):
+    def from_pptx(self, file_path: FilePath, split_len: int = 5000, overlap: int = 0) -> "Document":
         raise NotImplementedError("from_pptx is not implemented")
 
     @classmethod
-    def from_html(self, file_path: FilePath, split_len: int = 5000, overlap: int = 0):
+    def from_html(self, file_path: FilePath, split_len: int = 5000, overlap: int = 0) -> "Document":
         raise NotImplementedError("from_html is not implemented")
+
 
 # --- Helper Function to Print Document Chunks ---
 def print_document_summary(document: Document, title: str):
@@ -480,10 +479,10 @@ def print_document_summary(document: Document, title: str):
 
     for chunk_id, chunk in sorted(document.contents.items()):
         print(f"\n--- Chunk ID: {chunk_id} ---")
-        print(f"  Type: {chunk.content_modality.name}")
+        print(f"  Type: {chunk.data_type.name}")
         print(f"  Metadata: {chunk.metadata}")
 
-        if chunk.content_modality == ContentModality.TEXT:
+        if chunk.data_type == DataType.TEXT:
             text_content = chunk.get_as_string()
             word_count = len(text_content.split())
             print(f"  Word Count: {word_count}")
@@ -493,17 +492,19 @@ def print_document_summary(document: Document, title: str):
             if len(words) > 30:
                 print(f"  Content Preview: '{preview_start} ... {preview_end}'")
             else:
-                 print(f"  Content: '{text_content}'")
+                print(f"  Content: '{text_content}'")
 
-        elif chunk.content_modality == ContentModality.IMAGE:
-             image_size = len(chunk.content)
-             print(f"  Image Content Size: {image_size} bytes")
-             # Optionally print base64 preview if needed, but it's very long
-             # print(f"  Image Base64 Preview: {chunk.get_as_base64()[:50]}...")
+        elif chunk.data_type.is_image():
+            image_size = len(chunk.content)
+            print(f"  Image Content Size: {image_size} bytes")
+            # Optionally print base64 preview if needed, but it's very long
+            # print(f"  Image Base64 Preview: {chunk.get_as_base64()[:50]}...")
+
 
 if __name__ == '__main__':
     # Create a dummy PDF for testing if one doesn't exist
-    dummy_pdf_path = Path("I:\\.shortcut-targets-by-id\\1q2B2T_aTytCWO8SdBLnWpTNEQcPtXqE8\\BU MET\\cs581_quiz_and_assignment_data\\Lecture Material\\Mod 2 HIS & EHR Clinical Functionality-Lecture Slides.pdf")
+    dummy_pdf_path = Path(
+        "I:\\.shortcut-targets-by-id\\1q2B2T_aTytCWO8SdBLnWpTNEQcPtXqE8\\BU MET\\cs581_quiz_and_assignment_data\\Lecture Material\\Mod 2 HIS & EHR Clinical Functionality-Lecture Slides.pdf")
 
     try:
         # Test Case 1: Standard splitting with overlap

@@ -1,10 +1,12 @@
+import uuid
 from typing import List
 
 from fastapi import APIRouter, HTTPException, Query, Body, Depends
+from pydantic import FilePath
 
 from app.models import Course
-from app.models.course_material import CourseMaterial
-from app.utils import JWTService, UserToken
+from app.models.course_material import CourseMaterialData, CourseMaterialReference
+from app.utils import JWTService, UserToken, get_str_var, BackgroundJobManager
 from app.utils.azure_blob_service import AzureBlobService
 
 router = APIRouter()
@@ -13,7 +15,7 @@ user_from_auth = JWTService.get_instance().from_authorization_header
 
 @router.get(
     "/course_materials",
-    response_model=List[CourseMaterial],
+    response_model=List[CourseMaterialReference],
     summary="Get All Course Materials",
     description="Retrieves all course materials for the specified course.",
     responses={
@@ -51,7 +53,7 @@ async def get_course_materials(
 
 @router.get(
     "/course_material",
-    response_model=CourseMaterial,
+    response_model=CourseMaterialReference,
     summary="Get Specific Course Material",
     description="Retrieves a specific course material for the specified course.",
     responses={
@@ -92,7 +94,7 @@ async def get_course_material(
 
 @router.post(
     "/course_material",
-    response_model=CourseMaterial,
+    response_model=CourseMaterialReference,
     summary="Upload Course Material",
     description="Uploads new course material. The size of the data must be below a certain threshold.",
     responses={
@@ -103,7 +105,7 @@ async def get_course_material(
     }
 )
 async def upload_course_material(
-        material: CourseMaterial = Body(..., description="Course material object containing details and file data."),
+        material: CourseMaterialData = Body(..., description="Course material object containing details and file data."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
@@ -125,12 +127,15 @@ async def upload_course_material(
     # Upload the material
     blob_uploader.upload_course_material(material)
 
-    # TODO:
-    #  0. Generate a random filename to save the binary content to.
-    #  1. Put everything except the file's binary content in a global queue with reference to where the file is.
-    #     This should be done because we don't want to hold all the files in memory. You'd get memory issues.
-    #  2. Run a background task to process this queue one by one (or in up to n threads) to
-    #     split the file into chunks, vectorize, and upload vectors and chunks to azure
+    # Save object to file otherwise if too many requests
+    # accumulate we will run out of ram very quick
+    random_uuid = uuid.uuid4()
+    save_path = FilePath(f"{get_str_var('AZURE_BLOB_CACHE_DIR')}/{random_uuid}.{material.data.data_type.extension}")
+
+    # A background process will pick this up and process it trust.
+    # See app/utils/bg_material_processor.py.
+    with open(save_path, 'w') as f:
+        f.write(material.model_dump_json(indent=4))
 
     return material
 
@@ -180,7 +185,7 @@ async def delete_course_material(
 
 @router.patch(
     "/course_material",
-    response_model=CourseMaterial,
+    response_model=CourseMaterialReference,
     summary="Update Course Material",
     description="Updates existing course material. The size of the data must be below a certain threshold.",
     responses={
@@ -191,7 +196,7 @@ async def delete_course_material(
     }
 )
 async def update_course_material(
-        material: CourseMaterial = Body(..., description="Course material object with updated data."),
+        material: CourseMaterialData = Body(..., description="Course material object with updated data."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
@@ -215,11 +220,13 @@ async def update_course_material(
     # Update the material
     blob_uploader.upload_course_material(material)
 
-    # TODO:
-    #  0. Generate a random filename to save the binary content to.
-    #  1. Put everything except the file's binary content in a global queue with reference to where the file is.
-    #     This should be done because we don't want to hold all the files in memory. You'd get memory issues.
-    #  2. Run a background task to process this queue one by one (or in up to n threads) to
-    #     split the file into chunks, vectorize, and upload vectors and chunks to azure
+    # Save object to file otherwise if too many requests
+    # accumulate we will run out of ram very quick
+    random_uuid = uuid.uuid4()
+    save_path = FilePath(f"{get_str_var('AZURE_BLOB_CACHE_DIR')}/{random_uuid}.{material.data.data_type.extension}")
+
+    # A background process will pick this up and process it trust
+    with open(save_path, 'w') as f:
+        f.write(material.model_dump_json(indent=4))
 
     return material

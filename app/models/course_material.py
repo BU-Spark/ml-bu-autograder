@@ -1,7 +1,7 @@
 import re
 from typing import Optional, Union
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, FilePath
 
 from app.models.uploaded_file import UploadedFileData, UploadedFileReference
 
@@ -16,9 +16,6 @@ class CourseMaterial(BaseModel):
     additional_notes: Optional[str] = Field(
         None, description="Optional instructor notes."
     )
-    data: Union[UploadedFileData, UploadedFileReference, None] = Field(
-        ..., description="Either the uploaded file content or a reference to a previously stored file."
-    )
 
     @field_validator("semester", mode='before')
     def validate_semester(cls, value: str) -> str:
@@ -27,3 +24,15 @@ class CourseMaterial(BaseModel):
             raise ValueError("Semester is in an invalid format. "
                              "Correct format (case-sensitive) looks like: seasonYYYY. (e.g. spring2025)")
         return value.strip().lower()
+
+
+class CourseMaterialReference(CourseMaterial):
+    data: UploadedFileReference = Field(
+        ..., description="The uri reference to a previously stored course material."
+    )
+
+
+class CourseMaterialData(CourseMaterial):
+    data: UploadedFileData = Field(
+        ..., description="The binary content of the course material (must be uploaded as a base64 string)."
+    )

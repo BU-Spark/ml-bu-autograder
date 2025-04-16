@@ -14,6 +14,7 @@ from pydantic import EmailStr, FilePath, BaseModel, HttpUrl
 
 from app.models import *
 from app.models.uploaded_file import UploadedFileReference, DataType, UploadedFileData
+from app.utils.file_to_doc_util import Document, DocumentChunk
 
 azure_blob_uploader: Optional["AzureBlobService"] = None
 
@@ -375,7 +376,7 @@ class AzureBlobService:
         data = self.download_json(blob_path)
         return Assignment(**data, questions=[]) if data else None
 
-    def upload_course_material(self, material: CourseMaterial):
+    def upload_course_material(self, material: CourseMaterialData):
         """Uploads course material with automatic content type handling."""
         blob_path = (
             f"course/"
@@ -423,7 +424,7 @@ class AzureBlobService:
             student_id=student_id,
             data=UploadedFileReference(
                 data_type=DataType.from_extension(data_type),
-                url=self.generate_sas_url(blob_path)
+                uri=self.generate_sas_url(blob_path)
             ),
             grade=None
         )
@@ -461,7 +462,7 @@ class AzureBlobService:
         return SubRubric(**data) if data else None
 
     def _get_course_material(self, absolute_path: str, semester_key: str,
-                             course_id: str) -> Optional[CourseMaterial]:
+                             course_id: str) -> Optional[CourseMaterialReference]:
 
         relative_path = absolute_path.split('/', 1)[1] if '/' in absolute_path else absolute_path
         material_id_split = relative_path.split('/')[4].split(".")
@@ -482,10 +483,10 @@ class AzureBlobService:
         # Prepare the file data dictionary.
         file_data = UploadedFileReference(
             data_type=DataType.from_extension(data_type),
-            url=self.generate_sas_url(relative_path)
+            uri=self.generate_sas_url(relative_path)
         )
         try:
-            material = CourseMaterial(
+            material = CourseMaterialReference(
                 semester=semester_key,
                 course_id=course_id,
                 material_id=material_id_split[0],
@@ -494,10 +495,11 @@ class AzureBlobService:
             )
             return material
         except Exception as e:
-            logging.error(f"Error constructing CourseMaterial: {e}")
+            logging.error(f"Error constructing CourseMaterialReference: {e}")
             return None
 
-    def get_course_material(self, semester_key: str, course_id: str, material_id: str) -> Optional[CourseMaterial]:
+    def get_course_material(self, semester_key: str, course_id: str, material_id: str) -> Optional[
+        CourseMaterialReference]:
         """Retrieves course material if it exists."""
         # Construct the search pattern with a wildcard extension.
         pattern = f"course/{semester_key}/{course_id}/course_material/{material_id}.*"
@@ -781,7 +783,7 @@ class AzureBlobService:
                 courses.append(Course(**data))
         return courses
 
-    def list_course_materials(self, semester_key: str, course_id: str) -> List[CourseMaterial]:
+    def list_course_materials(self, semester_key: str, course_id: str) -> List[CourseMaterialReference]:
         """
         Lists all course materials for a given course.
         """
@@ -911,6 +913,28 @@ class AzureBlobService:
         count = len(files)
         logging.debug(f"Found {count} course materials for course {course_id} in semester {semester_key}")
         return count
+
+    def upload_material_chunk(self, semester_key: str, course_id: str,
+                              material_id: str, chunk_id: int, document_chunk: DocumentChunk):
+        blob_path = (f"course/{semester_key}/{course_id}/course_material/"
+                     f"{material_id}/chunks/{chunk_id}.{document_chunk.data_type.extension}")
+        full_path = self._full_path(blob_path)
+
+    def upload_material_chunks(self, semester_key: str, course_id: str, material_id: str,
+                               document: Document) -> Dict[int, str]:
+        """Uploads RAG-able chunks of the course material. Returns a mapping of chunk index to blob name."""
+        base_path = f"course/{semester_key}/{course_id}/course_material/{material_id}/chunks"
+        full_base_path = self._full_path(base_path)
+        # first delete existing chunks (may or may not be there)
+        self.fs.rm(full_base_path, recursive=True)
+        # then upload the new chunks
+        mappings = {}
+        for chunk_id, document_chunk in document.contents.items():
+            blob_path = f"{full_base_path}/{chunk_id}.{document_chunk.data_type.extension}"
+            self.upload_binary_data(document_chunk.content, blob_path, document_chunk.metadata)
+            mappings[chunk_id] = blob_path
+            logging.info(f"Uploaded chunk {chunk_id} for {material_id}")
+        return mappings
 
     @staticmethod
     def _guess_content_type(filename: str) -> str:
