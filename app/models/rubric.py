@@ -49,7 +49,7 @@ class SubRubric(BaseModel):
     def check_grading_criteria(cls, values):
         max_points = values.max_points
         grading_criteria = values.grading_criteria
-        if grading_criteria is not None:
+        if grading_criteria is not None and len(grading_criteria) != 0:
             total_allocated = 0
             for criteria in grading_criteria:
                 # Check each criterion individually
