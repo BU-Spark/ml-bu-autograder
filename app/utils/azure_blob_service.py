@@ -138,9 +138,6 @@ class AzureBlobService:
         except Exception as e:
             logging.error(f"Upload failed for {full_path}: {e}", exc_info=True)
             raise
-        metadata = {
-            "file_path":str(blob_path)
-        }
 
     def upload_json(self, data: BaseModel, blob_path: str, exclude: Set[str] = None, metadata: Dict[str, str] = None):
         """
@@ -333,9 +330,6 @@ class AzureBlobService:
         self.upload_binary_data(
             student_response.data.content,
             blob_path,
-            metadata={
-                "blob_path": str(blob_path)
-            }
         )
 
     def upload_student_grade(self, semester_key: str, course_id: str,
@@ -364,9 +358,6 @@ class AzureBlobService:
                 self.upload_sub_rubric(semester_key, course_id, assignment_id, sub_rubric)
 
         self.upload_json(rubric, blob_path, exclude={"sub_rubrics"})
-        metadata={
-                "blob_path": str(blob_path)
-            }
 
     def upload_sub_rubric(self, semester_key: str, course_id: str, assignment_id: str, sub_rubric: SubRubric):
         """Uploads individual sub-rubric."""
@@ -397,10 +388,7 @@ class AzureBlobService:
         )
         self.upload_binary_data(material.data.content, blob_path, None if material.additional_notes is None else {
             "additional_notes": material.additional_notes
-        }) #meta data handled in binary_data function
-    
-        return blob_path
-    
+        })
 
     def get_student_response_data(self, semester_key: str, course_id: str, assignment_id: str, question_index: int,
                                   student_id: str, data_type: str) \
@@ -560,17 +548,17 @@ class AzureBlobService:
     def delete_student_response(self, semester: str, course_id: str, assignment_id: str, question_index: int,
                                 student_id: str):
         """Deletes a specific student response."""
-        blob_path = (
+        pattern = (
             f"course/{semester}/"
             f"{course_id}/"
             f"assignment/"
             f"{assignment_id}/"
             f"{question_index}/"
             f"student_response/"
-            f"{student_id}/"
-            f"response.*"
+            f"{student_id}/*"  # delete grade.json and the response itself
         )
-        self.delete_blob(blob_path)
+        full_pattern = self._full_path(pattern)
+        self.fs.rm(full_pattern, recursive=True)
 
     def delete_student_responses(self, semester: str, course_id: str, assignment_id: str, student_id: str):
         """Deletes all responses for a student in an assignment."""
@@ -581,8 +569,7 @@ class AzureBlobService:
             f"{assignment_id}/"
             f"*/"
             f"student_response/"
-            f"{student_id}/"
-            f"response.*"
+            f"{student_id}/*"
         )
         logging.debug(f"Deleting all responses from student {student_id}")
         for file in self.fs.glob(self._full_path(pattern)):
