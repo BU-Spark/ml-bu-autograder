@@ -297,7 +297,7 @@ class AzureVectorService:
                     }
                 })
                 logging.info(f"Retrieved Document - ID: {result.get('id')}, File Path: {result.get('file_path')}")
-                logging.info(f"Vector score: {result.get("content_vector")}")
+                # logging.info(f"Vector score: {result.get("content_vector")}")
             return results
         except Exception as e:
             logging.error("❌ Error retrieving closest vectors: " + str(e), exc_info=True)
