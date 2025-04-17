@@ -16,8 +16,6 @@ chroma_instance: Optional["ChromaDBService"] = None
 # azure_instance: Optional["AzureVectorService"] = None
 
 
-
-
 class VectorDBService:
     def __init__(self, endpoint: str, api_key: str, index_name: str, vector_field: str):
         self.endpoint = endpoint
@@ -72,25 +70,50 @@ class VectorDBService:
             logging.error(f"Error uploading vectors: {str(e)}")
             raise
 
-    def search(self, query_vectors: List[List[float]], top_k: int = 5) -> QueryResult:
-        """Queries the closest vectors from the collection."""
+    def search(self, query_vectors: List[List[float]], top_k: int = 5, keyword: str = "") -> List[List[dict]]:
         results_batch = []
 
-        for vector in query_vectors:
+        for i, vector in enumerate(query_vectors):
             try:
-                search_results = self.client.search(
-                    search_text="",  # empty required for vector-only search (we can just assume its vector only for now...)
-                    vectors=[{
+                search_url = f"{self.endpoint}/indexes/{self.index_name}/docs/search?api-version=2023-07-01-Preview"
+
+                headers = {
+                    "Content-Type": "application/json",
+                    "api-key": self.api_key
+                }
+
+                payload = {
+                    "search": keyword,
+                    "top": top_k,
+                    "vector": {
                         "value": vector,
                         "fields": self.vector_field,
                         "k": top_k
-                    }]
-                )
-                results = [dict(result) for result in search_results]
-                results_batch.append(results)
-                logging.info(f"Retrieved top-{top_k} results for query vector.")
+                    },
+                    "queryType": "semantic" if keyword else "simple",
+                    "semanticConfiguration": "default",  # optional
+                    "captions": "extractive",            # optional
+                    "answers": "extractive"              # optional
+                }
+
+                response = requests.post(search_url, headers=headers, data=json.dumps(payload))
+                response.raise_for_status()
+
+                data = response.json().get("value", [])
+                formatted_results = []
+                for result in data:
+                    formatted_results.append({
+                        "id": result.get("id"),
+                        "score": result.get("@search.score"),
+                        "file_path": result.get("file_path"),
+                        "raw": result
+                    })
+
+                results_batch.append(formatted_results)
+                logging.info(f"🔍 Retrieved {len(formatted_results)} results for vector #{i}.")
+
             except Exception as e:
-                logging.error(f"Error performing vector search: {str(e)}")
+                logging.error(f"❌ Error searching vector #{i}: {str(e)}", exc_info=True)
                 results_batch.append([])
 
         return results_batch
