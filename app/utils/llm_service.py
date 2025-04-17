@@ -14,10 +14,8 @@ from openai.types.chat.chat_completion_content_part_param import File, FileFile
 from pydantic import HttpUrl, BaseModel
 from typing_extensions import Buffer
 
-from app.models import Rubric, SubRubric
-from app.models.rubric import GradingCriteria
 from app.models.uploaded_file import DataType
-from app.utils import env_var_util
+from app.utils.env_var_util import get_str_var
 
 
 class PromptType(Enum):
@@ -229,7 +227,7 @@ class LLMService:
             azure_endpoint=endpoint_url.encoded_string(),
             api_key=api_key,
         )
-        self.deployment_name = endpoint_url.encoded_string().split('/')[3]
+        self.deployment_name = endpoint_url.encoded_string().split('/')[5]
 
     def generate_response(self, prompts: List[dict]) -> str:
         response = self.client.chat.completions.create(
@@ -263,8 +261,8 @@ class LLMService:
 if __name__ == '__main__':
     from dotenv import load_dotenv
     load_dotenv()
-    endpoint = HttpUrl(env_var_util.get_str_var("AZURE_LLM_DEPLOYMENT_URL"))
-    subscription_key = env_var_util.get_str_var("AZURE_LLM_DEPLOYMENT_KEY")
+    endpoint = HttpUrl(get_str_var("AZURE_LLM_DEPLOYMENT_URL"))
+    subscription_key = get_str_var("AZURE_LLM_DEPLOYMENT_KEY")
 
     LLMService.init_singleton(endpoint, subscription_key)
     llm = LLMService.get_instance()
