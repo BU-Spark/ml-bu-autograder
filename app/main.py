@@ -5,13 +5,15 @@ from azure.identity import DefaultAzureCredential
 from dotenv import load_dotenv
 from pydantic import FilePath, HttpUrl
 
-from app.utils import get_str_var, get_bool_var, setup_loggers, JWTService, AzureEmbeddingService, BackgroundJobManager
+from app.utils import get_str_var, get_bool_var, setup_loggers, JWTService, AzureEmbeddingService, BackgroundJobManager, \
+    get_int_var
 from app.utils.bg_material_processor import BackgroundMaterialProcessor
 from app.utils.llm_service import LLMService
 
 load_dotenv()  # Load environment variables first
 
 from app.utils.azure_blob_service import AzureBlobService
+from app.utils.azure_vector_service import AzureVectorService
 
 if __name__ == "__main__":
     logging.critical("This application is not intended to be run directly. See README.md for instructions.")
@@ -34,6 +36,12 @@ AZURE_LLM_DEPLOYMENT_KEY = get_str_var("AZURE_LLM_DEPLOYMENT_KEY")
 AZURE_EMBEDDING_DEPLOYMENT_URL = HttpUrl(get_str_var("AZURE_EMBEDDING_DEPLOYMENT_URL"))
 AZURE_EMBEDDING_MODEL = get_str_var("AZURE_EMBEDDING_MODEL")
 AZURE_EMBEDDING_DEPLOYMENT_KEY = get_str_var("AZURE_EMBEDDING_DEPLOYMENT_KEY")
+#added intializations for azure search endpoints
+AZURE_SEARCH_ENDPOINT = HttpUrl(get_str_var("AZURE_SEARCH_ENDPOINT"))
+AZURE_SEARCH_API_KEY = get_str_var("AZURE_SEARCH_API_KEY")
+AZURE_SEARCH_INDEX_NAME = get_str_var("AZURE_SEARCH_INDEX_NAME")
+AZURE_SEARCH_EMBEDDING_DIMS = get_int_var("AZURE_SEARCH_EMBEDDING_DIMS")
+
 
 # Setup logging level
 setup_loggers(production=PRODUCTION)
@@ -46,6 +54,12 @@ AzureBlobService.init_singleton(credential, AZURE_STORAGE_ACCOUNT_NAME, AZURE_CO
 JWTService.init_singleton(JWT_ENCRYPTION_SECRET_FILE, ENV_TEST_API_KEY)
 LLMService.init_singleton(AZURE_LLM_DEPLOYMENT_URL, AZURE_LLM_DEPLOYMENT_KEY)
 AzureEmbeddingService.init_singleton(AZURE_EMBEDDING_DEPLOYMENT_URL, AZURE_EMBEDDING_MODEL, AZURE_EMBEDDING_DEPLOYMENT_KEY)
+AzureVectorService.init_singleton(
+    endpoint=AZURE_SEARCH_ENDPOINT,
+    api_key=AZURE_SEARCH_API_KEY,
+    index_name=AZURE_SEARCH_INDEX_NAME,
+    embedding_dims=AZURE_SEARCH_EMBEDDING_DIMS
+)
 BackgroundMaterialProcessor(TEMP_FILES_DIR).start_task_scan_loop()
 
 logging.info("Starting FastAPI server...")

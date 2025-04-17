@@ -138,6 +138,9 @@ class AzureBlobService:
         except Exception as e:
             logging.error(f"Upload failed for {full_path}: {e}", exc_info=True)
             raise
+        metadata = {
+            "file_path":str(blob_path)
+        }
 
     def upload_json(self, data: BaseModel, blob_path: str, exclude: Set[str] = None, metadata: Dict[str, str] = None):
         """
@@ -331,7 +334,7 @@ class AzureBlobService:
             student_response.data.content,
             blob_path,
             metadata={
-                # none atm
+                "blob_path": str(blob_path)
             }
         )
 
@@ -361,6 +364,9 @@ class AzureBlobService:
                 self.upload_sub_rubric(semester_key, course_id, assignment_id, sub_rubric)
 
         self.upload_json(rubric, blob_path, exclude={"sub_rubrics"})
+        metadata={
+                "blob_path": str(blob_path)
+            }
 
     def upload_sub_rubric(self, semester_key: str, course_id: str, assignment_id: str, sub_rubric: SubRubric):
         """Uploads individual sub-rubric."""
@@ -387,11 +393,14 @@ class AzureBlobService:
             f"{material.semester}/"
             f"{material.course_id}/"
             f"course_material/"
-            f"{material.material_id}.{material.data.data_type.value}"
+            f"{material.material_id}.{material.data.data_type.value[0]}"
         )
         self.upload_binary_data(material.data.content, blob_path, None if material.additional_notes is None else {
             "additional_notes": material.additional_notes
-        })
+        }) #meta data handled in binary_data function
+    
+        return blob_path
+    
 
     def get_student_response_data(self, semester_key: str, course_id: str, assignment_id: str, question_index: int,
                                   student_id: str, data_type: str) \

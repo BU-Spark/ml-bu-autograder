@@ -3,14 +3,15 @@ from typing import List, Optional
 from fastapi import APIRouter, HTTPException, status, Query, Depends
 from pydantic import FilePath
 
-from Proof_of_Concept import StudentResponse
+from app.models.student_response import StudentResponseData
 from app.models import Course
 from app.models.grade import Grade
-from app.utils import JWTService, UserToken, get_str_var
+from app.utils import JWTService, UserToken, llm_service, get_str_var
 from app.utils.azure_blob_service import AzureBlobService
 
 router = APIRouter()
 user_from_auth = JWTService.get_instance().from_authorization_header
+llm_service = llm_service.LLMService.get_instance()
 
 
 def process_grading(json_str: str):
@@ -18,7 +19,7 @@ def process_grading(json_str: str):
     #  for processing the grading logic.
 
     #  Step 0: Convert the json string into a student response object
-    student_response = StudentResponse.model_validate_json(json_str)
+    student_response = StudentResponseData.model_validate_json(json_str)
     #  Step 1: Convert the student's response (which might be a pdf, txt, etc)
     #          into a Document object that we can work with.
 
