@@ -354,6 +354,20 @@ class AzureBlobService:
         """Uploads rubric with optional sub-rubrics."""
         blob_path = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/rubrics/assignment.json"
 
+        if upload_sub_rubrics and rubric.sub_rubrics:
+            logging.debug(f"Uploading {len(rubric.sub_rubrics)} sub-rubrics in parallel")
+            # Submit each sub-rubric upload as a separate task
+            futures = [
+                self.executor.submit(self.upload_sub_rubric, semester_key, course_id, assignment_id, sub_rubric)
+                for sub_rubric in rubric.sub_rubrics
+            ]
+            # Wait for all uploads to complete and check for errors
+            for future in as_completed(futures):
+                try:
+                    future.result()  # Raise exceptions if any occurred during upload
+                except Exception as e:
+                    logging.error(f"Failed to upload a sub-rubric during parallel execution: {e}", exc_info=True)
+
         if upload_sub_rubrics:
             logging.debug(f"Uploading {len(rubric.sub_rubrics)} sub-rubrics")
             for sub_rubric in rubric.sub_rubrics:

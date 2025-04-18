@@ -1,8 +1,12 @@
 import fnmatch
+import json
 from typing import Optional, List, Dict, Mapping
+from warnings import deprecated
+
 import chromadb
 import logging
 
+import requests
 from chromadb import QueryResult
 from chromadb.errors import InvalidCollectionException
 
@@ -13,9 +17,10 @@ from azure.search.documents.indexes.models import SearchIndex
 
 chroma_instance: Optional["ChromaDBService"] = None
 
+
 # azure_instance: Optional["AzureVectorService"] = None
 
-
+@deprecated
 class VectorDBService:
     def __init__(self, endpoint: str, api_key: str, index_name: str, vector_field: str):
         self.endpoint = endpoint
@@ -27,13 +32,13 @@ class VectorDBService:
 
         # Client to interact with documents (vectors)
         self.client = SearchClient(endpoint, index_name, credential=credential)
-        
+
         # Client to manage indexes (checking or retrieving vector store)
         self.index_client = SearchIndexClient(endpoint, credential=credential)
 
         # Verify vector store (index) exists upon initialization
         self._verify_or_retrieve_index()
-    
+
     def _verify_or_retrieve_index(self):
         """Verifies that the vector store index exists and retrieves it."""
         try:
@@ -50,7 +55,7 @@ class VectorDBService:
         documents = []
         for i, vector in enumerate(vectors):
             doc = {
-                "id": ids[i], 
+                "id": ids[i],
                 self.vector_field: vector
             }
             if metadatas and metadatas[i]:
@@ -92,8 +97,8 @@ class VectorDBService:
                     },
                     "queryType": "semantic" if keyword else "simple",
                     "semanticConfiguration": "default",  # optional
-                    "captions": "extractive",            # optional
-                    "answers": "extractive"              # optional
+                    "captions": "extractive",  # optional
+                    "answers": "extractive"  # optional
                 }
 
                 response = requests.post(search_url, headers=headers, data=json.dumps(payload))
@@ -119,6 +124,7 @@ class VectorDBService:
         return results_batch
 
 
+@deprecated
 class ChromaDBService(VectorDBService):
     def __init__(self, persist_directory: str = "./chroma.db"):
         """

@@ -4,10 +4,10 @@ from typing import List
 from fastapi import APIRouter, HTTPException, Query, Body, Depends
 from pydantic import BaseModel, Field, field_validator
 
-from app.models import Course
+from app.models import Course, UserToken
 from app.models.assignment import Assignment, Question
-from app.utils import JWTService, UserToken
-from app.utils.azure_blob_service import AzureBlobService
+from app.services.azure_blob_service import AzureBlobService
+from app.utils.jwt_service import JWTService
 
 
 class EditQuestionRequest(BaseModel):

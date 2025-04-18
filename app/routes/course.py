@@ -3,9 +3,10 @@ from typing import List, Optional
 from fastapi import APIRouter, HTTPException, status, Query, Depends
 from pydantic import EmailStr
 
+from app.models import UserToken
+from app.utils.jwt_service import JWTService
 from app.models.course import Course
-from app.utils import JWTService, UserToken
-from app.utils.azure_blob_service import AzureBlobService
+from app.services.azure_blob_service import AzureBlobService
 
 router = APIRouter()
 user_from_auth = JWTService.get_instance().from_authorization_header

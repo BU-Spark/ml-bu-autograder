@@ -4,8 +4,9 @@ from fastapi import APIRouter, HTTPException, status, Query, Body, Depends
 
 from app.models import Course
 from app.models.student_response import GradedStudentResponseReference, StudentResponseData
-from app.utils import JWTService, UserToken
-from app.utils.azure_blob_service import AzureBlobService
+from app.models import UserToken
+from app.utils.jwt_service import JWTService
+from app.services.azure_blob_service import AzureBlobService
 
 router = APIRouter()
 user_from_auth = JWTService.get_instance().from_authorization_header

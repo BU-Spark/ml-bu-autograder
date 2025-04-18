@@ -5,15 +5,16 @@ from azure.identity import DefaultAzureCredential
 from dotenv import load_dotenv
 from pydantic import FilePath, HttpUrl
 
-from app.utils import get_str_var, get_bool_var, setup_loggers, JWTService, AzureEmbeddingService, BackgroundJobManager, \
-    get_int_var
-from app.utils.bg_material_processor import BackgroundMaterialProcessor
+from app.services import AzureEmbeddingService
+from app.utils import get_str_var, get_bool_var, setup_loggers, get_int_var
+from app.services.bg_material_processor import BackgroundMaterialProcessor
+from app.utils.jwt_service import JWTService
 from app.utils.llm_service import LLMService
 
 load_dotenv()  # Load environment variables first
 
-from app.utils.azure_blob_service import AzureBlobService
-from app.utils.azure_vector_service import AzureVectorService
+from app.services.azure_blob_service import AzureBlobService
+from app.services.azure_vector_service import AzureVectorService
 
 if __name__ == "__main__":
     logging.critical("This application is not intended to be run directly. See README.md for instructions.")

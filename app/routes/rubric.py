@@ -1,13 +1,12 @@
-import re
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, status, Query, Body, Depends
-from pydantic import Field, BaseModel, field_validator
 
 from app.models import Course
-from app.models.rubric import Rubric, SubRubric, GradingFlag
-from app.utils import JWTService, UserToken
-from app.utils.azure_blob_service import AzureBlobService
+from app.models.rubric import Rubric
+from app.models import UserToken
+from app.utils.jwt_service import JWTService
+from app.services.azure_blob_service import AzureBlobService
 from app.utils.llm_service import LLMService, PromptBuilder, PromptRole
 
 router = APIRouter()
