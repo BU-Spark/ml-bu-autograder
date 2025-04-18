@@ -170,18 +170,18 @@ async def get_ai_rubric(
         prompt.add_json_input(PromptRole.USER, rubric)
 
         # Add any additional instructions if provided
+        
+        prompt.add_message(PromptRole.USER, 
+            "Please enhance this rubric by:\n"
+            "1. Making criteria more specific and measurable\n"
+            "2. Ensuring point distribution aligns with question importance\n"
+            "3. Adding clear instructor guidelines where missing\n"
+            "4. Organizing criteria logically\n"
+            "5. Adding appropriate grading flags if needed\n"
+            "6. Ensuring all grading criteria for each question sum to the max points. You must run through the whole rubric step by step and make sure"
+            "that the sum of all points add to the max points allotment. If they do not add up to that allotment, then the rubric is invalid!")
         if instructions:
-            prompt.add_message(PromptRole.USER, f"Specific improvement instructions: {instructions}")
-        else:
-            prompt.add_message(PromptRole.USER, 
-                "Please enhance this rubric by:\n"
-                "1. Making criteria more specific and measurable\n"
-                "2. Ensuring point distribution aligns with question importance\n"
-                "3. Adding clear instructor guidelines where missing\n"
-                "4. Organizing criteria logically\n"
-                "5. Adding appropriate grading flags if needed\n"
-                "6. Ensuring all grading criteria for each question sum to the max points. You must run through the whole rubric step by step and make sure"
-                "that the sum of all points add to the max points allotment. If they do not add up to that allotment, then the rubric is invalid!")
+            prompt.add_message(PromptRole.USER, f"Specific improvement instructions from instructor: {instructions}")
 
         # Build the final prompt
         prompt_list = prompt.build()
