@@ -29,76 +29,89 @@ async def grading_worker():
     ...
 
 def do_grading(responses: list[GradedStudentResponseReference]):
-        """
-        Grades a list of student responses by interacting with the LLM service.
+       from typing import List
 
-        This function:
-        1. Combines the content from all provided responses.
-        2. Extracts common metadata (student_id, assignment_id, question_index)
-            from the first response (assuming all belong to the same student/assignment).
-        3. Builds a prompt using a system instruction and the student response.
-        4. Calls the LLM service's structured response method to auto-grade.
-        5. Ensures any missing metadata is filled in from the original response.
+from app.models.student_response import GradedStudentResponseReference
+from app.models.grade import Grade
+from app.utils.llm_service import LLMService, PromptBuilder, PromptRole
 
-        Args:
-            responses (List[GradedStudentResponseReference]): List of responses for a student.
 
-        Returns:
-            Grade: A Grade object as returned by the LLM service.
-        """
-        if not responses:
-            raise ValueError("No student responses provided for grading.")
+def do_grading(responses: List[GradedStudentResponseReference]) -> Grade:
+    """
+    Grades a list of student responses by interacting with the LLM service.
 
-        # Combine all available textual content from the responses.
-        # We assume each response has a 'content' attribute containing the student's answer.
-        combined_content = "\n".join(
-            r.content.strip() for r in responses if hasattr(r, "content") and r.content
-        )
-        
-        # Retrieve common metadata from the first response.
-        first_response = responses[0]
-        student_id = first_response.student_id
-        assignment_id = first_response.assignment_id
-        question_index = first_response.question_index
-        max_score = 10  # You can adjust this default or fetch it from the rubric.
+    This function:
+    1. Combines the content from all provided responses.
+    2. Extracts common metadata (student_id, assignment_id, question_index)
+       from the first response (assuming all belong to the same student/assignment).
+    3. Builds a prompt using a system instruction and the student response.
+    4. Calls the LLM service's structured response method to auto-grade.
+    5. Ensures any missing metadata is filled in from the original response.
 
-        # Build the prompt for the LLM using the PromptBuilder.
-        system_instruction = (
-            "You are an expert auto-grader. Evaluate the following student's response "
-            "based on the assignment rubric and grading criteria. Return your evaluation "
-            "as a JSON object with the following keys: student_id, assignment_id, question_index, "
-            "score (an integer between 0 and max_score), max_score, and feedback."
-        )
-        user_prompt = (
-            f"Student Response:\n{combined_content}\n\n"
-            "Please provide a detailed grade along with feedback."
-        )
-        
-        prompt = (
-            llm_service.PromptBuilder.builder()
-            .add_message(llm_service. PromptRole.SYSTEM, system_instruction)
-            .add_message(llm_service.PromptRole.USER, user_prompt)
-            .build()
-        )
+    Args:
+        responses (List[GradedStudentResponseReference]): List of responses for a student.
 
-        # Retrieve the LLM service singleton instance.
-        llm_service = llm_service.LLMService.get_instance()
-        if llm_service is None:
-            raise RuntimeError("LLMService instance is not initialized.")
+    Returns:
+        Grade: A Grade object as returned by the LLM service.
+    """
+    # 1. Validate input
+    if not responses:
+        raise ValueError("No student responses provided for grading.")
 
-        # Use the LLM service to generate a structured grading response.
-        grade: Grade = llm_service.generate_structured_response(prompt, Grade)
+    # 2. Combine all textual content into one block
+    combined_content = "\n".join(
+        r.content.strip() 
+        for r in responses 
+        if hasattr(r, "content") and r.content
+    )
 
-        # Ensure that the grade has all the necessary metadata, using fallback values if needed.
-        if not grade.student_id:
-            grade.student_id = student_id
-        if not grade.assignment_id:
-            grade.assignment_id = assignment_id
-        if grade.question_index is None:
-            grade.question_index = question_index
-        if not grade.max_score:
-            grade.max_score = max_score
-        return grade    
+    # 3. Pull metadata from the first response
+    first_response = responses[0]
+    student_id = first_response.student_id
+    assignment_id = first_response.assignment_id
+    question_index = first_response.question_index
+    max_score = 10  # Default max; override or fetch from rubric if available
+
+    # 4. Create the system instruction and user prompt
+    system_instruction = (
+        "You are an expert auto-grader. Evaluate the following student's response "
+        "based on the assignment rubric and grading criteria. Return your evaluation "
+        "as a JSON object with the following keys: student_id, assignment_id, question_index, "
+        "score (an integer between 0 and max_score), max_score, and feedback."
+    )
+    user_prompt = (
+        f"Student Response:\n{combined_content}\n\n"
+        "Please provide a detailed grade along with feedback."
+    )
+
+    # 5. Build a structured prompt
+    prompt = (
+        PromptBuilder.builder()
+        .add_message(PromptRole.SYSTEM, system_instruction)
+        .add_message(PromptRole.USER, user_prompt)
+        .build()
+    )
+
+    # 6. Retrieve the singleton LLMService instance
+    llm = LLMService.get_instance()
+    if llm is None:
+        raise RuntimeError("LLMService instance is not initialized.")
+
+    # 7. Generate the grade using the LLM's structured response
+    grade: Grade = llm.generate_structured_response(prompt, Grade)
+
+    # 8. Fill in any missing metadata from the original response
+    if not grade.student_id:
+        grade.student_id = student_id
+    if not grade.assignment_id:
+        grade.assignment_id = assignment_id
+    if grade.question_index is None:
+        grade.question_index = question_index
+    if not grade.max_score:
+        grade.max_score = max_score
+
+    return grade
+
 
 
 @router.post(

@@ -1,14 +1,29 @@
 import logging
-
 import fitz  # PyMuPDF
 import base64
+import io
+import os
+import csv
+import json as json_lib
 from typing import Dict, List, Tuple, Any, Optional
 from pathlib import Path
-
 from enum import Enum
+from pydantic import FilePath, BaseModel
 
-from pydantic import FilePath, BaseModel, Field  # Use pydantic BaseModel for DocumentChunk
+# Additional libraries for various formats
+from docx import Document as DocxDocument
+from pptx import Presentation
+from openpyxl import load_workbook
+from bs4 import BeautifulSoup
+from pydub import AudioSegment
+from moviepy import VideoFileClip
 
+# Define ContentModality
+class ContentModality(Enum):
+    TEXT = 1
+    IMAGE = 2
+    AUDIO = 3
+    VIDEO = 4
 
 # Define DocumentContentType using standard Enum
 class ContentModality(Enum):
@@ -442,35 +457,234 @@ class Document:
 
     @classmethod
     def from_mp3(cls, file_path: FilePath, split_min: float = 2.0, overlap: float = 0.33):
-        raise NotImplementedError("from_mp3 is not implemented")
+        path = cls._validate_path(file_path)
+        try:
+            audio = AudioSegment.from_mp3(path)
+            duration_ms = len(audio)
+            chunk_ms = int(split_min * 60 * 1000)
+            overlap_ms = int(overlap * chunk_ms)
+            contents: Dict[int, DocumentChunk] = {}
+            chunk_id = 0
+            start = 0
+            while start < duration_ms:
+                end = min(start + chunk_ms, duration_ms)
+                segment = audio[start:end]
+                buf = io.BytesIO()
+                segment.export(buf, format="mp3")
+                contents[chunk_id] = DocumentChunk(
+                    content_modality=ContentModality.AUDIO,
+                    content=buf.getvalue(),
+                    metadata={"start_ms": start, "end_ms": end}
+                )
+                chunk_id += 1
+                start = max(end - overlap_ms, start + 1)
+        except Exception as e:
+            logging.error(f"Error processing MP3 {path}: {e}")
+            return None
+        return cls(file_name=path.name, contents=contents)
 
     @classmethod
     def from_mp4(cls, file_path: FilePath, split_min: float = 2.0, overlap: float = 0.33):
-        raise NotImplementedError("from_mp4 is not implemented")
+        path = cls._validate_path(file_path)
+        try:
+            clip = VideoFileClip(str(path))
+            duration_s = clip.duration
+            chunk_s = split_min * 60
+            overlap_s = overlap * chunk_s
+            contents: Dict[int, DocumentChunk] = {}
+            chunk_id = 0
+            start_s = 0.0
+            while start_s < duration_s:
+                end_s = min(start_s + chunk_s, duration_s)
+                subclip = clip.subclip(start_s, end_s)
+                tmp_path = f"tmp_video_chunk_{chunk_id}.mp4"
+                subclip.write_videofile(tmp_path, codec="libx264", audio_codec="aac", verbose=False, logger=None)
+                with open(tmp_path, 'rb') as f:
+                    data = f.read()
+                os.remove(tmp_path)
+                contents[chunk_id] = DocumentChunk(
+                    content_modality=ContentModality.VIDEO,
+                    content=data,
+                    metadata={"start_s": start_s, "end_s": end_s}
+                )
+                chunk_id += 1
+                start_s = max(end_s - overlap_s, start_s + 0.001)
+            clip.reader.close()
+        except Exception as e:
+            logging.error(f"Error processing MP4 {path}: {e}")
+            return None
+        return cls(file_name=path.name, contents=contents)
+
 
     @classmethod
     def from_xlsx(cls, file_path: FilePath, split_len: int = 5000, overlap: int = 0):
-        raise NotImplementedError("from_xlsx is not implemented")
+        path = cls._validate_path(file_path)
+        try:
+            wb = load_workbook(path, read_only=True)
+            texts: List[str] = []
+            for ws in wb.worksheets:
+                for row in ws.iter_rows(values_only=True):
+                    row_texts = [str(cell) for cell in row if cell is not None]
+                    if row_texts:
+                        texts.append(" ".join(row_texts))
+            full_text = "\n".join(texts)
+            words = full_text.split()
+            contents: Dict[int, DocumentChunk] = {}
+            chunk_id = 0
+            total = len(words)
+            idx = 0
+            while idx < total:
+                end = min(idx + split_len, total)
+                chunk_words = words[idx:end]
+                contents[chunk_id] = DocumentChunk(
+                    content_modality=ContentModality.TEXT,
+                    content=" ".join(chunk_words).encode(encoding="utf-8")
+                )
+                chunk_id += 1
+                idx = max(end - overlap, idx + 1)
+        except Exception as e:
+            logging.error(f"Error processing XLSX {path}: {e}")
+            return None
+        return cls(file_name=path.name, contents=contents)
 
     @classmethod
     def from_csv(cls, file_path: FilePath, split_len: int = 5000, overlap: int = 0):
-        raise NotImplementedError("from_csv is not implemented")
+        path = cls._validate_path(file_path)
+        contents: Dict[int, DocumentChunk] = {}
+        chunk_id = 0
+        try:
+            text_rows: List[str] = []
+            with open(path, encoding="utf-8") as f:
+                reader = csv.reader(f)
+                for row in reader:
+                    text_rows.append(" ".join([str(cell) for cell in row]))
+            full_text = "\n".join(text_rows)
+            words = full_text.split()
+            total = len(words)
+            idx = 0
+            while idx < total:
+                end = min(idx + split_len, total)
+                chunk_words = words[idx:end]
+                chunk_bytes = " ".join(chunk_words).encode(encoding="utf-8")
+                contents[chunk_id] = DocumentChunk(
+                    content_modality=ContentModality.TEXT,
+                    content=chunk_bytes
+                )
+                chunk_id += 1
+                idx = max(end - overlap, idx + 1)
+        except Exception as e:
+            logging.error(f"Error processing CSV {path}: {e}")
+            return None
+        return cls(file_name=path.name, contents=contents)
 
     @classmethod
     def from_json(cls, file_path: FilePath, split_len: int = 5000, overlap: int = 0):
-        raise NotImplementedError("from_json is not implemented")
+        path = cls._validate_path(file_path)
+        try:
+            with open(path, encoding="utf-8") as f:
+                data = json_lib.load(f)
+            text = json_lib.dumps(data, ensure_ascii=False)
+            words = text.split()
+            contents: Dict[int, DocumentChunk] = {}
+            chunk_id = 0
+            total = len(words)
+            idx = 0
+            while idx < total:
+                end = min(idx + split_len, total)
+                chunk_words = words[idx:end]
+                chunk_bytes = " ".join(chunk_words).encode(encoding="utf-8")
+                contents[chunk_id] = DocumentChunk(
+                    content_modality=ContentModality.TEXT,
+                    content=chunk_bytes
+                )
+                chunk_id += 1
+                idx = max(end - overlap, idx + 1)
+        except Exception as e:
+            logging.error(f"Error processing JSON {path}: {e}")
+            return None
+        return cls(file_name=path.name, contents=contents)
 
     @classmethod
     def from_doc(cls, file_path: FilePath, split_len: int = 5000, overlap: int = 0):
-        raise NotImplementedError("from_doc is not implemented")
+        path = cls._validate_path(file_path)
+        try:
+            doc = DocxDocument(path)
+            paragraphs = [p.text for p in doc.paragraphs if p.text]
+            text = "\n".join(paragraphs)
+            words = text.split()
+            contents: Dict[int, DocumentChunk] = {}
+            chunk_id = 0
+            total = len(words)
+            idx = 0
+            while idx < total:
+                end = min(idx + split_len, total)
+                chunk_words = words[idx:end]
+                contents[chunk_id] = DocumentChunk(
+                    content_modality=ContentModality.TEXT,
+                    content=" ".join(chunk_words).encode("utf-8")
+                )
+                chunk_id += 1
+                idx = max(end - overlap, idx + 1)
+        except Exception as e:
+            logging.error(f"Error processing DOCX {path}: {e}")
+            return None
+        return cls(file_name=path.name, contents=contents)
 
     @classmethod
-    def from_pptx(self, file_path: FilePath, split_len: int = 5000, overlap: int = 0):
-        raise NotImplementedError("from_pptx is not implemented")
+    def from_pptx(cls, file_path: FilePath, split_len: int = 5000, overlap: int = 0):
+        path = cls._validate_path(file_path)
+        try:
+            prs = Presentation(path)
+            texts: List[str] = []
+            for slide in prs.slides:
+                for shape in slide.shapes:
+                    if hasattr(shape, 'text') and shape.text:
+                        texts.append(shape.text)
+            full_text = "\n".join(texts)
+            words = full_text.split()
+            contents: Dict[int, DocumentChunk] = {}
+            chunk_id = 0
+            total = len(words)
+            idx = 0
+            while idx < total:
+                end = min(idx + split_len, total)
+                chunk_words = words[idx:end]
+                contents[chunk_id] = DocumentChunk(
+                    content_modality=ContentModality.TEXT,
+                    content=" ".join(chunk_words).encode("utf-8")
+                )
+                chunk_id += 1
+                idx = max(end - overlap, idx + 1)
+        except Exception as e:
+            logging.error(f"Error processing PPTX {path}: {e}")
+            return None
+        return cls(file_name=path.name, contents=contents)
 
     @classmethod
-    def from_html(self, file_path: FilePath, split_len: int = 5000, overlap: int = 0):
-        raise NotImplementedError("from_html is not implemented")
+    def from_html(cls, file_path: FilePath, split_len: int = 5000, overlap: int = 0):
+        path = cls._validate_path(file_path)
+        try:
+            text = Path(path).read_text(encoding="utf-8")
+            soup = BeautifulSoup(text, 'html.parser')
+            visible_text = soup.get_text(separator=' ')
+            words = visible_text.split()
+            contents: Dict[int, DocumentChunk] = {}
+            chunk_id = 0
+            total = len(words)
+            idx = 0
+            while idx < total:
+                end = min(idx + split_len, total)
+                chunk_words = words[idx:end]
+                contents[chunk_id] = DocumentChunk(
+                    content_modality=ContentModality.TEXT,
+                    content=" ".join(chunk_words).encode(encoding="utf-8")
+                )
+                chunk_id += 1
+                idx = max(end - overlap, idx + 1)
+        except Exception as e:
+            logging.error(f"Error processing HTML {path}: {e}")
+            return None
+        return cls(file_name=path.name, contents=contents)
 
 # --- Helper Function to Print Document Chunks ---
 def print_document_summary(document: Document, title: str):
