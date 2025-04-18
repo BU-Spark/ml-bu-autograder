@@ -89,7 +89,7 @@ async def get_ai_rubric(
     rubric = blob_uploader.get_rubric(semester, course_id, assignment_id)
     if rubric is None:
         # Get the assignment details to inform the LLM
-        assignment = blob_uploader.get_assignment(semester, course_id, assignment_id)
+        assignment = blob_uploader.get_assignment_metadata(semester, course_id, assignment_id)
         if assignment is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found.")
 
@@ -107,7 +107,7 @@ async def get_ai_rubric(
                 f"Create a comprehensive rubric for the following assignment:\n\n"
                 f"Course: {course_id.upper()}, Semester: {semester}\n"
                 f"Assignment ID: {assignment_id}\n"
-                f"Assignment Details: {assignment.title} - {assignment.description}\n\n"
+                #f"Assignment Details: {assignment.title} - {assignment.description}\n\n"
                 f"Number of questions: {len(assignment.questions)}")
         )
 
@@ -144,7 +144,7 @@ async def get_ai_rubric(
             )
     else:
         # Get the assignment details
-        assignment = blob_uploader.get_assignment(semester, course_id, assignment_id)
+        assignment = blob_uploader.get_assignment_metadata(semester, course_id, assignment_id)
         if assignment is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found.")
 
@@ -162,7 +162,8 @@ async def get_ai_rubric(
                 f"Enhance the following rubric for this assignment:\n\n"
                 f"Course: {course_id.upper()}, Semester: {semester}\n"
                 f"Assignment ID: {assignment_id}\n"
-                f"Assignment Details: {assignment.title} - {assignment.description}")
+            )
+                #f"Assignment Details: {assignment.title} - {assignment.description}")
         )
 
         # Add the existing rubric as JSON input
@@ -179,7 +180,8 @@ async def get_ai_rubric(
                 "3. Adding clear instructor guidelines where missing\n"
                 "4. Organizing criteria logically\n"
                 "5. Adding appropriate grading flags if needed\n"
-                "6. Ensuring all grading criteria for each question sum to the max points")
+                "6. Ensuring all grading criteria for each question sum to the max points. You must run through the whole rubric step by step and make sure"
+                "that the sum of all points add to the max points allotment. If they do not add up to that allotment, then the rubric is invalid!")
 
         # Build the final prompt
         prompt_list = prompt.build()
