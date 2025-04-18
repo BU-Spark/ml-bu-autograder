@@ -263,6 +263,8 @@ class LLMService:
 # TODO: delete me
 if __name__ == '__main__':
     from dotenv import load_dotenv
+    from app.models import Rubric, SubRubric
+    from app.models.rubric import GradingCriteria
     load_dotenv()
     endpoint = HttpUrl(get_str_var("AZURE_LLM_DEPLOYMENT_URL"))
     subscription_key = get_str_var("AZURE_LLM_DEPLOYMENT_KEY")
@@ -287,37 +289,37 @@ if __name__ == '__main__':
            .build())
     print(llm.generate_response(res))
 
-    # res = (PromptBuilder.builder()
-    #        .add_message(PromptRole.USER, "Improve this rubric. Ensure the sum of the grading criteria sum to max "
-    #                                      "points for the sub-rubric (don't change point allotments of the "
-    #                                      "sub-rubrics. Grading criteria should be very detail about what is enough to "
-    #                                      "get 1 point? 2 points? etc. If a question is missing grading criterias or "
-    #                                      "could benefit from MORE criterias, add em.")
-    #        .add_json_input(PromptRole.USER, Rubric(
-    #     semester="fall2024",
-    #     course_id="CS101",
-    #     assignment_id='1',
-    #     grading_flags=None,
-    #     overall_instructor_guidelines="Be more strict.",
-    #     sub_rubrics=[
-    #         SubRubric(
-    #             question_index=1,
-    #             max_points=10,
-    #             grading_criteria=[],
-    #             instructor_guideline="Check spellings",
-    #         ),
-    #         SubRubric(
-    #             question_index=2,
-    #             max_points=10,
-    #             grading_criteria=[
-    #                 GradingCriteria(
-    #                     criteria_id="grammer", criteria="how gud is grammer", points=10)
-    #             ], instructor_guideline=None, )
-    #
-    #     ]
-    # ))
-    #        .build())
-    #print(llm.generate_structured_response(res, Rubric).model_dump_json(indent=4))
+    res = (PromptBuilder.builder()
+           .add_message(PromptRole.USER, "Improve this rubric. Ensure the sum of the grading criteria sum to max "
+                                         "points for the sub-rubric (don't change point allotments of the "
+                                         "sub-rubrics. Grading criteria should be very detail about what is enough to "
+                                         "get 1 point? 2 points? etc. If a question is missing grading criterias or "
+                                         "could benefit from MORE criterias, add em.")
+           .add_json_input(PromptRole.USER, Rubric(
+        semester="fall2024",
+        course_id="CS101",
+        assignment_id='1',
+        grading_flags=None,
+        overall_instructor_guidelines="Be more strict.",
+        sub_rubrics=[
+            SubRubric(
+                question_index=1,
+                max_points=10,
+                grading_criteria=[],
+                instructor_guideline="Check spellings",
+            ),
+            SubRubric(
+                question_index=2,
+                max_points=10,
+                grading_criteria=[
+                    GradingCriteria(
+                        criteria_id="grammer", criteria="how gud is grammer", points=10)
+                ], instructor_guideline=None, )
+
+        ]
+    ))
+           .build())
+    print(llm.generate_structured_response(res, Rubric).model_dump_json(indent=4))
 
     res = (PromptBuilder.builder()
            .add_message(PromptRole.USER, "First tell me what this file is called.")

@@ -352,7 +352,7 @@ class AzureBlobService:
     def upload_rubric(self, semester_key: str, course_id: str, assignment_id: str, rubric: Rubric,
                       upload_sub_rubrics=True):
         """Uploads rubric with optional sub-rubrics."""
-        blob_path = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/rubrics/assignment.json"
+        blob_path = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/rubrics/rubric.json"
 
         if upload_sub_rubrics and rubric.sub_rubrics:
             logging.debug(f"Uploading {len(rubric.sub_rubrics)} sub-rubrics in parallel")
@@ -402,9 +402,11 @@ class AzureBlobService:
             f"course_material/"
             f"{material.material_id}.{material.data.data_type.value[0]}"
         )
-        self.upload_binary_data(material.data.content, blob_path, None if material.additional_notes is None else {
-            "additional_notes": material.additional_notes
-        })
+        # TODO: problem for later
+        # self.upload_binary_data(material.data.content, blob_path, None if material.additional_notes is None else {
+        #     "additional_notes": material.additional_notes
+        # })
+        self.upload_binary_data(material.data.content, blob_path)
 
     def get_student_response_data(self, semester_key: str, course_id: str, assignment_id: str, question_index: int,
                                   student_id: str, data_type: str) \
@@ -462,7 +464,7 @@ class AzureBlobService:
     def get_rubric(self, semester_key: str, course_id: str, assignment_id: str,
                    include_sub_rubrics=True) -> Optional[Rubric]:
         """Retrieves rubric with optional sub-rubrics."""
-        blob_path = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/rubric.json"
+        blob_path = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/rubrics/rubric.json"
         data = self.download_json(blob_path)
         if not data:
             return None
@@ -775,7 +777,10 @@ class AzureBlobService:
         courses = []
         for file in self.fs.glob(self._full_path(pattern)):
             # if user doesn't have access to this course, skip
-            if not user.authenticated_courses.__contains__(file):
+            semester = file.split('/')[2]
+            course_id = file.split('/')[3]
+            if not user.authenticated_courses.__contains__((semester, course_id)):
+                logging.debug(f"Skipping course {file} because {user.user_email} doesn't have access to {(semester, course_id)}")
                 continue
             # Remove the container prefix before passing to download_json
             relative_path = file.split('/', 1)[1]
@@ -838,6 +843,8 @@ class AzureBlobService:
 
         for file in self.fs.glob(self._full_path(pattern)):
             relative_path = file.split('/', 1)[1]
+            if relative_path.endswith("rubric.json"):
+                continue  # only for the sub rubrics
             data = self.download_json(relative_path)
             if data:
                 sub_rubrics.append(SubRubric(**data))

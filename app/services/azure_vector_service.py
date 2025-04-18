@@ -20,6 +20,7 @@ from azure.search.documents.indexes.models import (
     SimpleField,
     SearchFieldDataType
 )
+from pydantic import HttpUrl
 
 # Global variable to hold the AzureVectorService singleton instance.
 azure_instance: Optional["AzureVectorService"] = None
@@ -214,7 +215,7 @@ class AzureVectorService:
             raise
 
     @staticmethod
-    def init_singleton(endpoint: str, api_key: str, index_name: str, embedding_dims: int = 1536):
+    def init_singleton(endpoint: HttpUrl, api_key: str, index_name: str, embedding_dims: int = 1536):
         """
         Initialize the AzureVectorService singleton.
 
@@ -229,7 +230,7 @@ class AzureVectorService:
         """
         global azure_instance
         if azure_instance is None:
-            azure_instance = AzureVectorService(endpoint, api_key, index_name, embedding_dims)
+            azure_instance = AzureVectorService(endpoint.encoded_string(), api_key, index_name, embedding_dims)
         else:
             logging.warning("AzureVectorService singleton already initialized.")
 

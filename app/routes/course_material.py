@@ -31,9 +31,8 @@ async def get_course_materials(
         course_id: str = Query(..., description="Identifier of the course."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
-    # validate params
-    semester = Course.validate_semester(semester)
-    course_id = Course.normalize_lowercase(course_id)
+    # validate params by attempting to create a course object
+    Course(semester=semester, course_id=course_id)
 
     blob_uploader = AzureBlobService.get_instance()
 
@@ -70,9 +69,8 @@ async def get_course_material(
         material_id: str = Query(..., description="Unique identifier of the specific material."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
-    # validate params
-    semester = Course.validate_semester(semester)
-    course_id = Course.normalize_lowercase(course_id)
+    # validate params by attempting to create a course object
+    Course(semester=semester, course_id=course_id)
 
     blob_uploader = AzureBlobService.get_instance()
 
@@ -132,7 +130,7 @@ async def upload_course_material(
     # Save object to file otherwise if too many requests
     # accumulate we will run out of ram very quick
     random_uuid = uuid.uuid4()
-    save_path = FilePath(f"{get_str_var('AZURE_BLOB_CACHE_DIR')}/{random_uuid}.course_materials.json")
+    save_path = FilePath(f"{get_str_var('TEMP_FILES_DIR')}/{random_uuid}.course_materials.json")
 
     # A background process will pick this up and process it trust.
     # See app/utils/bg_material_processor.py.
@@ -158,9 +156,8 @@ async def delete_course_material(
         material_id: str = Query(..., description="Unique identifier of the material to delete."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
-    # validate params
-    semester = Course.validate_semester(semester)
-    course_id = Course.normalize_lowercase(course_id)
+    # validate params by attempting to create a course object
+    Course(semester=semester, course_id=course_id)
 
     blob_uploader = AzureBlobService.get_instance()
 
@@ -229,7 +226,7 @@ async def update_course_material(
     # Save object to file otherwise if too many requests
     # accumulate we will run out of ram very quick
     random_uuid = uuid.uuid4()
-    save_path = FilePath(f"{get_str_var('AZURE_BLOB_CACHE_DIR')}/{random_uuid}.{material.data.data_type.extension}")
+    save_path = FilePath(f"{get_str_var('TEMP_FILES_DIR')}/{random_uuid}.{material.data.data_type.extension}")
 
     # A background process will pick this up and process it trust.
     # See app/utils/bg_material_processor.py.

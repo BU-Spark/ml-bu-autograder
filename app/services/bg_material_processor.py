@@ -89,11 +89,14 @@ def process_grading(json_str: str):
             prompt.add_message(PromptRole.USER, document.get_as_string())
 
     (prompt.add_message(PromptRole.USER, "The instructions for this assignment are as follows:")
-     .add_json_input(PromptRole.USER, assignment_question, excluded_fields={"questions"})
+     .add_json_input(PromptRole.USER, assignment, excluded_fields={"questions"})
      .add_json_input(PromptRole.USER, assignment_question)
      .add_message(PromptRole.USER, "Grading for this assignment should be"
                                    " exclusively based on the following rubric:")
      .add_json_input(PromptRole.USER, rubric))
+    for grading_flag in rubric.grading_flags:
+        prompt.add_message(PromptRole.USER, f"Since the rubric is marked with the flag: {grading_flag.flag_name},"
+                                            f"it means you should: {grading_flag.get_description()}")
 
     prompt.add_message(PromptRole.USER, "Here is the student's response:")
     for chunk_id, resp_chunk in student_response_documents.contents.items():

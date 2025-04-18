@@ -60,6 +60,17 @@ class DataType(Enum):
     def __str__(self):
         return f"{self.extension} ({self.mime_type})"
 
+    @classmethod
+    def _missing_(cls, value):
+        """
+        Allows deserialization from just the extension like 'pdf' or 'txt'.
+        """
+        if isinstance(value, str):
+            for member in cls:
+                if member.extension == value.lower() or member.mime_type == value.lower():
+                    return member
+        raise ValueError(f"'{value}' is not a valid DataType extension")
+
     def get_to_doc_func(self) -> "ToDocumentFunction":
         if self == DataType.PNG:
             return ToDocumentFunction(Document.from_png)

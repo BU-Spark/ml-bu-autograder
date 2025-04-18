@@ -120,9 +120,8 @@ async def delete_response(
                                               description="Optional index of the question. If omitted, all responses for the assignment are deleted."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
-    # validate params
-    semester = Course.validate_semester(semester)
-    course_id = Course.normalize_lowercase(course_id)
+    # validate params by attempting to create a course object
+    Course(semester=semester, course_id=course_id)
 
     blob_uploader = AzureBlobService.get_instance()
 
@@ -176,9 +175,8 @@ async def get_responses(
         student_id: Optional[str] = Query(None, description="Optional unique identifier for the student."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
-    # validate params
-    semester = Course.validate_semester(semester)
-    course_id = Course.normalize_lowercase(course_id)
+    # validate params by attempting to create a course object
+    Course(semester=semester, course_id=course_id)
 
     blob_uploader = AzureBlobService.get_instance()
 

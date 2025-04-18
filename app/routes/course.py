@@ -64,9 +64,8 @@ async def delete_course(
         course_id: str = Query(..., description="Unique identifier of the course to delete."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
-    # validate params
-    semester = Course.validate_semester(semester)
-    course_id = Course.normalize_lowercase(course_id)
+    # validate params by attempting to create a course object
+    Course(semester=semester, course_id=course_id)
 
     if user_meta is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="You are not authenticated.")
@@ -136,9 +135,8 @@ async def get_course(
         course_id: str = Query(..., description="Unique identifier of the course."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
-    # validate params
-    semester = Course.validate_semester(semester)
-    course_id = Course.normalize_lowercase(course_id)
+    # validate params by attempting to create a course object
+    Course(semester=semester, course_id=course_id)
 
     blob_uploader = AzureBlobService.get_instance()
 
@@ -192,9 +190,8 @@ async def add_course_instructor(
         instructor: EmailStr = Query(..., description="Email of the instructor to add."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
-    # validate params
-    semester = Course.validate_semester(semester)
-    course_id = Course.normalize_lowercase(course_id)
+    # validate params by attempting to create a course object
+    Course(semester=semester, course_id=course_id, instructors={instructor})
     instructor = Course.normalize_instructor_email(instructor)
 
     blob_uploader = AzureBlobService.get_instance()
@@ -238,9 +235,8 @@ async def remove_course_instructor(
         instructor: EmailStr = Query(..., description="Email of the instructor to remove."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
-    # validate params
-    semester = Course.validate_semester(semester)
-    course_id = Course.normalize_lowercase(course_id)
+    # validate params by attempting to create a course object
+    Course(semester=semester, course_id=course_id, instructors={instructor})
     instructor = Course.normalize_instructor_email(instructor)
 
     blob_uploader = AzureBlobService.get_instance()

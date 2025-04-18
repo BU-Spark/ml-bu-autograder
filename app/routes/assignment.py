@@ -161,9 +161,8 @@ async def remove_question(
         question_index: int = Query(..., description="Index of the question to remove."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
-    # validate params
-    semester = Course.validate_semester(semester)
-    course_id = Course.normalize_lowercase(course_id)
+    # validate params by attempting to create a course object
+    Course(semester=semester, course_id=course_id)
 
     blob_uploader = AzureBlobService.get_instance()
     # Check if the course exists
@@ -295,9 +294,8 @@ async def get_assignment(
         include_questions: bool = Query(True, description="Whether to include questions in the response."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
-    # validate params
-    semester = Course.validate_semester(semester)
-    course_id = Course.normalize_lowercase(course_id)
+    # validate params by attempting to create a course object
+    Course(semester=semester, course_id=course_id)
 
     blob_uploader = AzureBlobService.get_instance()
     # Check if the course exists
@@ -340,9 +338,8 @@ async def list_assignments(
         include_questions: bool = Query(True, description="Whether to include questions in the response."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
-    # validate params
-    semester = Course.validate_semester(semester)
-    course_id = Course.normalize_lowercase(course_id)
+    # validate params by attempting to create a course object
+    Course(semester=semester, course_id=course_id)
 
     blob_uploader = AzureBlobService.get_instance()
     # Check if the course exists
@@ -385,9 +382,8 @@ async def delete_assignment(
         assignment_id: str = Query(..., description="Identifier of the assignment to delete."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
-    # validate params
-    semester = Course.validate_semester(semester)
-    course_id = Course.normalize_lowercase(course_id)
+    # validate params by attempting to create a course object
+    Course(semester=semester, course_id=course_id)
 
     blob_uploader = AzureBlobService.get_instance()
     # Check if the course exists

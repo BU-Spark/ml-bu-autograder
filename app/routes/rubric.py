@@ -69,9 +69,8 @@ async def get_ai_rubric(
 ):
     blob_uploader = AzureBlobService.get_instance()
 
-    # validate params
-    semester = Course.validate_semester(semester)
-    course_id = Course.normalize_lowercase(course_id)
+    # validate params by attempting to create a course object
+    Course(semester=semester, course_id=course_id)
 
     # Check if course exists
     if not blob_uploader.course_exists(semester, course_id):
@@ -222,9 +221,8 @@ async def get_rubric(
 ):
     blob_uploader = AzureBlobService.get_instance()
 
-    # validate params
-    semester = Course.validate_semester(semester)
-    course_id = Course.normalize_lowercase(course_id)
+    # validate params by attempting to create a course object
+    Course(semester=semester, course_id=course_id)
 
     # Check if course exists
     if not blob_uploader.course_exists(semester, course_id):

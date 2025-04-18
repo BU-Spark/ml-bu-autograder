@@ -13,9 +13,11 @@ class CourseMaterial(BaseModel):
     semester: str = Field(..., description="The semester associated with the course.")
     course_id: str = Field(..., description="Associated course identifier.")
     material_id: str = Field(..., description="The unique title or name of the material.")
-    additional_notes: Optional[str] = Field(
-        None, description="Optional instructor notes."
-    )
+    # TODO: would be nice to support some additional notes for LLM for course material adding more
+    #  context but not worth the time supporting ATM.
+    # additional_notes: Optional[str] = Field(
+    #     None, description="Optional instructor notes."
+    # )
 
     @field_validator("semester", mode='before')
     def validate_semester(cls, value: str) -> str:

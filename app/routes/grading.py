@@ -37,9 +37,8 @@ async def grade_specific(
 ):
     blob_uploader = AzureBlobService.get_instance()
 
-    # validate params
-    semester = Course.validate_semester(semester)
-    course_id = Course.normalize_lowercase(course_id)
+    # validate params by attempting to create a course object
+    Course(semester=semester, course_id=course_id)
 
     # Check if course exists
     if not blob_uploader.course_exists(semester, course_id):
@@ -70,7 +69,7 @@ async def grade_specific(
         for response in responses:
             random_uuid = uuid.uuid4()
             save_path = FilePath(
-                f"{get_str_var('AZURE_BLOB_CACHE_DIR')}/{random_uuid}.json")
+                f"{get_str_var('TEMP_FILES_DIR')}/{random_uuid}.json")
             # A background process will pick this up and process it trust.
             # See app/utils/bg_material_processor.py.
             with open(save_path, 'w') as f:
@@ -103,9 +102,8 @@ async def grade_ungraded(
 ):
     blob_uploader = AzureBlobService.get_instance()
 
-    # validate params
-    semester = Course.validate_semester(semester)
-    course_id = Course.normalize_lowercase(course_id)
+    # validate params by attempting to create a course object
+    Course(semester=semester, course_id=course_id)
 
     # Check if course exists
     if not blob_uploader.course_exists(semester, course_id):
@@ -155,7 +153,7 @@ async def grade_ungraded(
         # See app/utils/bg_material_processor.py.
         random_uuid = uuid.uuid4()
         save_path = FilePath(
-            f"{get_str_var('AZURE_BLOB_CACHE_DIR')}/{random_uuid}.student_response.json")
+            f"{get_str_var('TEMP_FILES_DIR')}/{random_uuid}.student_response.json")
         # A background process will pick this up and process it trust.
         # See app/utils/bg_material_processor.py.
         with open(save_path, 'w') as f:
@@ -186,9 +184,8 @@ async def grade_all(
 ):
     blob_uploader = AzureBlobService.get_instance()
 
-    # validate params
-    semester = Course.validate_semester(semester)
-    course_id = Course.normalize_lowercase(course_id)
+    # validate params by attempting to create a course object
+    Course(semester=semester, course_id=course_id)
 
     # Check if course exists
     if not blob_uploader.course_exists(semester, course_id):
@@ -228,7 +225,7 @@ async def grade_all(
         # See app/utils/bg_material_processor.py.
         random_uuid = uuid.uuid4()
         save_path = FilePath(
-            f"{get_str_var('AZURE_BLOB_CACHE_DIR')}/{random_uuid}.json")
+            f"{get_str_var('TEMP_FILES_DIR')}/{random_uuid}.json")
         # A background process will pick this up and process it trust.
         # See app/utils/bg_material_processor.py.
         with open(save_path, 'w') as f:
