@@ -14,7 +14,7 @@ from openai.types.chat.chat_completion_content_part_param import File, FileFile
 from pydantic import HttpUrl, BaseModel
 from typing_extensions import Buffer
 
-from app.models.uploaded_file import DataType
+from app.utils.bytes_to_doc_util import DataType
 from app.utils.env_var_util import get_str_var
 
 
@@ -180,10 +180,13 @@ class PromptBuilder:
             self._previous_message = self._prompt[-1]
         return self
 
-    def add_json_input(self, role: PromptRole, json_input: dict | BaseModel) -> "PromptBuilder":
+    def add_json_input(self, role: PromptRole, json_input: dict | BaseModel, excluded_fields: set = None) -> "PromptBuilder":
         if isinstance(json_input, BaseModel):
-            json_input = json_input.model_dump_json()
+            json_input = json_input.model_dump_json(exclude=excluded_fields)
         else:
+            if excluded_fields is not None:
+                for field in excluded_fields:
+                    json_input.pop(field, None)
             json_input = json.dumps(json_input)
         prompt_data = PromptData(
             prompt_type=PromptType.TEXT_INPUT,
@@ -198,7 +201,7 @@ class PromptBuilder:
             self._previous_message = self._prompt[-1]
         return self
 
-    def build(self) -> list[dict]:
+    def build(self) -> list[ChatCompletionMessageParam]:
         return [p.to_message() for p in self._prompt]
 
     @staticmethod
@@ -229,7 +232,7 @@ class LLMService:
         )
         self.deployment_name = endpoint_url.encoded_string().split('/')[5]
 
-    def generate_response(self, prompts: List[dict]) -> str:
+    def generate_response(self, prompts: List[ChatCompletionMessageParam]) -> str:
         response = self.client.chat.completions.create(
             model=self.deployment_name,
             messages=prompts,
@@ -238,7 +241,7 @@ class LLMService:
         )
         return response.choices[0].message.content
 
-    def generate_structured_response(self, prompts: List[dict], response_format: Type[T]) -> T:
+    def generate_structured_response(self, prompts: List[ChatCompletionMessageParam], response_format: Type[T]) -> T:
         completion = self.client.beta.chat.completions.parse(
             model=self.deployment_name,
             # replace with the model deployment name of your gpt-4o 2024-08-06 deployment

@@ -2,9 +2,9 @@ import json
 import logging
 import mimetypes
 import shutil
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import as_completed
 from datetime import timedelta, datetime, UTC
-from typing import List, Dict, Optional, Set
+from typing import List, Dict, Optional, Set, Tuple
 
 import fsspec
 from adlfs import AzureBlobFileSystem
@@ -16,6 +16,7 @@ from pydantic import EmailStr, FilePath, BaseModel, HttpUrl
 from app.models import *
 from app.models.uploaded_file import UploadedFileReference, DataType, UploadedFileData
 from app.utils.bytes_to_doc_util import Document, DocumentChunk
+from app.utils.error_handling_tpe import ErrorHandlingThreadPool
 
 azure_blob_uploader: Optional["AzureBlobService"] = None
 
@@ -28,6 +29,7 @@ class AzureBlobService:
     fs: AbstractFileSystem  # The filecache wrapper filesystem
     abfs: AzureBlobFileSystem  # The underlying Azure Blob filesystem
     container: str
+    executor: ErrorHandlingThreadPool
 
     def __init__(self,
                  credential: ChainedTokenCredential,
@@ -71,7 +73,7 @@ class AzureBlobService:
         self.blob_service_client = BlobServiceClient(self.account_url, credential=self.abfs.credential)
 
         # init a thread pool executor since there is plenty of IO-bound tasks here...
-        self.executor = ThreadPoolExecutor(max_workers=4)
+        self.executor = ErrorHandlingThreadPool(max_workers=4)
 
         self.container = container_name
         logging.info(f"Initialized AzureBlobService for container '{container_name}'")
@@ -396,6 +398,8 @@ class AzureBlobService:
         """Retrieves student response if exists."""
         blob_path = (f"course/{semester_key}/{course_id}/assignment/{assignment_id}/"
                      f"{question_index}/student_response/{student_id}/response.{data_type.lower()}")
+        full_pattern = self._full_path(blob_path)
+        logging.debug(f"Retrieving student response with path: {full_pattern}")
         student_response_data = StudentResponseData(
             semester=semester_key,
             course_id=course_id,
@@ -404,19 +408,19 @@ class AzureBlobService:
             student_id=student_id,
             data=UploadedFileData(
                 data_type=DataType.from_extension(data_type),
-                content=self.get_file_bytes(blob_path)
+                content=self.get_file_bytes(full_pattern)
             )
         )
         return student_response_data
 
-    def _get_student_response(self, semester_key: str, course_id: str, assignment_id: str, question_index: int,
-                              student_id: str, data_type: str, retrieve_grades=True) \
+    def get_student_response_ref(self, semester_key: str, course_id: str, assignment_id: str, question_index: int,
+                                 student_id: str, data_type: str, retrieve_grades=True) \
             -> Optional[GradedStudentResponseReference]:
         """Retrieves student response if exists."""
         blob_path = (f"course/{semester_key}/{course_id}/assignment/{assignment_id}/"
                      f"{question_index}/student_response/{student_id}/response.{data_type.lower()}")
         full_pattern = self._full_path(blob_path)
-        logging.debug(f"Searching for student response with pattern: {full_pattern}")
+        logging.debug(f"Retrieving student response with path: {full_pattern}")
         student_response_ref = GradedStudentResponseReference(
             semester=semester_key,
             course_id=course_id,
@@ -605,7 +609,8 @@ class AzureBlobService:
     def list_student_responses(self, semester: str, course_id: str, assignment_id: str,
                                student_id: Optional[str] = None,
                                question_index: Optional[int] = None,
-                               include_grades: bool = False) -> List[GradedStudentResponseReference]:
+                               include_grades: bool = False,
+                               include_data=False) -> List[GradedStudentResponseReference | StudentResponseData]:
         """Lists student responses with optional question filter."""
         if question_index is not None and student_id is not None:
             pattern = (
@@ -653,10 +658,18 @@ class AzureBlobService:
             relative_path = file.split('/', 1)[1]
             student_id = relative_path.split('/')[7]
             data_type = relative_path.split(".")[-1]
-            student_response_ref = self._get_student_response(semester, course_id, assignment_id,
-                                                              question_index, student_id, data_type, include_grades)
-            if student_response_ref:
-                responses.append(student_response_ref)
+            if include_data:
+                student_response_data = self.get_student_response_data(
+                    semester, course_id, assignment_id,
+                    question_index, student_id, data_type
+                )
+                if student_response_data is not None:
+                    responses.append(student_response_data)
+            else:
+                student_response_ref = self.get_student_response_ref(semester, course_id, assignment_id,
+                                                                     question_index, student_id, data_type, include_grades)
+                if student_response_ref is not None:
+                    responses.append(student_response_ref)
 
         logging.debug(f"Found {len(responses)} responses")
         return responses
@@ -738,23 +751,7 @@ class AzureBlobService:
         Reorders questions by moving their blobs and updating question indexes.
         """
         logging.debug(f"Reordering questions for assignment {assignment_id}: {new_order}")
-
-        for new_index, old_index in enumerate(new_order):
-            old_blob_path = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/{old_index}/question.json"
-            new_blob_path = f"course/{semester_key}/{course_id}/assignment/{assignment_id}/{new_index}/question.json"
-
-            # Download and update the metadata first
-            data = self.download_json(old_blob_path)
-            if not data:
-                logging.warning(f"Skipping missing question metadata at index {old_index}")
-                continue
-
-            # Move the blob (rename on storage layer)
-            self.move_blob(old_blob_path, new_blob_path)
-
-            logging.info(f"Reordered question: {old_index} → {new_index}")
-
-        logging.info(f"Completed reordering of questions for assignment {assignment_id}")
+        raise NotImplementedError("Reordering questions is not yet implemented.")
 
     def list_courses(self, user: User, semester_key: Optional[str] = None) -> List[Course]:
         """
@@ -911,8 +908,9 @@ class AzureBlobService:
         self.fs.rm(full_base_path, recursive=True)
 
         def upload_one(chunk_id, document_chunk):
-            blob_path = f"{full_base_path}/{chunk_id}.{document_chunk.data_type.extension}"
-            self.upload_binary_data(document_chunk.content, blob_path, document_chunk.metadata)
+            full_blob_path = f"{full_base_path}/{chunk_id}.{document_chunk.data_type.extension}"
+            blob_path = f"{base_path}/{chunk_id}.{document_chunk.data_type.extension}"
+            self.upload_binary_data(document_chunk.content, full_blob_path, document_chunk.metadata)
             logging.info(f"Uploaded chunk {chunk_id} for {material_id}")
             return chunk_id, blob_path
 
@@ -924,6 +922,39 @@ class AzureBlobService:
         mappings = dict(results)
 
         return mappings
+
+    def get_chunks_from_blob_path(self, blob_paths: List[str]) -> List[Tuple[str, DocumentChunk]]:
+        # Helper to do the IO work for one path
+        def _load_one(blob_path: str):
+            file_name = blob_path.split('/')[4]
+            absolute_path = self._full_path(blob_path)
+            data = self.get_file_bytes(absolute_path)
+            metadata = self.fs.info(absolute_path).get("metadata", {})
+            if not data:
+                return None
+            return (
+                file_name,
+                DocumentChunk(
+                    data_type=DataType.from_extension(blob_path.rsplit('.', 1)[-1]),
+                    content=data,
+                    metadata=metadata
+                )
+            )
+
+        # Submit all tasks; executor.map returns results in the same order
+        results = list(self.executor.map(_load_one, blob_paths))
+
+        # Filter out any Nones (in case get_file_bytes returned falsy)
+        return [r for r in results if r is not None]
+
+    @staticmethod
+    def _get_document_name_from_chunk_path(chunk_path: str) -> str:
+        """
+        Extracts the document name from a chunk path.
+        """
+        # Assuming the chunk path is in the format: .../chunks/<chunk_id>.<extension>
+        return chunk_path.split("/")[-1].split(".")[0]
+
 
     @staticmethod
     def _guess_content_type(filename: str) -> str:

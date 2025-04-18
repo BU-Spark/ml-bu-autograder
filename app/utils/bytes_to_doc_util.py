@@ -1,14 +1,117 @@
 import base64
 import logging
 from builtins import bytes
+from enum import Enum
 from io import BytesIO
 from pathlib import Path
-from typing import Dict, List, Tuple, Any, Optional
+from typing import Dict, List, Tuple, Any, Optional, Protocol, Callable, Literal
 
 import fitz  # PyMuPDF
-from pydantic import BaseModel  # Use pydantic BaseModel for DocumentChunk
+from pydantic import BaseModel, field_validator  # Use pydantic BaseModel for DocumentChunk
 
-from app.models.uploaded_file import DataType
+
+class DataType(Enum):
+    """
+    Represents a list of accepted data types, along with their corresponding MIME types.
+    Note: This extends the fundamental data types defined in the bytes_to_doc_util module
+    and so the below list IS NOT an exhaustive list of all data types supported.
+    Other types like TEXT, PNG, etc. exist and are defined in bytes_to_doc_util.
+    """
+    PNG = ("png", "image/png")
+    JPEG = ("jpeg", "image/jpeg")
+    HTML = ("html", "text/html")
+    TEXT = ("txt", "text/plain")
+    CSV = ("csv", "text/csv")
+    PDF = ("pdf", "application/pdf")
+    JSON = ("json", "application/json")
+    WORD_DOC = ("doc", "application/msword")
+    POWERPOINT = ("pptx", "application/vnd.ms-powerpoint")
+    EXCEL = ("xlsx", "application/vnd.ms-excel")
+    MP4 = ("mp4", "video/mp4")
+    MP3 = ("mp3", "audio/mpeg")
+    WAV = ("wav", "audio/wav")
+
+    mime_type: str
+    extension: str
+
+    def __init__(self, extension, mime_type):
+        self.extension = extension
+        self.mime_type = mime_type  # _mime_type is stored privately
+
+    def is_audio(self):
+        return self.name in ["MP3", "WAV"]
+
+    def is_video(self):
+        return self.name in ["MP4"]
+
+    def is_fundamental(self):
+        """
+        "Fundamental" data types are text and images that can be safely passed directly
+        to an LLM.
+        """
+        return self.is_text() or self.is_image()
+
+    def is_image(self):
+        return self.mime_type.startswith("image/")
+
+    def is_text(self):
+        return self.mime_type.startswith("text/")
+
+    def __str__(self):
+        return f"{self.extension} ({self.mime_type})"
+
+    def get_to_doc_func(self) -> "ToDocumentFunction":
+        if self == DataType.PNG:
+            return ToDocumentFunction(Document.from_png)
+        elif self == DataType.JPEG:
+            return ToDocumentFunction(Document.from_jpeg)
+        elif self == DataType.PDF:
+            return ToDocumentFunction(Document.from_pdf)
+        elif self == DataType.WORD_DOC:
+            return ToDocumentFunction(Document.from_doc)
+        elif self == DataType.POWERPOINT:
+            return ToDocumentFunction(Document.from_pptx)
+        elif self == DataType.HTML:
+            return ToDocumentFunction(Document.from_html)
+        elif self == DataType.EXCEL:
+            return ToDocumentFunction(Document.from_xlsx)
+        elif self == DataType.TEXT:
+            return ToDocumentFunction(Document.from_txt)
+        elif self == DataType.CSV:
+            return ToDocumentFunction(Document.from_csv)
+        elif self == DataType.JSON:
+            return ToDocumentFunction(Document.from_json)
+        elif self == DataType.MP4:
+            return ToDocumentFunction(Document.from_mp4)
+        elif self == DataType.MP3:
+            return ToDocumentFunction(Document.from_mp3)
+        elif self == DataType.WAV:
+            return ToDocumentFunction(Document.from_wav)
+        else:
+            raise ValueError("Invalid DataType")
+
+    @classmethod
+    def from_mime_type(cls, mime_type):
+        """
+        Given a MIME type, return the corresponding enum member.
+        """
+        for data_type in cls:
+            if data_type.mime_type == mime_type.lower():
+                return data_type
+        return None
+
+    @classmethod
+    def from_extension(cls, extension: str) -> Optional["DataType"]:
+        """
+        Converts a string value to the corresponding enum member.
+        """
+        for member in cls:
+            if member.extension == extension.lower():
+                return member
+        # special case, jpg and jpeg are the same
+        if extension.lower() == "jpg":
+            return cls.JPEG
+        return None
 
 
 # Define DocumentChunk using Pydantic for potential validation/structure
@@ -19,7 +122,12 @@ class DocumentChunk(BaseModel):
     content: bytes
     # metadata associated with the data
     # (for example which document or page number it comes from)
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[Literal['page_num', 'xref'], Any]] = None
+
+    @field_validator("data_type", mode="before")
+    def validate_data_type(cls, dt: DataType) -> DataType:
+        assert dt.is_fundamental(), "Only fundamental data types are allowed in a document chunk."
+        return dt
 
     def get_as_string(self) -> str:
         if self.data_type == DataType.TEXT:
@@ -58,6 +166,7 @@ class Document:
     def from_pdf(cls,
                  file_name: str,
                  file_bytes: bytes,
+                 do_splits=True,
                  split_len: Optional[int] = 500,
                  overlap: int = 50,
                  min_image_bytes: int = 0) -> Optional["Document"]:
@@ -85,6 +194,9 @@ class Document:
             ValueError: If overlap is greater than or equal to split_len when split_len is not None.
             Exception: For errors during PDF processing.
         """
+        if do_splits is False:
+            split_len = None
+            overlap = None
 
         if split_len is not None and overlap >= split_len:
             raise ValueError(
@@ -191,7 +303,7 @@ class Document:
                                 chunk_text = " ".join([w for w, p in words_for_chunk])
                                 chunk_bytes = chunk_text.encode("utf-8")
                                 chunk_pages = sorted(list(set([p for w, p in words_for_chunk])))
-                                metadata = {'page_num': chunk_pages}
+                                metadata: dict[Literal['page_num'], Any] = {'page_num': chunk_pages}
 
                                 contents[chunk_id_counter] = DocumentChunk(
                                     data_type=DataType.TEXT,
@@ -219,7 +331,7 @@ class Document:
                             chunk_text = " ".join([w for w, p in words_for_chunk])
                             chunk_bytes = chunk_text.encode("utf-8")
                             chunk_pages = sorted(list(set([p for w, p in words_for_chunk])))
-                            metadata = {'page_num': chunk_pages}
+                            metadata: dict[Literal['page_num'], Any] = {'page_num': chunk_pages}
 
                             contents[chunk_id_counter] = DocumentChunk(
                                 data_type=DataType.TEXT,
@@ -231,7 +343,7 @@ class Document:
 
                         # 2. Create the image chunk (it was already checked for size earlier)
                         img_bytes = item['content']
-                        metadata = {'page_num': [item_page], 'xref': item['xref']}
+                        metadata: dict[Literal['page_num', 'xref'], Any] = {'page_num': [item_page], 'xref': item['xref']}
                         data_type = DataType.from_extension(item['ext'])
                         if data_type is None:
                             logging.warning(f"Skipping image chunk due to unknown extension: {item['ext']}")
@@ -275,6 +387,7 @@ class Document:
     def from_txt(cls,
                  file_name: str,
                  file_bytes: bytes,
+                 do_splits=True,
                  split_len: int = 500,  # Default split length for text
                  overlap: int = 50,  # Default overlap for text
                  encoding: str = 'utf-8') -> Optional["Document"]:
@@ -296,6 +409,9 @@ class Document:
             FileNotFoundError: If the file_path does not exist or is not a file.
             ValueError: If overlap is greater than or equal to split_len.
         """
+
+        if do_splits is False:
+            return cls._from_binary_file(file_name, file_bytes, DataType.TEXT)
 
         if overlap >= split_len:
             raise ValueError(f"Overlap ({overlap}) must be less than split_len ({split_len}).")
@@ -379,7 +495,7 @@ class Document:
 
     # This method was generated using AI: https://aistudio.google.com/app/prompts?state=%7B%22ids%22:%5B%221LjDioKGc-5H78OUXySRbPlJh0TUB0nYv%22%5D,%22action%22:%22open%22,%22userId%22:%22112153521177605316268%22,%22resourceKeys%22:%7B%7D%7D&usp=sharing
     @classmethod
-    def from_png(cls, file_name: str, file_bytes: bytes,) -> "Document":
+    def from_png(cls, file_name: str, file_bytes: bytes, do_splits=True) -> "Document":
         """
         Loads a PNG image file into a single DocumentChunk.
 
@@ -399,7 +515,7 @@ class Document:
 
     # This method was generated using AI: https://aistudio.google.com/app/prompts?state=%7B%22ids%22:%5B%221LjDioKGc-5H78OUXySRbPlJh0TUB0nYv%22%5D,%22action%22:%22open%22,%22userId%22:%22112153521177605316268%22,%22resourceKeys%22:%7B%7D%7D&usp=sharing
     @classmethod
-    def from_jpeg(cls, file_name: str, file_bytes: bytes,) -> "Document":
+    def from_jpeg(cls, file_name: str, file_bytes: bytes, do_splits=True) -> "Document":
         """
         Loads a JPG/JPEG image file into a single DocumentChunk.
 
@@ -418,40 +534,59 @@ class Document:
         return cls._from_binary_file(file_name, file_bytes, DataType.JPEG)
 
     @classmethod
-    def from_mp3(cls, file_name: str, file_bytes: bytes, split_min: float = 2.0, overlap: float = 0.33) -> "Document":
+    def from_mp3(cls, file_name: str, file_bytes: bytes, do_splits=True, split_min: float = 2.0,
+                 overlap: float = 0.33) -> "Document":
         raise NotImplementedError("from_mp3 is not implemented")
 
     @classmethod
-    def from_wav(cls, file_name: str, file_bytes: bytes, split_min: float = 2.0, overlap: float = 0.33) -> "Document":
+    def from_wav(cls, file_name: str, file_bytes: bytes, do_splits=True, split_min: float = 2.0,
+                 overlap: float = 0.33) -> "Document":
         raise NotImplementedError("from_wav is not implemented")
 
     @classmethod
-    def from_mp4(cls, file_name: str, file_bytes: bytes, split_min: float = 2.0, overlap: float = 0.33) -> "Document":
+    def from_mp4(cls, file_name: str, file_bytes: bytes, do_splits=True, split_min: float = 2.0,
+                 overlap: float = 0.33) -> "Document":
         raise NotImplementedError("from_mp4 is not implemented")
 
     @classmethod
-    def from_xlsx(cls, file_name: str, file_bytes: bytes, split_len: int = 5000, overlap: int = 0) -> "Document":
+    def from_xlsx(cls, file_name: str, file_bytes: bytes, do_splits=True, split_len: int = 5000,
+                  overlap: int = 0) -> "Document":
         raise NotImplementedError("from_xlsx is not implemented")
 
     @classmethod
-    def from_csv(cls, file_name: str, file_bytes: bytes, split_len: int = 5000, overlap: int = 0) -> "Document":
+    def from_csv(cls, file_name: str, file_bytes: bytes, do_splits=True, split_len: int = 5000,
+                 overlap: int = 0) -> "Document":
         raise NotImplementedError("from_csv is not implemented")
 
     @classmethod
-    def from_json(cls, file_name: str, file_bytes: bytes, split_len: int = 5000, overlap: int = 0) -> "Document":
+    def from_json(cls, file_name: str, file_bytes: bytes, do_splits=True, split_len: int = 5000,
+                  overlap: int = 0) -> "Document":
         raise NotImplementedError("from_json is not implemented")
 
     @classmethod
-    def from_doc(cls, file_name: str, file_bytes: bytes, split_len: int = 5000, overlap: int = 0) -> "Document":
+    def from_doc(cls, file_name: str, file_bytes: bytes, do_splits=True, split_len: int = 5000,
+                 overlap: int = 0) -> "Document":
         raise NotImplementedError("from_doc is not implemented")
 
     @classmethod
-    def from_pptx(cls, file_name: str, file_bytes: bytes, split_len: int = 5000, overlap: int = 0) -> "Document":
+    def from_pptx(cls, file_name: str, file_bytes: bytes, do_splits=True, split_len: int = 5000,
+                  overlap: int = 0) -> "Document":
         raise NotImplementedError("from_pptx is not implemented")
 
     @classmethod
-    def from_html(cls, file_name: str, file_bytes: bytes, split_len: int = 5000, overlap: int = 0) -> "Document":
+    def from_html(cls, file_name: str, file_bytes: bytes, do_splits=True, split_len: int = 5000,
+                  overlap: int = 0) -> "Document":
         raise NotImplementedError("from_html is not implemented")
+
+
+class ToDocumentFunction(Protocol):
+    _call_func_: Callable[[str, bytes, bool], Document]
+
+    def __init__(self, func):
+        self._call_func_ = func
+
+    def __call__(self, filename: str, content_bytes: bytes, do_splits: bool = True) -> Document:
+        return self._call_func_(filename, content_bytes, do_splits)
 
 
 # --- Helper Function to Print Document Chunks ---

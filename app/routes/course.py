@@ -95,7 +95,8 @@ async def delete_course(
 @router.patch(
     "/course/transfer",
     summary="Transfer Course Materials",
-    description="Transfers course materials and rubric data from a previous semester to a new one.",
+    description="Transfers course materials and rubric data from a previous semester to a new one. Note:"
+                "This has NOT yet been implemented!",
     responses={
         404: {"detail": "Source or destination course not found."},
         400: {"detail": "Invalid parameters."},

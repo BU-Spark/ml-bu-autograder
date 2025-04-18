@@ -17,16 +17,21 @@ user_from_auth = JWTService.get_instance().from_authorization_header
 
 
 def process_course_material(json_str: str):
-    # TODO: This function is called by bg_material_processor.py. It is responsible
-    #       for processing the grading logic.
+    """
+    Processes submitted course material. This function is called by
+    bg_material_processor.py. See its logic for more details
+    """
 
     #  Step 0: Convert the json string into CourseMaterialData
     course_material = CourseMaterialData.model_validate_json(json_str)
     #  Step 2: Convert the binary data of the course material into document chunks using
     #          bytes_to_doc_util.py.
-    to_doc = course_material.data.data_type.get_to_doc_func()
-    document: Document = to_doc(f"{course_material.material_id}.{course_material.data.data_type.extension}",
-                                course_material.data.content)
+    to_doc_func = course_material.data.data_type.get_to_doc_func()
+    document: Document = to_doc_func(
+        f"{course_material.material_id}.{course_material.data.data_type.extension}",
+        course_material.data.content,
+        True
+    )
     #  Step 3: Upload these chunks to azure and get the blob paths
     blob_uploader = AzureBlobService.get_instance()
     uploaded_chunks: Dict[int, str] = blob_uploader.upload_material_chunks(
