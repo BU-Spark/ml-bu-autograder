@@ -968,6 +968,10 @@ class AzureBlobService:
         # Filter out any Nones (in case get_file_bytes returned falsy)
         return [r for r in results if r is not None]
 
+    def find_chunks_paths(self, semester_key: str, course_id: str, material_id: str) -> List[str]:
+        prefix = f"course/{semester_key}/{course_id}/course_material/{material_id}/chunks/*"
+        return self.fs.glob(self._full_path(prefix))
+    
     @staticmethod
     def _get_document_name_from_chunk_path(chunk_path: str) -> str:
         """

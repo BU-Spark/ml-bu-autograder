@@ -14,7 +14,7 @@ from app.services import AzureBlobService, AzureEmbeddingService
 from app.utils.bytes_to_doc_util import Document, DataType
 from app.utils.error_handling_tpe import ErrorHandlingThreadPool
 from app.utils.llm_service import LLMService, PromptRole, PromptBuilder
-
+from app.services.azure_vector_service import AzureVectorService
 """
 Process material files in the background including processing the RAG pipeline for the course
 material and the grading pipeline for the assignment. When an API endpoint submits course material,
@@ -62,7 +62,7 @@ def process_grading(json_str: str):
     assignment_question = assignment.questions[student_response.question_index]
     #  Step 3: Query the vector database with the student's response grabbing all topn
     #          relevant documents.
-    # p you do this
+    # Josh you do this
     relevant_document_paths: List[str] = ...
     #  Step 4: Go grab those documents (texts and images) from Azure blob storage. It might
     #          also be possible to simply get azure to generate a URL for these documents
@@ -171,7 +171,17 @@ def process_course_material(json_str: str):
         vectorized_chunks[blob_path] = vector
     #  Step 5: Take the pairs of the blob paths and vectorized chunks, and upload them
     #          to Azure's AI search. And thats it!
-    # TODO: josh you do this
+    azure_vector_service = AzureVectorService.get_instance()
+    vector_ids = list(vectorized_chunks.keys())  # Using blob_paths as vector IDs
+    vector_values = list(vectorized_chunks.values())
+    #metadata_list = [{"file_path": blob_path} for blob_path in vector_ids]
+
+    azure_vector_service.add_vectors(
+        ids=vector_ids,
+        vectors=vector_values,
+        #metadatas=metadata_list
+    )
+
 
 
 class BackgroundMaterialProcessor:

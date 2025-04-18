@@ -219,19 +219,33 @@ async def update_course_material(
         raise HTTPException(status_code=404, detail="Course material does not exist.")
     
     # TODO: josh delete vector associated with this course material first
-     # After successful update, delete associated vectors
+    ### Legacy code for NON CHUNKED FILES
+    # After successful update, delete associated vectors
         # Retrieve the vector IDs associated with this material_id
-    vector_ids_to_delete = vector_service.get_vector_ids_by_material_id(material.material_id)
+    # vector_ids_to_delete = vector_service.get_vector_ids_by_material_id(material.material_id)
 
-    # Delete the retrieved vector IDs
-    if vector_ids_to_delete:
-        vector_service.delete_documents_by_ids(vector_ids_to_delete)
-        print(f"Deleted vectors associated with material_id '{material.material_id}'.")
+    # # Delete the retrieved vector IDs
+    # if vector_ids_to_delete:
+    #     vector_service.delete_documents_by_ids(vector_ids_to_delete)
+    #     print(f"Deleted vectors associated with material_id '{material.material_id}'.")
+    # else:
+    #     print(f"No vectors found for material_id '{material.material_id}' to delete.")
+
+    # # Update the material
+    # blob_uploader.upload_course_material(material)
+    # Step 1: Retrieve all chunk paths (these are the vector document IDs)
+    chunk_paths = blob_uploader.find_chunks_paths(
+        semester_key=material.semester,
+        course_id=material.course_id,
+        material_id=material.material_id
+    )
+
+    # Step 2: Delete those vectors by their IDs (i.e. chunk paths)
+    if chunk_paths:
+        vector_service.delete_documents_by_ids(chunk_paths)
+        print(f"✅ Deleted {len(chunk_paths)} vectors for material_id '{material.material_id}'.")
     else:
-        print(f"No vectors found for material_id '{material.material_id}' to delete.")
-
-    # Update the material
-    blob_uploader.upload_course_material(material)
+        print(f"ℹ️ No vectors found to delete for material_id '{material.material_id}'.")
 
     # Save object to file otherwise if too many requests
     # accumulate we will run out of ram very quick
