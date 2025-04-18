@@ -13,8 +13,15 @@ openai==1.69.0
 langchain==0.3.22
 chromadb==0.6.3
 weave==0.51.39
+docx==0.2.4
+python-pptx==0.6.21
+bs4==0.0.1
+pydub==0.25.1
+moviepy==1.0.3
 # Needed to run notebooks not required for prod
 notebook==7.3.3
 openpyxl==3.1.2
 pymupdf==1.25.5
 azure-ai-inference==1.0.0b9
+docx==0.2.4
+pptx==0.6.21
