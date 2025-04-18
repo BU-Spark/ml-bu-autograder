@@ -1,20 +1,88 @@
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException, status, Query, Depends
-
+import tempfile
+from pathlib import Path
 from app.models import Course, GradedStudentResponseReference
 from app.models.grade import Grade
 from app.utils import JWTService, UserToken, llm_service
 from app.utils.azure_blob_service import AzureBlobService
-
+from app.utils.file_to_doc_util import Document, DocumentChunk
 router = APIRouter()
 user_from_auth = JWTService.get_instance().from_authorization_header
 llm_service = llm_service.LLMService.get_instance()
+blob_uploader = AzureBlobService.get_instance()
+
+async def step_1_get_document_from_response(semester: str, course_id: str, assignment_id: str, question_index: int, student_id: str):
+    # Step 1a: Get the student response (including raw bytes + filename)
+    blob_uploader = AzureBlobService.get_instance()
+    response = blob_uploader.get_student_response(
+        semester=semester,
+        course_id=course_id,
+        assignment_id=assignment_id,
+        question_index=question_index,
+        student_id=student_id
+    )
+
+    file_bytes = response.data.content
+    filename = f"{response.assignment_id}-q{response.question_index}.{response.data.data_type.extension}"
+    extension = response.data.data_type.extension
+
+    # Step 1b: Save the content temporarily to disk
+    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{extension}") as tmp:
+        tmp.write(file_bytes)
+        tmp_path = Path(tmp.name)
+
+    # Step 1c: Convert to Document using the appropriate from_xxx method
+    if extension == "pdf":
+        document = Document.from_pdf(tmp_path)
+    elif extension == "txt":
+        document = Document.from_txt(tmp_path)
+    elif extension == "docx":
+        document = Document.from_doc(tmp_path)
+    elif extension == "csv":
+        document = Document.from_csv(tmp_path)
+    elif extension == "xlsx":
+        document = Document.from_xlsx(tmp_path)
+    elif extension == "pptx":
+        document = Document.from_pptx(tmp_path)
+    elif extension == "json":
+        document = Document.from_json(tmp_path)
+    elif extension == "png":
+        document = Document.from_png(tmp_path)
+    elif extension == "jpg" or extension == "jpeg":
+        document = Document.from_jpeg(tmp_path)
+    elif extension == "mp3":
+        document = Document.from_mp3(tmp_path)
+    elif extension == "mp4":
+        document = Document.from_mp4(tmp_path)
+    elif extension == "html":
+        document = Document.from_html(tmp_path)
+    else:
+        raise Exception(f"Unsupported file extension: {extension}")
+
+    # Optional: cleanup temporary file
+    tmp_path.unlink(missing_ok=True)
+
+    return document
 
 
-async def grading_worker():
-    # TODO: this should process a queue of pending grading responses.
-    #  Step 1: Convert the student's response (which might be a pdf, txt, etc)
-    #          into a Document object that we can work with.
+async def grading_worker(
+        semester: str,
+        course_id: str,
+        assignment_id: str,
+        student_id: str,
+        question_index: Optional[int],
+        user_meta: UserToken
+    ):
+    # Step 1: Convert the student's response into a Document object
+    document = await step_1_get_document_from_response(
+        semester=semester,
+        course_id=course_id,
+        assignment_id=assignment_id,
+        question_index=question_index,
+        student_id=student_id
+    )
+    print(f"✅ Step 1 complete: Loaded document with {len(document.contents)} chunks.")
     #  Step 2: Grab the rubric for the assignment and the question instructions
     #  Step 3: Query the vector database with the student's response grabbing all topn
     #          relevant documents.
