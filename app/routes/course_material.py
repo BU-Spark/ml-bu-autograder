@@ -10,7 +10,7 @@ from app.utils import get_str_var
 from app.models import UserToken
 from app.utils.jwt_service import JWTService
 from app.services.azure_blob_service import AzureBlobService
-
+from app.services.azure_vector_service import AzureVectorService
 router = APIRouter()
 user_from_auth = JWTService.get_instance().from_authorization_header
 
@@ -178,7 +178,7 @@ async def delete_course_material(
 
     # Delete the material
     blob_uploader.delete_course_material(semester, course_id, material_id)
-
+    
     # TODO: josh delete the AI search vectors associated with this course material
 
     return {"detail": "Course material deleted successfully."}
@@ -201,7 +201,7 @@ async def update_course_material(
         user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
-
+    vector_service = AzureVectorService.get_instance()
     # Check if the course exists
     course_exists = blob_uploader.course_exists(material.semester, material.course_id)
     if not course_exists:
@@ -217,8 +217,18 @@ async def update_course_material(
                                                              material.material_id)
     if not existing_material:
         raise HTTPException(status_code=404, detail="Course material does not exist.")
-
+    
     # TODO: josh delete vector associated with this course material first
+     # After successful update, delete associated vectors
+        # Retrieve the vector IDs associated with this material_id
+    vector_ids_to_delete = vector_service.get_vector_ids_by_material_id(material.material_id)
+
+    # Delete the retrieved vector IDs
+    if vector_ids_to_delete:
+        vector_service.delete_documents_by_ids(vector_ids_to_delete)
+        print(f"Deleted vectors associated with material_id '{material.material_id}'.")
+    else:
+        print(f"No vectors found for material_id '{material.material_id}' to delete.")
 
     # Update the material
     blob_uploader.upload_course_material(material)

@@ -62,7 +62,7 @@ def process_grading(json_str: str):
     assignment_question = assignment.questions[student_response.question_index]
     #  Step 3: Query the vector database with the student's response grabbing all topn
     #          relevant documents.
-    # TODO: josh you do this
+    # p you do this
     relevant_document_paths: List[str] = ...
     #  Step 4: Go grab those documents (texts and images) from Azure blob storage. It might
     #          also be possible to simply get azure to generate a URL for these documents
