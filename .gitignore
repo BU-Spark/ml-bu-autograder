@@ -183,3 +183,4 @@ app.log
 app/utils/test,py
 app/utils/legacy_vector_store.py
 test,py
+test,py copy
