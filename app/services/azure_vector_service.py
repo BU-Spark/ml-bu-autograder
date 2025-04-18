@@ -303,37 +303,3 @@ class AzureVectorService:
         except Exception as e:
             logging.error("❌ Error retrieving closest vectors: " + str(e), exc_info=True)
             return []
-
-
-
-#will remove later 
-if __name__ == "__main__":
-    # Setup logging configuration
-    logging.basicConfig(level=logging.INFO)
-
-    # Replace these with your actual Azure Search service details.
-    endpoint = "endpoint"
-    api_key = "api_key"
-    index_name = "index_name"
-
-    # Initialize the AzureVectorService singleton.
-    AzureVectorService.init_singleton(endpoint, api_key, index_name)
-    service = AzureVectorService.get_instance()
-
-    # Prepare a test document with a dummy vector (ensure the vector length matches the embedding dimensions)
-    test_vector = [0.1] * 1536  # Example vector for testing.
-    test_doc_id = "test-doc-1"
-    test_blob_path = "blob/test/doc1"
-
-    # Wait a short moment to allow the indexing process to complete.
-    logging.info("Waiting for the document to be indexed...")
-    time.sleep(5)
-
-    # Retrieve the closest matching vectors and associated metadata (vector and metadata include id and file_path).
-    logging.info("Retrieving the closest matching vectors and metadata...")
-    results = service.retrieve_closest_vectors_and_blob_paths(test_vector, top_k=2)
-
-    # Display the results.
-    print("\nSearch Results:")
-    for result in results:
-        print(result)
