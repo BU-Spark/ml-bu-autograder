@@ -234,6 +234,8 @@ async def delete_course_material(
     # Delete the material
     blob_uploader.delete_course_material(semester, course_id, material_id)
 
+    # TODO: josh delete the AI search vectors associated with this course material
+
     return {"detail": "Course material deleted successfully."}
 
 
@@ -270,6 +272,8 @@ async def update_course_material(
                                                              material.material_id)
     if not existing_material:
         raise HTTPException(status_code=404, detail="Course material does not exist.")
+
+    # TODO: josh delete vector associated with this course material first
 
     # Update the material
     blob_uploader.upload_course_material(material)
