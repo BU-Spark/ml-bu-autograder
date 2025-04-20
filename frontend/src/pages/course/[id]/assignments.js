@@ -66,9 +66,10 @@ const NoAssignmentsBox = styled(Box)(({ theme }) => ({
 
 export default function Assignments() {
   const router = useRouter();
-  const { id: courseIdParam, semester: semesterParam, assignment_id: assignmentId } = router.query;
+  const { id: courseIdParam, semester: semesterParam} = router.query;
   const courseId = typeof courseIdParam === 'string' ? courseIdParam : null;
   const semester = typeof semesterParam === 'string' ? semesterParam : null;
+
 
 
   // States for assignments and UI state management
@@ -109,27 +110,52 @@ export default function Assignments() {
   }, []);
 
   // Data fetching: load assignment details based on assignment_id
+  // Data fetching: load assignment details based on assignment_id
   const fetchAssignmentDetails = useCallback(async (idToFetch) => {
-    if (!courseId || !semester || !idToFetch) return;
+    // Added checks for valid inputs
+    if (!courseId || !semester || !idToFetch) {
+        console.warn("fetchAssignmentDetails called with invalid parameters", { courseId, semester, idToFetch });
+        setSelectedAssignment(null); // Clear selection if params invalid
+        setDetailsError(null);
+        return; // Stop execution
+    }
     setLoadingDetails(true);
     setDetailsError(null);
+    console.log(`Fetching details for assignment ID: ${idToFetch}`); // Log ID being fetched
     try {
-      const assignmentWithQuestions = await assignmentService.getAssignment(courseId, semester, idToFetch, true);
-      // Sort questions by their index if needed
-      if (Array.isArray(assignmentWithQuestions.questions)) {
-        assignmentWithQuestions.questions.sort((a, b) => a.question_index - b.question_index);
+      // Assume assignmentService returns the full Axios response
+      const response = await assignmentService.getAssignment(courseId, semester, idToFetch, true);
+      console.log("Raw response from getAssignment:", response); // Log raw response
+
+      // *** FIX: Extract the actual assignment data from response.data ***
+      const assignmentData = response?.data; // Use optional chaining
+
+      // Check if the extracted data is a valid object with an ID
+      if (assignmentData && typeof assignmentData === 'object' && assignmentData.assignment_id) {
+          console.log("Extracted assignment data:", assignmentData); // Log the data object
+
+          // Sort questions if they exist
+          if (Array.isArray(assignmentData.questions)) {
+            assignmentData.questions.sort((a, b) => (a.question_index ?? Infinity) - (b.question_index ?? Infinity));
+          } else {
+            assignmentData.questions = []; // Ensure it's an array
+          }
+          // *** FIX: Set state with the extracted data object ***
+          setSelectedAssignment(assignmentData);
       } else {
-        assignmentWithQuestions.questions = [];
+          // Handle cases where response.data is missing, not an object, or missing the ID
+          console.error("Invalid or missing data in getAssignment response:", assignmentData);
+          throw new Error(`Invalid data received for assignment ${idToFetch}.`);
       }
-      // Capture the complete response from the backend (including assignment_id)
-      setSelectedAssignment(assignmentWithQuestions);
     } catch (err) {
-      setDetailsError(err.message || 'Failed to load details.');
-      setSelectedAssignment(null);
+      console.error(`Error fetching assignment details for ID ${idToFetch}:`, err);
+      const errorMsg = err.response?.data?.detail || err.message || `Failed to load details for assignment ${idToFetch}.`;
+      setDetailsError(errorMsg);
+      setSelectedAssignment(null); // Clear selection on error
     } finally {
       setLoadingDetails(false);
     }
-  }, [courseId, semester]);
+  }, [courseId, semester]); // Dependency array
 
   // Fetch all assignments when courseId and semester are available
   useEffect(() => {
@@ -137,15 +163,55 @@ export default function Assignments() {
       const fetchAssignments = async () => {
         setLoadingAssignments(true);
         setListError(null);
+        setSelectedAssignment(null); // Clear previous selection when list reloads
         try {
-          const assignmentsData = await assignmentService.getAssignments(courseId, semester);
-          if (Array.isArray(assignmentsData)) {
-            setAssignments(assignmentsData);
+          console.log(`Fetching assignments for ${courseId}/${semester}`);
+          // Assume assignmentService returns the full Axios response
+          const response = await assignmentService.getAssignments(courseId, semester);
+          console.log("Raw response from getAssignments:", response); // Log raw response
+
+          // *** FIX: Extract the assignments array from response.data ***
+          const assignmentsArray = response?.data; // Use optional chaining
+
+          // Check if the extracted data is actually an array
+          if (Array.isArray(assignmentsArray)) {
+            console.log("Extracted assignments array:", assignmentsArray); // Log the array
+            // Ensure each item in the array looks like an assignment object (optional but good)
+            const validAssignments = assignmentsArray.filter(a => a && typeof a === 'object' && a.assignment_id);
+            if (validAssignments.length !== assignmentsArray.length) {
+                console.warn("Some items in the assignments list were invalid:", assignmentsArray);
+            }
+            // *** FIX: Set state with the extracted (and optionally filtered) array ***
+            setAssignments(validAssignments);
+
+            // --- Logic to pre-select if ID is in URL ---
+            const assignmentIdFromUrl = router.query.assignment_id; // Get ID from URL query directly here
+            if (typeof assignmentIdFromUrl === 'string') {
+                const matchingAssignment = validAssignments.find(a => a.assignment_id === assignmentIdFromUrl);
+                if (matchingAssignment) {
+                    console.log(`URL parameter assignment_id=${assignmentIdFromUrl} matches fetched assignment. Fetching details...`);
+                    // Call fetchAssignmentDetails only AFTER assignments state is set
+                    // Note: State updates might not be immediate, might need another useEffect or handle differently
+                    // For simplicity now, we call it directly, but be aware state might not be flushed yet.
+                    // A better approach might involve a separate useEffect watching assignmentIdFromUrl and assignments list.
+                     fetchAssignmentDetails(assignmentIdFromUrl); // Fetch details for the one from URL
+                } else {
+                    console.warn(`Assignment ID ${assignmentIdFromUrl} from URL not found in the fetched list.`);
+                    // Optionally clear the URL param if the ID is invalid
+                     const newRoute = `/course/${courseId}/assignments?semester=${semester}`;
+                     router.push(newRoute, undefined, { shallow: true });
+                }
+            }
+             // --- End URL pre-selection logic ---
+
           } else {
-            setAssignments([]);
+            console.error("Invalid data received for assignments list (expected array):", assignmentsArray);
+            setAssignments([]); // Set empty array if data is not an array
           }
         } catch (err) {
-          setListError(err.message || 'Failed to load assignments list.');
+          console.error("Error fetching assignments list:", err);
+          const errorMsg = err.response?.data?.detail || err.message || 'Failed to load assignments list.';
+          setListError(errorMsg);
           setAssignments([]);
         } finally {
           setLoadingAssignments(false);
@@ -153,12 +219,14 @@ export default function Assignments() {
       };
       fetchAssignments();
     } else {
+      // Clear state if course context is missing
       setAssignments([]);
       setLoadingAssignments(false);
       setListError(null);
       setSelectedAssignment(null);
     }
-  }, [courseId, semester]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [courseId, semester, router.query.assignment_id]); // Added router.query.assignment_id dependency
 
   // Event handler: selecting an assignment updates the URL and local state.
   const handleSelectAssignment = (assignment) => {
@@ -194,7 +262,6 @@ export default function Assignments() {
     setActionLoading(true);
     try {
       const assignmentPayload = {
-        assignment_id: assignmentId, // Backend should generate this
         course_id: courseId,
         semester: semester,
         assignment_guidelines: newAssignmentData.assignment_guidelines || null,
@@ -254,26 +321,87 @@ export default function Assignments() {
 
   // Delete Assignment
   const handleDeleteAssignment = async () => {
-    if (!selectedAssignment || !semester || !courseId) {
-      showAlert('Cannot delete: context is missing.', 'error');
-      setDeleteAssignmentDialogOpen(false);
-      return;
+    // --- Get the ID FIRST ---
+    // Use optional chaining ?. just in case selectedAssignment is null/undefined
+    const assignmentObjectToDelete = selectedAssignment;
+    console.log("Selected Assignment for deletion:", assignmentObjectToDelete);
+    const idToDelete = assignmentObjectToDelete.assignment_id;
+
+    console.log("handleDeleteAssignment called.");
+    console.log("Current selectedAssignment state:", assignmentObjectToDelete);
+    console.log("ID extracted for deletion:", idToDelete);
+
+    // --- Perform Checks using the extracted ID and context ---
+    if (!idToDelete || !semester || !courseId) {
+      // Check if we successfully got an ID string and have course context
+      showAlert(`Cannot delete: Missing required information (ID: ${idToDelete}, Semester: ${semester}, CourseID: ${courseId}).`, 'error');
+      console.error("Delete preconditions failed:", { idToDelete, semester, courseId });
+      setDeleteAssignmentDialogOpen(false); // Still close dialog if opened
+      return; // Stop execution
     }
+
+    // --- Proceed with deletion using the 'idToDelete' variable ---
     setActionLoading(true);
-    setDeleteAssignmentDialogOpen(false);
+    setDeleteAssignmentDialogOpen(false); // Close the confirmation dialog
+
     try {
-      await assignmentService.deleteAssignment(courseId, semester, selectedAssignment.assignment_id);
-      setAssignments(prev => prev.filter(a => a.assignment_id !== selectedAssignment.assignment_id));
-      showAlert(`Assignment (ID: ${selectedAssignment.assignment_id}) deleted successfully.`);
+      console.log(`Calling API: deleteAssignment(${courseId}, ${semester}, ${idToDelete})`); // Log exact values sent
+
+      // *** Call the service with the extracted idToDelete ***
+      await assignmentService.deleteAssignment(courseId, semester, idToDelete);
+
+      // --- Success Handling ---
+      console.log(`Assignment ${idToDelete} reported as deleted by API.`);
+      showAlert(`Assignment (ID: ${idToDelete}) deleted successfully.`); // Show success
+
+      // Update the main list state by filtering out the deleted ID
+      setAssignments(prev => prev.filter(a => a.assignment_id !== idToDelete));
+
+      // Clear the selection in the UI and remove URL param
       handleClearSelection();
+
     } catch (error) {
-      const displayError = error.response?.data?.detail || error.message || 'Failed to delete assignment.';
-      showAlert(displayError, 'error');
+      // --- Error Handling ---
+      console.error("Delete Error Raw:", error);
+      let displayError = `Failed to delete assignment (ID: ${idToDelete}).`; // Default error with ID
+
+      if (error.response) {
+        // Handle specific HTTP errors from the backend
+        console.error("Delete Error Status:", error.response.status);
+        console.error("Delete Error Response Data:", error.response.data);
+        const detail = error.response.data?.detail;
+        if (detail) {
+             if (Array.isArray(detail)) { // Format 422 validation errors
+                try {
+                    displayError = detail.map(err => `${err.loc?.join('.')} - ${err.msg}`).slice(0, 2).join('; ');
+                    if (detail.length > 2) displayError += '...';
+                 } catch (formatError){
+                    displayError = JSON.stringify(detail); // Fallback
+                 }
+             } else if (typeof detail === 'string') {
+                 displayError = detail; // Use detail string directly
+             } else {
+                  displayError = JSON.stringify(detail); // Fallback
+             }
+        } else if (error.response.statusText) {
+             displayError = `Error: ${error.response.status} ${error.response.statusText}`; // Use status text if no detail
+        }
+      } else if (error.request) {
+         // Request was made but no response received (Network Error, CORS, Timeout)
+         displayError = "Could not contact server. Check network connection or if the server is running.";
+         console.error("Delete Error: No response received. Request:", error.request);
+      } else {
+         // Error setting up the request
+         displayError = error.message || "An unexpected error occurred before sending the request.";
+         console.error("Delete Error: Request setup failed.", error.message);
+      }
+
+      showAlert(displayError, 'error'); // Show the formatted/determined error
+
     } finally {
-      setActionLoading(false);
+      setActionLoading(false); // Ensure loading state is always turned off
     }
   };
-
   // --- Question CRUD ---
 
   const openAddQuestionDialog = () => {
@@ -427,11 +555,9 @@ export default function Assignments() {
               <CardActionArea onClick={() => handleSelectAssignment(assignment)} sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
                 <AssignmentCardContent>
                   <Typography gutterBottom variant="h6" noWrap title={`Assignment ${assignment.assignment_id}`}>
-                    {`Assignment ${assignment.assignment_id}`}
+
                   </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    ID: {assignment.assignment_id}
-                  </Typography>
+                 
                   <Typography variant="body2" color="text.secondary" sx={{
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
