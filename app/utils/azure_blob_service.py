@@ -14,6 +14,8 @@ from app.models.student_response import GradedStudentResponse
 
 azure_blob_uploader: Optional["AzureBlobService"] = None
 
+logger = logging.getLogger(__name__)
+
 
 class AzureBlobService:
     def __init__(self,
@@ -173,20 +175,64 @@ class AzureBlobService:
     def list_files(self, prefix=None) -> List[str]:
         """
         Lists files in container with optional prefix filter.
+        Returns an empty list [] if the prefix directory does not exist.
 
         Args:
-            prefix: Optional path prefix to filter results.
+            prefix: Optional path prefix relative to the container root.
 
         Returns:
-            List of relative blob paths.
+            List of relative blob paths found under the prefix.
         """
         search_path = self._full_path(prefix) if prefix else self._full_path('')
-        logging.debug(f"Listing files with prefix: {prefix}")
-        files = self.fs.ls(search_path)
-        # Remove container prefix from results
-        result = [f.split('/', 1)[1] if '/' in f else f for f in files]
-        logging.debug(f"Found {len(result)} files matching prefix")
-        return result
+        logger.debug(f"Attempting to list files/blobs at storage path: {search_path}")
+        files = [] # Default to empty list
+
+        try:
+            # Attempt to list the files/blobs at the specified path
+            raw_paths_from_storage = self.fs.ls(search_path, detail=False) # Get raw paths
+            logger.debug(f"Raw list result for {search_path}: {raw_paths_from_storage}")
+
+            # Process results ONLY if listing succeeded and returned a list
+            if isinstance(raw_paths_from_storage, list):
+                # --- Adjust this processing based on what self.fs.ls ACTUALLY returns ---
+                # Example: If it returns full paths like 'container/path/file'
+                container_prefix = f"{self.container_name}/" # Assumes self.container_name exists
+                processed_paths = []
+                for f_path in raw_paths_from_storage:
+                    if isinstance(f_path, str) and f_path.startswith(container_prefix):
+                        processed_paths.append(f_path[len(container_prefix):])
+                    else:
+                        # Handle unexpected paths or types if necessary
+                        logging.warning(f"Unexpected item type or format in listing for {search_path}: {f_path}")
+                        # Decide whether to append raw path, skip, or raise error
+                        # processed_paths.append(f_path) # Example: appending raw path
+
+                files = processed_paths # Use the processed list
+                # --- End of path processing ---
+            else:
+                logging.warning(f"Listing for {search_path} did not return a list: {type(raw_paths_from_storage)}")
+                files = [] # Treat non-list result as empty
+
+        except FileNotFoundError:
+            # *** THIS IS THE FIX ***
+            # Catch the error when the directory/prefix doesn't exist
+            logger.warning(f"Path not found during listing (FileNotFoundError), returning empty list for prefix: '{prefix}' (search path: {search_path})")
+            files = [] # Explicitly set to empty list
+        # === Add other specific exceptions if needed ===
+        # except ResourceNotFoundError: # Example for Azure SDK direct usage
+        #    logger.warning(f"Path not found (Azure ResourceNotFoundError) for prefix '{prefix}', returning [].")
+        #    files = []
+        # except FSSpecFileNotFoundError: # Example for fsspec library
+        #    logger.warning(f"Path not found (fsspec FileNotFoundError) for prefix '{prefix}', returning [].")
+        #    files = []
+        except Exception as e:
+            # Catch any other unexpected errors during listing
+            logger.exception(f"Unexpected error listing files with prefix '{prefix}' (search path: {search_path}): {e}")
+            # Re-raise as an HTTPException or a custom storage error
+            raise HTTPException(status_code=500, detail=f"Server error accessing storage.") from e
+
+        logging.debug(f"list_files returning {len(files)} paths for prefix '{prefix}'")
+        return files # Return either the processed list or the empty list from the except block
 
     def upload_user(self, user: User):
         """Uploads user metadata."""
