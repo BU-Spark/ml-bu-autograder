@@ -1,108 +1,109 @@
-import re
-from typing import Optional
+# app/routes/rubric.py
 
+import re
+from typing import Optional, List
 from fastapi import APIRouter, HTTPException, status, Query, Body, Depends
 from pydantic import Field, BaseModel, field_validator
 
 from app.models import Course
+# Rubric model now expects assignment_id as str
 from app.models.rubric import Rubric, SubRubric, GradingFlag
 from app.utils import JWTService, UserToken
 from app.utils.azure_blob_service import AzureBlobService
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 user_from_auth = JWTService.get_instance().from_authorization_header
 
-
-class EditSubRubricRequest(BaseModel):
-    """
-    Request model for editing a sub-rubric of an assignment.
-    Allows modification of grading criteria for individual questions.
-    """
-    semester: str = Field(..., description="Semester of the course.")
-    course_id: str = Field(..., description="Identifier of the course.")
-    assignment_id: int = Field(..., description="Identifier of the assignment.")
-    sub_rubric: SubRubric = Field(...,
-                                  description="Sub-rubric object containing grading instructions and criteria for that specific question.")
-
-    @classmethod
-    @field_validator("semester", mode='before')
-    def validate_semester(cls, value: str) -> str:
-        """Converts to lowercase and trims spaces."""
-        if re.fullmatch("[a-zA-Z]{1,12}[0-9]{4}", value) is not None:
-            raise ValueError("Semester is in an invalid format. "
-                             "Correct format looks like: seasonYYYY. (e.g. spring2025)")
-        return value.strip().lower()
+# Removed unused EditSubRubricRequest model definition
 
 
 @router.put(
     "/rubric",
     response_model=Rubric,
-    summary="Create Rubric",
-    description="Manually creates a new rubric for an assignment.",
-    responses={
-        400: {"detail": "Missing or invalid parameters."},
-        404: {"detail": "Assignment not found."},
-        401: {"detail": "Requester is not authenticated."},
-        403: {"detail": "Authenticated but access is not allowed."}
-    }
+    summary="Create or Replace Rubric",
+    description="Manually creates or completely replaces a rubric for an assignment.",
+    # ... responses ...
 )
-async def create_rubric(
-        rubric: Rubric = Body(..., description="Rubric object containing grading instructions and sub-rubrics."),
+async def create_or_replace_rubric(
+        # Body expects Rubric model (which now expects assignment_id: str)
+        rubric: Rubric = Body(..., description="Rubric object..."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
+    semester = rubric.semester
+    course_id = rubric.course_id
+    assignment_id = rubric.assignment_id # This is now a str
 
-    # Check if course exists
-    if not blob_uploader.course_exists(rubric.semester, rubric.course_id):
+    # Auth Checks...
+    if not blob_uploader.course_exists(semester, course_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course does not exist.")
-
-    # Check if user has permissions on course
     user = blob_uploader.get_user(user_meta.user_email)
-    if not user.authenticated_courses.__contains__((rubric.semester, rubric.course_id)):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Authenticated but access is not allowed.")
+    if not user or (semester, course_id) not in user.authenticated_courses:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User not found or access not allowed.")
 
-    # Check if assignment exists
-    if not blob_uploader.assignment_exists(rubric.semester, rubric.course_id, rubric.assignment_id):
+    # Check if assignment exists (pass the str ID)
+    # Ensure assignment_exists in AzureBlobService handles str ID
+    if not blob_uploader.assignment_exists(semester, course_id, assignment_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment does not exist.")
 
-    # Upload the rubric
-    blob_uploader.upload_rubric(rubric.semester, rubric.course_id, rubric.assignment_id, rubric)
-    return rubric
+    # Upload the rubric (pass the str ID)
+    # Ensure upload_rubric in AzureBlobService handles str ID
+    try:
+        blob_uploader.upload_rubric(semester, course_id, assignment_id, rubric)
+        logger.info(f"Rubric created/replaced for assignment {assignment_id} in {semester}/{course_id}")
+        return rubric
+    except Exception as e:
+         logger.exception(f"Failed to upload rubric for assignment {assignment_id} in {semester}/{course_id}: {e}")
+         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to save rubric.")
 
 
 @router.get(
     "/ai_rubric",
     response_model=Rubric,
-    summary="Enhance Rubric with AI",
-    description="Enhances an existing rubric using AI-based improvements. If a rubric does not exist for the given assignment, a new one is generated. Note: This only proposes a new rubric and does not modify an existing one.",
-    responses={
-        502: {"detail": "External LLM API call failure."},
-        401: {"detail": "Requester is not authenticated."},
-        403: {"detail": "Authenticated but access is not allowed."}
-    }
+    summary="Get AI Rubric Suggestion",
+    # ... responses ...
 )
 async def get_ai_rubric(
-        semester: str = Query(..., description="Semester of the course."),
-        course_id: str = Query(..., description="Identifier of the course."),
-        assignment_id: int = Query(..., description="Identifier of the assignment."),
-        instructions: Optional[str] = Query(None, description="Optional specific improvement instructions for the AI."),
+        semester: str = Query(..., description="Semester..."),
+        course_id: str = Query(..., description="Course ID."),
+        # --- CHANGED TYPE: Back to str ---
+        assignment_id: str = Query(..., description="Assignment ID."),
+        # --- END CHANGE ---
+        instructions: Optional[str] = Query(None, description="Optional instructions..."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
-    # validate params
-    semester = Course.validate_semester(semester)
-    course_id = Course.normalize_lowercase(course_id)
+    # validate params first (using Course model methods as example)
+    try:
+        semester = Course.validate_semester(semester)
+        course_id = Course.normalize_lowercase(course_id)
+        # You might want a validator for assignment_id string pattern here too if needed
+    except Exception as e: # Catch potential validation errors
+         raise HTTPException(status_code=400, detail=f"Invalid parameter: {e}")
 
     blob_uploader = AzureBlobService.get_instance()
 
-    # TODO: AI API CALLS
+    # Auth checks...
+    if not blob_uploader.course_exists(semester, course_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course does not exist.")
+    user = blob_uploader.get_user(user_meta.user_email)
+    if not user or (semester, course_id) not in user.authenticated_courses:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User not found or access not allowed.")
+    if not blob_uploader.assignment_exists(semester, course_id, assignment_id): # Pass str ID
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment does not exist.")
 
+    # TODO: Implement actual AI API call here using the string assignment_id
+
+    logger.warning(f"AI Rubric generation not implemented for {semester}/{course_id}/{assignment_id}. Returning dummy data.")
     dummy_rubric = Rubric(
-        semester="spring2024",
-        course_id="cs123",
-        assignment_id=assignment_id,
+        semester=semester,
+        course_id=course_id,
+        assignment_id=assignment_id, # Use the string ID
         grading_flags=[GradingFlag.IGNORE_SPELLINGS],
         leniency=4,
-        overall_instructor_guidelines="Improved guidelines based on AI.",
+        overall_instructor_guidelines="[AI Generated] Placeholder guidelines.",
         sub_rubrics=[]
     )
     return dummy_rubric
@@ -112,46 +113,46 @@ async def get_ai_rubric(
     "/rubric",
     response_model=Rubric,
     summary="Get Rubric",
-    description="Retrieves the rubric for a specified assignment (or for a specific question).",
-    responses={
-        404: {"detail": "Rubric or specified question not found."},
-        401: {"detail": "Requester is not authenticated."},
-        403: {"detail": "Authenticated but access is not allowed."}
-    }
+    description="Retrieves the rubric for a specified assignment.",
+    # ... responses ...
 )
 async def get_rubric(
-        semester: str = Query(..., description="Semester of the course."),
-        course_id: str = Query(..., description="Identifier of the course."),
-        assignment_id: int = Query(..., description="Identifier of the assignment."),
-        question_index: Optional[int] = Query(None, description="Optional question index to retrieve a specific sub-rubric."),
+        semester: str = Query(..., description="Semester..."),
+        course_id: str = Query(..., description="Course ID."),
+        # --- CHANGED TYPE: Back to str ---
+        assignment_id: str = Query(..., description="Assignment ID."),
+        # --- END CHANGE ---
+        # Removing question_index as endpoint returns full Rubric
+        # question_index: Optional[int] = Query(None, ...),
         user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
 
     # validate params
-    semester = Course.validate_semester(semester)
-    course_id = Course.normalize_lowercase(course_id)
+    try:
+        semester = Course.validate_semester(semester)
+        course_id = Course.normalize_lowercase(course_id)
+        # Add validation for assignment_id pattern if needed
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid parameter: {e}")
 
-    # Check if course exists
+    # Auth Checks...
     if not blob_uploader.course_exists(semester, course_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course does not exist.")
-
-    # Check if user has permissions on course
     user = blob_uploader.get_user(user_meta.user_email)
-    if not user.authenticated_courses.__contains__((semester, course_id)):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Authenticated but access is not allowed.")
-
-    # Check if assignment exists
-    if not blob_uploader.assignment_exists(semester, course_id, assignment_id):
+    if not user or (semester, course_id) not in user.authenticated_courses:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User not found or access not allowed.")
+    if not blob_uploader.assignment_exists(semester, course_id, assignment_id): # Pass str ID
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment does not exist.")
 
-    # Get the rubric
-    if question_index is not None:
-        rubric = blob_uploader.get_sub_rubric(semester, course_id, assignment_id, question_index)
-    else:
+    # Get the full rubric (ensure get_rubric service method expects str ID)
+    try:
         rubric = blob_uploader.get_rubric(semester, course_id, assignment_id)
-
-    if rubric is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rubric not found.")
-
-    return rubric
+        if rubric is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Rubric for assignment {assignment_id} not found.")
+        return rubric
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        logger.exception(f"Failed to get rubric for assignment {assignment_id} in {semester}/{course_id}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve rubric.")

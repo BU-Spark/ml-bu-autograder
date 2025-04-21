@@ -7,7 +7,7 @@ import { useRouter } from 'next/router';
 import {
   Alert, Box, Button, Card, CardActions, CardContent, Chip, CircularProgress,
   Dialog, DialogActions, DialogContent, DialogTitle, Divider, Grid, IconButton,
-  LinearProgress, Link as MuiLink, Paper, Snackbar, TextField, Tooltip, // Added Tooltip
+  LinearProgress, Link as MuiLink, Paper, Snackbar, TextField, Tooltip,
   Typography, useTheme
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
@@ -23,23 +23,23 @@ import CardSkeleton from '../../../components/CardSkeleton';
 import ConfirmationDialog from '../../../components/ConfirmationDialog';
 import { APP_CONFIG } from '../../../config'; // Assuming config exports APP_CONFIG
 
-// Styled components (kept as before)
-const MaterialCard = styled(Card)(({ theme }) => ({ /* ... styles ... */
+// Styled components
+const MaterialCard = styled(Card)(({ theme }) => ({
     height: '100%', display: 'flex', flexDirection: 'column', transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out', '&:hover': { transform: 'translateY(-4px)', boxShadow: theme.shadows[6], },
 }));
-const MaterialCardContent = styled(CardContent)({ /* ... styles ... */
+const MaterialCardContent = styled(CardContent)({
     flexGrow: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
 });
-const MaterialCardActions = styled(CardActions)(({ theme }) => ({ /* ... styles ... */
+const MaterialCardActions = styled(CardActions)(({ theme }) => ({
     justifyContent: 'space-between', borderTop: `1px solid ${theme.palette.divider}`, padding: theme.spacing(1),
 }));
-const FileIconWrapper = styled(Box)(({ theme }) => ({ /* ... styles ... */
+const FileIconWrapper = styled(Box)(({ theme }) => ({
     display: 'flex', justifyContent: 'center', marginBottom: theme.spacing(2), fontSize: '3rem',
 }));
-const DropzoneContainer = styled(Box)(({ theme, isDragActive, isDragAccept, isDragReject }) => ({ /* ... styles ... */
+const DropzoneContainer = styled(Box)(({ theme, isDragActive, isDragAccept, isDragReject }) => ({
     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: theme.spacing(4), borderWidth: 2, borderRadius: theme.shape.borderRadius, borderColor: isDragAccept ? theme.palette.success.main : isDragReject ? theme.palette.error.main : isDragActive ? theme.palette.primary.main : theme.palette.divider, borderStyle: 'dashed', backgroundColor: isDragAccept ? theme.palette.success.lighter : isDragReject ? theme.palette.error.lighter : isDragActive ? theme.palette.action.hover : theme.palette.background.default, color: theme.palette.text.secondary, outline: 'none', transition: 'border .24s ease-in-out, background-color .24s ease-in-out', cursor: 'pointer', minHeight: '150px',
 }));
-const NoMaterialsBox = styled(Box)(({ theme }) => ({ /* ... styles ... */
+const NoMaterialsBox = styled(Box)(({ theme }) => ({
     textAlign: 'center', padding: theme.spacing(4), backgroundColor: theme.palette.background.default, borderRadius: theme.shape.borderRadius, marginTop: theme.spacing(4), border: `1px dashed ${theme.palette.divider}`,
 }));
 
@@ -82,6 +82,23 @@ export default function CourseMaterials() {
     setAlertOpen(true);
   }, []);
 
+  // Format API errors for display
+  const formatApiError = useCallback((err, defaultMessage) => {
+    console.error("API Error:", err); // Log the full error
+    if (err?.response?.data?.detail) {
+        if (Array.isArray(err.response.data.detail)) {
+            // Handle FastAPI validation errors array
+            return err.response.data.detail.map(d => `${d.loc?.join('.') || 'error'}: ${d.msg}`).join('; ');
+        }
+        return err.response.data.detail; // Return detail string directly
+    }
+    if (err?.message) {
+      return err.message; // Axios error message or custom Error message
+    }
+    return defaultMessage; // Fallback message
+  }, []);
+
+
   // Generic input handler for simple fields (like text inputs)
   const handleFormInputChange = useCallback((event, formSetter) => {
     const { name, value } = event.target;
@@ -94,9 +111,9 @@ export default function CourseMaterials() {
 
     if (!courseId || !semester) {
         console.log("fetchMaterials: Missing courseId or semester, skipping API call.");
-        // Set appropriate state if skipping
         setLoading(false);
         setMaterials([]);
+        setError(null); // Clear previous errors if context is missing
         return;
     }
     if (showLoadingIndicator) setLoading(true);
@@ -104,11 +121,18 @@ export default function CourseMaterials() {
       try {
         console.log(`FETCHING materials for ${courseId}/${semester}`);
         const response = await materialService.getMaterials(semester, courseId); // semester, courseId order
-        const materialsData = response?.data; // Extract data
+        const materialsData = response?.data;
 
         if (Array.isArray(materialsData)) {
             console.log("RECEIVED materials list:", materialsData);
-            setMaterials(materialsData);
+            // Sort materials by ID (assuming integer IDs now) for consistent order
+            const sortedMaterials = materialsData.sort((a, b) => {
+                const idA = parseInt(a.material_id, 10);
+                const idB = parseInt(b.material_id, 10);
+                if (isNaN(idA) || isNaN(idB)) return 0; // Keep original order if IDs aren't numeric
+                return idA - idB;
+            });
+            setMaterials(sortedMaterials);
         } else {
             console.error("Invalid data received for materials list:", materialsData);
             setMaterials([]);
@@ -116,14 +140,14 @@ export default function CourseMaterials() {
         }
       } catch (err) {
         console.error('Error fetching materials:', err);
-        const errorMsg = err.response?.data?.detail || err.message || 'Failed to load course materials';
+        const errorMsg = formatApiError(err, 'Failed to load course materials');
         setError(errorMsg);
         setMaterials([]); // Clear materials on error
-        // Don't show alert on initial load error, 'error' state handles UI
       } finally {
         if (showLoadingIndicator) setLoading(false);
       }
-  }, [courseId, semester]); // Dependencies
+  // Dependencies include formatApiError now
+  }, [courseId, semester, formatApiError]);
 
   useEffect(() => {
       // Fetch materials when courseId or semester changes
@@ -141,13 +165,6 @@ export default function CourseMaterials() {
     if (file.size > APP_CONFIG.maxUploadSize) {
       return showAlert(`File size exceeds limit of ${APP_CONFIG.maxUploadSize / (1024 * 1024)}MB`, 'error');
     }
-    // No need for explicit type check here if dropzone 'accept' is configured,
-    // but keeping it doesn't hurt as a fallback.
-    // const fileExtension = file.name.split('.').pop()?.toLowerCase();
-    // const fileTypeWithDot = fileExtension ? `.${fileExtension}` : '';
-    // if (!fileTypeWithDot || !APP_CONFIG.acceptedFileTypes.materials.includes(fileTypeWithDot)) {
-    //    return showAlert(`File type "${fileExtension || 'unknown'}" not supported.`, 'error');
-    // }
 
     setUploadFile(file);
     const fileNameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
@@ -158,124 +175,125 @@ export default function CourseMaterials() {
   const { getRootProps, getInputProps, isDragActive, isDragAccept, isDragReject } = useDropzone({
     onDrop,
     accept: APP_CONFIG.acceptedFileTypes.materials.reduce((acc, ext) => {
-        // This mapping is best-effort for browser filtering
         const mimeTypes = { '.pdf': 'application/pdf', '.doc': 'application/msword', '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', '.ppt': 'application/vnd.ms-powerpoint', '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation', '.txt': 'text/plain', '.zip': 'application/zip' };
         const mime = mimeTypes[ext];
         if (mime) acc[mime] = [ext];
-        else acc[ext] = []; // Add extension directly if no known MIME type
+        else acc[ext] = [];
         return acc;
     }, {}),
     multiple: false,
-    noClick: false, // Allow click to browse
+    noClick: false,
     noKeyboard: true,
   });
 
   // --- CRUD HANDLERS ---
 
   const handleUploadMaterial = async () => {
-    if (!uploadFile || !uploadFormData.material_name?.trim() || !courseId) {
+    if (!uploadFile || !uploadFormData.material_name?.trim() || !courseId || !semester) { // Added semester check
         showAlert('File, Material Name, Course context are required.', 'warning');
         return;
     }
-    setActionLoading(true); // Use generic action loading flag
+    setActionLoading(true);
     setUploadProgress(0);
 
     try {
-        // --- Generate Next Integer ID ---
-        // Fetch current materials to find max ID (necessary because POST expects an ID)
-        console.log("Fetching current materials to determine next ID...");
-        const currentMaterialsResponse = await materialService.getMaterials(semester, courseId);
-        const currentMaterials = currentMaterialsResponse?.data;
-        let nextId = 0; // Default for first material
-        if (Array.isArray(currentMaterials) && currentMaterials.length > 0) {
-             const maxId = currentMaterials.reduce((max, mat) => {
-                // Try to parse material_id as int, ignore if fails
-                const currentIdInt = parseInt(mat.material_id, 10);
-                return !isNaN(currentIdInt) && currentIdInt > max ? currentIdInt : max;
-             }, -1); // Start comparison from -1
-             nextId = maxId + 1;
-        }
-        console.log(`Determined next material_id: ${nextId}`);
-        // --- End ID Generation ---
+        // --- REMOVED Frontend ID Generation ---
+        // console.log("Fetching current materials to determine next ID...");
+        // ... (code to fetch and calculate nextId) ...
+        // --- END REMOVED ID Generation ---
 
         // --- Read file ---
-        const readFileAsBase64 = (file) => new Promise((resolve, reject) => { /* ... FileReader logic ... */
+        const readFileAsBase64 = (file) => new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onprogress = (event) => { if (event.lengthComputable) setUploadProgress(Math.round((event.loaded / event.total) * 100)); };
-            reader.onload = () => resolve(reader.result.split(',')[1]); // Get base64 part
+            reader.onload = () => {
+                 // Ensure result is string and split correctly
+                 if (typeof reader.result === 'string') {
+                     const base64Part = reader.result.split(',')[1];
+                     if (base64Part) {
+                         resolve(base64Part);
+                     } else {
+                         reject(new Error("Could not extract base64 data from FileReader result."));
+                     }
+                 } else {
+                     reject(new Error("FileReader result was not a string."));
+                 }
+             };
             reader.onerror = (error) => reject(error);
             reader.readAsDataURL(file);
          });
+
         const base64Data = await readFileAsBase64(uploadFile);
         const fileExtension = uploadFile.name.split('.').pop()?.toLowerCase() ?? '';
         // --- End Read file ---
 
+        // Construct payload WITHOUT material_id
         const materialPayload = {
             course_id: courseId,
             semester: semester,
-            // *** Use the generated integer ID (send as string, backend might convert) ***
-            material_id: String(nextId),
+            // material_id: String(nextId), // <<<--- REMOVED
             material_name: uploadFormData.material_name.trim(),
             additional_notes: uploadFormData.additional_notes?.trim() || null,
-            data: { // Nested data object matching backend model
+            data: {
                 data_type: fileExtension,
                 content: base64Data,
                 metadata: {
-                    size: String(uploadFile.size), // Ensure string
+                    size: String(uploadFile.size),
                     type: uploadFile.type || 'application/octet-stream',
                     name: uploadFile.name,
                 },
             },
         };
 
-        console.log("UPLOADING material with payload:", { ...materialPayload, data: { ...materialPayload.data, content: "..." } }); // Avoid logging large base64
+        console.log("UPLOADING material payload (without material_id):", { ...materialPayload, data: { ...materialPayload.data, content: "..." } }); // Avoid logging large base64
         const response = await materialService.uploadMaterial(materialPayload);
-        const uploadedMaterialData = response?.data; // Extract data
+        const uploadedMaterialData = response?.data;
         console.log("RESPONSE from uploadMaterial:", response);
 
-        if (!uploadedMaterialData || !uploadedMaterialData.material_id) {
-          console.log("RESPONSE from uploadMaterial:", response);
-            throw new Error(uploadedMaterialData?.detail || "Invalid response after uploading material.");
+        // Check if the response contains the generated material_id
+        if (!uploadedMaterialData || typeof uploadedMaterialData.material_id === 'undefined') { // Check for presence of material_id
+          console.error("Invalid response structure from uploadMaterial:", uploadedMaterialData);
+          throw new Error(uploadedMaterialData?.detail || "Invalid response after uploading material (missing material_id).");
         }
 
-        // Add the material returned *from the server* to the state
-        setMaterials(prev => [...prev, uploadedMaterialData]);
-        showAlert('Material uploaded successfully');
+        // Add the material returned *from the server* (now including the generated ID)
+        setMaterials(prev => [...prev, uploadedMaterialData].sort((a, b) => { // Sort after adding
+            const idA = parseInt(a.material_id, 10);
+            const idB = parseInt(b.material_id, 10);
+            if (isNaN(idA) || isNaN(idB)) return 0;
+            return idA - idB;
+        }));
+        showAlert(`Material '${uploadedMaterialData.material_name}' uploaded successfully (ID: ${uploadedMaterialData.material_id})`);
         setUploadDialogOpen(false);
-        setUploadFile(null); // Reset file state
-        setUploadFormData({ material_name: '', additional_notes: '' }); // Reset form
+        setUploadFile(null);
+        setUploadFormData({ material_name: '', additional_notes: '' });
 
     } catch (error) {
-        console.error('Error uploading material:', error);
-        let displayError = 'Failed to upload material.';
-        if (error.response) { /* ... detailed error formatting ... */
-             const detail = error.response.data?.detail; if (detail) { if (Array.isArray(detail)) { displayError = detail.map(err => `${err.loc?.join('.')} - ${err.msg}`).slice(0, 2).join('; '); if (detail.length > 2) displayError += '...'; } else if (typeof detail === 'string') { displayError = detail; } else { displayError = JSON.stringify(detail); } } else if (error.response.statusText) { displayError = `Error: ${error.response.status} ${error.response.statusText}`; }
-        } else if (error.request) { displayError = "Could not contact server."; } else { displayError = error.message || "An unexpected error occurred."; }
+        // Use the improved error formatting
+        const displayError = formatApiError(error, 'Failed to upload material.');
         showAlert(displayError, 'error');
     } finally {
-        setActionLoading(false); // Use generic loading flag
+        setActionLoading(false);
         setUploadProgress(0);
     }
   };
 
   const handleUpdateMaterial = async () => {
-    if (!editMaterial || !editMaterial.material_id || !editFormData.material_name?.trim() || !courseId || !semester) {
+    if (!editMaterial || typeof editMaterial.material_id === 'undefined' || !editFormData.material_name?.trim() || !courseId || !semester) {
         showAlert('Material context or name is missing.', 'warning');
         return;
     }
-    // **IMPORTANT**: Backend PATCH expects the *full* object, including potentially large data field.
-    // This is inefficient but required by the current backend endpoint definition.
+
+    // Construct the full payload as expected by PATCH /course_material
     const updatedMaterialPayload = {
-        // Start with the existing material data from state
-        ...editMaterial,
-        // Overwrite fields from the form
-        material_name: editFormData.material_name.trim(),
-        additional_notes: editFormData.additional_notes?.trim() || null,
-        // The 'data' field (potentially large) remains from editMaterial
+        ...editMaterial, // Start with existing data (includes ID, semester, course_id, data)
+        material_name: editFormData.material_name.trim(), // Overwrite name
+        additional_notes: editFormData.additional_notes?.trim() || null, // Overwrite notes
     };
+
     // Prevent API call if only whitespace changed or nothing changed
     if (updatedMaterialPayload.material_name === editMaterial.material_name &&
-        updatedMaterialPayload.additional_notes === editMaterial.additional_notes) {
+        updatedMaterialPayload.additional_notes === (editMaterial.additional_notes || null)) { // Compare with null if original was empty
          console.log("No metadata changes detected, closing edit dialog.");
          setEditDialogOpen(false);
          return;
@@ -284,12 +302,11 @@ export default function CourseMaterials() {
     setActionLoading(true);
     try {
       console.log(`UPDATING material ${editMaterial.material_id} with payload:`, { ...updatedMaterialPayload, data: { ...updatedMaterialPayload.data, content: "..." } });
-      // Call PATCH service
       const response = await materialService.updateMaterial(updatedMaterialPayload);
-      const updatedMaterialFromServer = response?.data; // Extract data
+      const updatedMaterialFromServer = response?.data;
       console.log("RESPONSE from updateMaterial:", response);
 
-       if (!updatedMaterialFromServer || !updatedMaterialFromServer.material_id) {
+       if (!updatedMaterialFromServer || typeof updatedMaterialFromServer.material_id === 'undefined') {
             throw new Error(updatedMaterialFromServer?.detail || "Invalid response after updating material.");
         }
 
@@ -299,14 +316,10 @@ export default function CourseMaterials() {
       ));
       showAlert('Material updated successfully');
       setEditDialogOpen(false);
-      setEditMaterial(null); // Clear edit state
+      setEditMaterial(null);
 
     } catch (error) {
-      console.error('Error updating material:', error);
-       let displayError = 'Failed to update material.';
-       if (error.response) { /* ... detailed error formatting ... */
-            const detail = error.response.data?.detail; if (detail) { if (Array.isArray(detail)) { displayError = detail.map(err => `${err.loc?.join('.')} - ${err.msg}`).slice(0, 2).join('; '); if (detail.length > 2) displayError += '...'; } else if (typeof detail === 'string') { displayError = detail; } else { displayError = JSON.stringify(detail); } } else if (error.response.statusText) { displayError = `Error: ${error.response.status} ${error.response.statusText}`; }
-       } else if (error.request) { displayError = "Could not contact server."; } else { displayError = error.message || "An unexpected error occurred."; }
+      const displayError = formatApiError(error, 'Failed to update material.');
       showAlert(displayError, 'error');
     } finally {
         setActionLoading(false);
@@ -314,34 +327,27 @@ export default function CourseMaterials() {
   };
 
   const handleDeleteMaterial = async () => {
-    const materialObjectToDelete = materialToDelete; // Get from state
+    const materialObjectToDelete = materialToDelete;
     const idToDelete = materialObjectToDelete?.material_id;
-    console.log("DELETE request for material ID:", idToDelete);
 
-    if (!idToDelete || !semester || !courseId) {
-         showAlert(`Cannot delete: Missing required info.`, 'error');
+    if (typeof idToDelete === 'undefined' || !semester || !courseId) { // Check type of ID
+         showAlert(`Cannot delete: Missing required info (ID: ${idToDelete}, Semester: ${semester}, Course: ${courseId}).`, 'error');
          console.error("Delete preconditions failed:", { idToDelete, semester, courseId });
          setDeleteDialogOpen(false);
          return;
     }
     setActionLoading(true);
-    setDeleteDialogOpen(false); // Close confirmation dialog
+    setDeleteDialogOpen(false);
     try {
       console.log(`Calling API: deleteMaterial(${semester}, ${courseId}, ${idToDelete})`);
-      // Ensure arguments are in the correct order: semester, courseId, materialId
-      await materialService.deleteMaterial(semester, courseId, idToDelete);
+      await materialService.deleteMaterial(semester, courseId, idToDelete); // Pass ID as number/string as expected by API
       console.log(`Material ${idToDelete} reported as deleted by API.`);
       showAlert('Material deleted successfully');
-      // Update the list state by filtering out the deleted ID
-      setMaterials(prev => prev.filter(m => m.material_id !== idToDelete));
-      setMaterialToDelete(null); // Clear the state
+      setMaterials(prev => prev.filter(m => m.material_id !== idToDelete)); // Strict comparison might be needed if types differ
+      setMaterialToDelete(null);
 
     } catch (error) {
-      console.error('Error deleting material:', error);
-       let displayError = `Failed to delete material (ID: ${idToDelete}).`;
-       if (error.response) { /* ... detailed error formatting ... */
-             const detail = error.response.data?.detail; if (detail) { if (Array.isArray(detail)) { displayError = detail.map(err => `${err.loc?.join('.')} - ${err.msg}`).slice(0, 2).join('; '); if (detail.length > 2) displayError += '...'; } else if (typeof detail === 'string') { displayError = detail; } else { displayError = JSON.stringify(detail); } } else if (error.response.statusText) { displayError = `Error: ${error.response.status} ${error.response.statusText}`; }
-       } else if (error.request) { displayError = "Could not contact server."; } else { displayError = error.message || "An unexpected error occurred."; }
+       const displayError = formatApiError(error, `Failed to delete material (ID: ${idToDelete}).`);
       showAlert(displayError, 'error');
     } finally {
        setActionLoading(false);
@@ -350,7 +356,7 @@ export default function CourseMaterials() {
 
   // Dialog Openers
   const openEditDialog = (material) => {
-    if (!material || !material.material_id) return;
+    if (!material || typeof material.material_id === 'undefined') return;
     setEditMaterial(material);
     setEditFormData({
       material_name: material.material_name || '',
@@ -360,14 +366,14 @@ export default function CourseMaterials() {
   };
 
   const openDeleteDialog = (material) => {
-     if (!material || !material.material_id) return;
+     if (!material || typeof material.material_id === 'undefined') return;
      setMaterialToDelete(material);
      setDeleteDialogOpen(true);
   };
 
   // Helper to get icon based on data_type (extension string)
   const getFileIcon = (extension) => {
-    const extLower = extension?.toLowerCase() ?? ''; // Use empty string if null/undefined
+    const extLower = extension?.toLowerCase() ?? '';
     switch (extLower) {
       case 'pdf': return <PdfIcon fontSize="inherit" color="error" />;
       case 'doc': case 'docx': return <DocIcon fontSize="inherit" color="primary" />;
@@ -391,7 +397,7 @@ export default function CourseMaterials() {
       {error && !loading && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
 
       {/* Upload Section */}
-      <Paper sx={{ p: 3, mb: 4 }}>
+      <Paper elevation={1} sx={{ p: { xs: 1.5, sm: 2, md: 3 }, mb: 4 }}>
         <Typography variant="h6" gutterBottom> Upload New Material </Typography>
         <Typography variant="body2" color="text.secondary" paragraph>
             Drag & drop a file or click below. Max size: {APP_CONFIG.maxUploadSize / (1024 * 1024)}MB. Accepted types: {APP_CONFIG.acceptedFileTypes.materials.join(', ')}.
@@ -414,12 +420,12 @@ export default function CourseMaterials() {
       ) : ( /* Materials Grid */
         <Grid container spacing={3}>
           {materials.map((material) => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={material.material_id}>
+            <Grid item xs={12} sm={6} md={4} lg={3} key={material.material_id}> {/* Use ID from backend */}
               <MaterialCard variant="outlined">
                 <MaterialCardContent>
                   <FileIconWrapper> {getFileIcon(material.data?.data_type)} </FileIconWrapper>
-                  <Tooltip title={material.material_name}>
-                      <Typography variant="h6" component="h2" align="center" noWrap gutterBottom> {material.material_name} </Typography>
+                  <Tooltip title={material.material_name || '(No Name)'}>
+                      <Typography variant="h6" component="h2" align="center" noWrap gutterBottom> {material.material_name || '(No Name)'} </Typography>
                   </Tooltip>
                   <Chip label={(material.data?.data_type || 'unknown').replace('.', '').toUpperCase()} size="small" variant="outlined" sx={{ mb: 1 }} />
                   {material.additional_notes && (
@@ -431,13 +437,15 @@ export default function CourseMaterials() {
                    )}
                 </MaterialCardContent>
                 <MaterialCardActions>
-                   {/* Use MuiLink for external links potentially */}
+                   {/* Link to the actual URL provided by the backend */}
                   <Button size="small" component={MuiLink} href={material.data?.url || '#'} target="_blank" rel="noopener noreferrer" disabled={!material.data?.url || actionLoading}> View </Button>
                   <Box>
                     <Tooltip title="Edit Name/Notes">
+                      {/* Ensure Edit button works correctly */}
                       <IconButton size="small" onClick={() => openEditDialog(material)} disabled={actionLoading}> <EditIcon fontSize="small" /> </IconButton>
                     </Tooltip>
                     <Tooltip title="Delete Material">
+                       {/* Ensure Delete button works correctly */}
                       <IconButton size="small" color="error" onClick={() => openDeleteDialog(material)} disabled={actionLoading}> <DeleteIcon fontSize="small" /> </IconButton>
                     </Tooltip>
                   </Box>
@@ -490,7 +498,8 @@ export default function CourseMaterials() {
         open={deleteDialogOpen}
         onClose={() => !actionLoading && setDeleteDialogOpen(false)}
         title="Delete Material"
-        description={`Are you sure you want to permanently delete "${materialToDelete?.material_name ?? 'this material'}" (ID: ${materialToDelete?.material_id})? This cannot be undone.`}
+        // Ensure materialToDelete and its properties are accessed safely
+        description={`Are you sure you want to permanently delete "${materialToDelete?.material_name ?? 'this material'}" (ID: ${materialToDelete?.material_id ?? 'N/A'})? This cannot be undone.`}
         confirmText="Delete"
         cancelText="Cancel"
         confirmColor="error"
