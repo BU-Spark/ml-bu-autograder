@@ -5,10 +5,25 @@ from fastapi import APIRouter, HTTPException, Query, Body, Depends
 from app.models import Course
 from app.models.course_material import CourseMaterial
 from app.utils import JWTService, UserToken
+from azure.storage.blob import ContainerClient
 from app.utils.azure_blob_service import AzureBlobService
 
 router = APIRouter()
 user_from_auth = JWTService.get_instance().from_authorization_header
+
+def list_course_ids(self, semester: str, course_id: str) -> List[str]:
+    container_client: ContainerClient = self.blob_service_client.get_container_client(self.container_name)
+    prefix = f"{semester}/{course_id}/course_material/"
+    course_materials_id = set() # Use a set to avoid duplicates if listing includes files within dirs
+
+    blob_items = container_client.list_blobs(name_starts_with=prefix)
+    for blob in blob_items:
+        relative_path = blob.name[len(prefix):] # Get path part after prefix -> "0/metadata.json" or "1/"
+        course_id = relative_path.split('/')[0] # Get the first part -> "0" or "1"
+        if course_id:
+            course_materials_id.add(course_id)
+    return list(course_id)
+
 
 
 @router.get(
