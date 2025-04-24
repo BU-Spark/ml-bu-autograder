@@ -40,7 +40,8 @@ import {
   TextField,
   Tooltip,
   Typography,
-  Link as MuiLink, // Imported MuiLink
+  Link as MuiLink,
+  useTheme, // Keep the import
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import {
@@ -62,7 +63,7 @@ import CardSkeleton from '../../../components/CardSkeleton'; // Assuming exists
 import AISuggestionCard from '../../../components/AISuggestionCard'; // Assuming exists
 import ConfirmationDialog from '../../../components/ConfirmationDialog'; // Assuming exists
 
-// Styled components
+// Styled components - These need 'theme'
 const AssignmentSelectionCard = styled(Card)(({ theme, selected }) => ({
   height: '100%',
   display: 'flex',
@@ -119,11 +120,11 @@ const GRADING_FLAGS_CONFIG = [
 // Main component
 export default function RubricManagement() {
   const router = useRouter();
+  const theme = useTheme(); // <<<--- ADDED THIS LINE BACK
   const { id: courseId, semester, assignmentId: assignmentIdParam } = router.query;
-  // Keep assignmentId as string or null
   const selectedAssignmentId = typeof assignmentIdParam === 'string' ? assignmentIdParam : null;
 
-  // State
+  // State (rest of the state declarations)
   const [assignments, setAssignments] = useState([]);
   const [selectedAssignment, setSelectedAssignment] = useState(null);
   const [rubric, setRubric] = useState(null);
@@ -135,13 +136,13 @@ export default function RubricManagement() {
   const [error, setError] = useState(null);
   const [tabValue, setTabValue] = useState(0);
   const [editMode, setEditMode] = useState(false);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0); // Stores the actual question_index (number)
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [criteriaDialogOpen, setCriteriaDialogOpen] = useState(false);
-  const [editingCriteriaIndex, setEditingCriteriaIndex] = useState(null); // Stores array index for editing
+  const [editingCriteriaIndex, setEditingCriteriaIndex] = useState(null);
   const [deleteCriteriaDialogOpen, setDeleteCriteriaDialogOpen] = useState(false);
   const [aiInstructionsDialogOpen, setAiInstructionsDialogOpen] = useState(false);
   const [criteriaFormData, setCriteriaFormData] = useState({ criteria_id: '', criteria: '', points: 0 });
-  const [criteriaToDelete, setCriteriaToDelete] = useState(null); // Stores { criteriaArrayIndex }
+  const [criteriaToDelete, setCriteriaToDelete] = useState(null);
   const [aiInstructions, setAiInstructions] = useState('');
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
@@ -168,7 +169,6 @@ export default function RubricManagement() {
     return defaultMessage;
   }, []);
 
-  // Defined as regular function before usage
   function calculateTotalPoints(subRubric) {
     return subRubric?.grading_criteria?.reduce((sum, c) => {
         const points = parseFloat(String(c?.points));
@@ -181,7 +181,7 @@ export default function RubricManagement() {
         console.error("Cannot create empty rubric: missing assignment, semester, or courseId");
         return null;
     }
-    const currentAssignmentId = String(assignment.assignment_id); // Ensure string
+    const currentAssignmentId = String(assignment.assignment_id);
     const sortedQuestions = [...(assignment.questions || [])].sort((a,b) => (a.question_index ?? Infinity) - (b.question_index ?? Infinity));
     const subRubrics = sortedQuestions.map(question => ({
         question_index: question.question_index,
@@ -193,7 +193,7 @@ export default function RubricManagement() {
     return {
         semester: semester,
         course_id: courseId,
-        assignment_id: currentAssignmentId, // Store as string
+        assignment_id: currentAssignmentId,
         grading_flags: [],
         leniency: 3,
         overall_instructor_guidelines: '',
@@ -211,40 +211,24 @@ export default function RubricManagement() {
         setLoadingRubric(false); return;
     }
     setLoadingRubric(true); setError(null);
-    const assignmentIdStr = String(assignment.assignment_id); // Use string for API
+    const assignmentIdStr = String(assignment.assignment_id);
     try {
         const response = await rubricService.getRubric(semester, courseId, assignmentIdStr);
-        let fetchedRubricData = response.data;
-        let completeRubric;
-
+        let fetchedRubricData = response.data; let completeRubric;
         if (fetchedRubricData && typeof fetchedRubricData === 'object') {
-            if (typeof fetchedRubricData.assignment_id !== 'string') { fetchedRubricData.assignment_id = String(fetchedRubricData.assignment_id); } // Ensure string ID
+            if (typeof fetchedRubricData.assignment_id !== 'string') { fetchedRubricData.assignment_id = String(fetchedRubricData.assignment_id); }
             completeRubric = { ...createEmptyRubric(assignment), ...fetchedRubricData };
-            // Align sub-rubrics with current questions
             const currentQuestionIndices = new Set(assignment.questions?.map(q => q.question_index) ?? []);
             completeRubric.sub_rubrics = completeRubric.sub_rubrics?.filter(sr => currentQuestionIndices.has(sr.question_index)) ?? [];
-            assignment.questions?.forEach(q => {
-                if (!completeRubric.sub_rubrics.some(sr => sr.question_index === q.question_index)) {
-                    completeRubric.sub_rubrics.push({ question_index: q.question_index, max_points: 10, leniency: null, instructor_guideline: '', grading_criteria: [] });
-                }
-            });
-        } else {
-            console.log(`No rubric/invalid data for assignment ${assignmentIdStr}. Creating empty.`);
-            completeRubric = createEmptyRubric(assignment);
-        }
+            assignment.questions?.forEach(q => { if (!completeRubric.sub_rubrics.some(sr => sr.question_index === q.question_index)) { completeRubric.sub_rubrics.push({ question_index: q.question_index, max_points: 10, leniency: null, instructor_guideline: '', grading_criteria: [] }); } });
+        } else { console.log(`No rubric/invalid data for assignment ${assignmentIdStr}. Creating empty.`); completeRubric = createEmptyRubric(assignment); }
         completeRubric.sub_rubrics.sort((a, b) => (a.question_index ?? Infinity) - (b.question_index ?? Infinity));
         setRubric(completeRubric); setAiRubricSuggestion(null); setTabValue(0);
         setCurrentQuestionIndex(completeRubric.sub_rubrics[0]?.question_index ?? 0);
     } catch (err) {
       console.error('Error fetching rubric:', err);
-       if (err.message?.includes('404') || err.message?.toLowerCase().includes('not found') || err?.response?.status === 404) {
-          console.log(`No rubric found for assignment ${assignmentIdStr}. Creating empty.`);
-          setRubric(createEmptyRubric(assignment)); setTabValue(0);
-          setCurrentQuestionIndex(assignment?.questions?.[0]?.question_index ?? 0);
-       } else {
-          const errorMsg = formatApiError(err, 'Failed to load rubric');
-          setError(errorMsg); showAlert(errorMsg, 'error'); setRubric(null);
-       }
+       if (err.message?.includes('404') || err.message?.toLowerCase().includes('not found') || err?.response?.status === 404) { console.log(`No rubric found for assignment ${assignmentIdStr}. Creating empty.`); setRubric(createEmptyRubric(assignment)); setTabValue(0); setCurrentQuestionIndex(assignment?.questions?.[0]?.question_index ?? 0); }
+       else { const errorMsg = formatApiError(err, 'Failed to load rubric'); setError(errorMsg); showAlert(errorMsg, 'error'); setRubric(null); }
     } finally { setLoadingRubric(false); }
   }, [semester, courseId, createEmptyRubric, showAlert, formatApiError]);
 
@@ -258,32 +242,24 @@ export default function RubricManagement() {
         if (!Array.isArray(assignmentsData)) throw new Error("Invalid assignment data.");
         assignmentsData.sort((a,b) => String(a.assignment_id).localeCompare(String(b.assignment_id)));
         setAssignments(assignmentsData);
-
         let assignmentToSelect = null;
-        if (selectedAssignmentId !== null) { // selectedAssignmentId is string
-             assignmentToSelect = assignmentsData.find(a => String(a.assignment_id) === selectedAssignmentId); // Compare strings
-             if (!assignmentToSelect) {
-                showAlert(`Assignment ID ${selectedAssignmentId} from URL not found. Loading first.`, 'warning');
-                assignmentToSelect = assignmentsData[0] ?? null;
-                const firstId = assignmentsData[0]?.assignment_id;
-                router.replace(`/course/${courseId}/rubrics?semester=${semester}${firstId ? `&assignmentId=${firstId}` : ''}`, undefined, { shallow: true });
-             }
+        if (selectedAssignmentId !== null) {
+             assignmentToSelect = assignmentsData.find(a => String(a.assignment_id) === selectedAssignmentId);
+             if (!assignmentToSelect) { showAlert(`Assignment ID ${selectedAssignmentId} from URL not found. Loading first.`, 'warning'); assignmentToSelect = assignmentsData[0] ?? null; const firstId = assignmentsData[0]?.assignment_id; router.replace(`/course/${courseId}/rubrics?semester=${semester}${firstId ? `&assignmentId=${firstId}` : ''}`, undefined, { shallow: true }); }
         } else {
             assignmentToSelect = assignmentsData[0] ?? null;
              if(assignmentToSelect) { router.replace(`/course/${courseId}/rubrics?semester=${semester}&assignmentId=${assignmentToSelect.assignment_id}`, undefined, { shallow: true }); }
         }
-
         if (assignmentToSelect) {
              if(assignmentToSelect.questions) { assignmentToSelect.questions.sort((a, b) => (a.question_index ?? Infinity) - (b.question_index ?? Infinity)); }
-             setSelectedAssignment(assignmentToSelect); // Has string ID
-             await fetchRubric(assignmentToSelect); // Pass assignment with string ID
+             setSelectedAssignment(assignmentToSelect);
+             await fetchRubric(assignmentToSelect);
         } else { console.log("No assignments found."); setError("No assignments available."); setLoadingRubric(false); }
-      } catch (err) {
-        console.error('Error fetching initial data:', err); const errorMsg = formatApiError(err, 'Failed loading data'); setError(errorMsg); showAlert(errorMsg, 'error'); setLoadingRubric(false);
-      } finally { setLoadingAssignments(false); }
+      } catch (err) { console.error('Error fetching initial data:', err); const errorMsg = formatApiError(err, 'Failed loading data'); setError(errorMsg); showAlert(errorMsg, 'error'); setLoadingRubric(false); }
+      finally { setLoadingAssignments(false); }
     };
     fetchAssignmentsAndRubric();
-  }, [courseId, semester, selectedAssignmentId, formatApiError, showAlert, fetchRubric, router]); // Dependencies updated
+  }, [courseId, semester, selectedAssignmentId, formatApiError, showAlert, fetchRubric, router]);
 
 
   // --- Event Handlers ---
@@ -299,7 +275,7 @@ export default function RubricManagement() {
     if (!selectedAssignment || !semester || !courseId) { showAlert("Select assignment.", "warning"); return; }
     setLoadingAI(true);
     try {
-      const response = await rubricService.getAIRubric( semester, courseId, String(selectedAssignment.assignment_id), aiInstructions || null ); // Pass string ID
+      const response = await rubricService.getAIRubric( semester, courseId, String(selectedAssignment.assignment_id), aiInstructions || null );
       const aiRubricData = response?.data;
       if (!aiRubricData || typeof aiRubricData !== 'object') throw new Error("Invalid AI response.");
       setAiRubricSuggestion(aiRubricData); setAiInstructionsDialogOpen(false);
@@ -310,10 +286,9 @@ export default function RubricManagement() {
 
   const applyAIRubricSuggestions = useCallback(() => {
     if (!aiRubricSuggestion) return;
-    // Compare string IDs
     if (aiRubricSuggestion.semester === semester && aiRubricSuggestion.course_id === courseId && String(aiRubricSuggestion.assignment_id) === String(selectedAssignment?.assignment_id)) {
         const alignedRubric = { ...createEmptyRubric(selectedAssignment), ...aiRubricSuggestion };
-        alignedRubric.assignment_id = String(alignedRubric.assignment_id); // Ensure string
+        alignedRubric.assignment_id = String(alignedRubric.assignment_id);
         const currentQuestionIndices = new Set(selectedAssignment.questions?.map(q => q.question_index) ?? []);
         alignedRubric.sub_rubrics = alignedRubric.sub_rubrics.filter(sr => currentQuestionIndices.has(sr.question_index));
         selectedAssignment.questions?.forEach(q => { if (!alignedRubric.sub_rubrics.some(sr => sr.question_index === q.question_index)) { alignedRubric.sub_rubrics.push({ question_index: q.question_index, max_points: 10, leniency: null, instructor_guideline: '', grading_criteria: [] }); } });
@@ -335,7 +310,8 @@ export default function RubricManagement() {
       if(selectedAssignment) { await fetchRubric(selectedAssignment); }
     } catch (err) { const errorMsg = formatApiError(err, 'Failed to save.'); showAlert(errorMsg, 'error'); }
     finally { setIsSaving(false); }
-  }, [rubric, selectedAssignment, fetchRubric, showAlert, formatApiError]); // calculateTotalPoints not needed as dependency
+  }, [rubric, selectedAssignment, fetchRubric, showAlert, formatApiError]);
+
 
   const handleRubricSettingChange = useCallback((field, value) => { setRubric(prev => prev ? { ...prev, [field]: value } : null); }, []);
   const handleSubRubricChange = useCallback((questionIndex, field, value) => { setRubric(prev => { if (!prev) return null; const newSubRubrics = prev.sub_rubrics.map(sr => sr.question_index === questionIndex ? { ...sr, [field]: value } : sr ); return { ...prev, sub_rubrics: newSubRubrics }; }); }, []);
