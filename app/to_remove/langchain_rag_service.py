@@ -10,7 +10,7 @@ from deprecated import deprecated
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 from app.utils import VectorDBService
-from app.utils.azure_embedding_service import AzureEmbeddingService
+from app.services.azure_embedding_service import AzureEmbeddingService
 
 
 @deprecated

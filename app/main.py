@@ -1,21 +1,22 @@
 import sys
 import logging
+import traceback
 
 from azure.identity import DefaultAzureCredential
 from dotenv import load_dotenv
-from pydantic import FilePath, HttpUrl
+from isapi.isapicon import HTTP_BAD_REQUEST
+from pydantic import FilePath, HttpUrl, ValidationError
 
-# <<<<<<< backend
-# from app.utils import get_str_var, get_bool_var, get_int_var, setup_loggers, JWTService
-# =======
-# from app.utils import get_str_var, get_bool_var, setup_loggers, JWTService, AzureEmbeddingService
-# >>>>>>> dev
+from app.services import AzureEmbeddingService
+from app.utils import get_str_var, get_bool_var, setup_loggers, get_int_var
+from app.services.bg_material_processor import BackgroundMaterialProcessor
+from app.utils.jwt_service import JWTService
 from app.utils.llm_service import LLMService
 
 load_dotenv()  # Load environment variables first
 
-from app.utils.azure_blob_service import AzureBlobService
-from app.utils.azure_vector_service import AzureVectorService
+from app.services.azure_blob_service import AzureBlobService
+from app.services.azure_vector_service import AzureVectorService
 
 if __name__ == "__main__":
     logging.critical("This application is not intended to be run directly. See README.md for instructions.")
@@ -31,21 +32,18 @@ APPLICATION_VERSION = get_str_var("APPLICATION_VERSION")
 GOOGLE_OAUTH_CLIENT_FILE = get_str_var("GOOGLE_OAUTH_CLIENT_FILE")
 PRODUCTION = get_bool_var("PRODUCTION")
 JWT_ENCRYPTION_SECRET_FILE = FilePath(get_str_var("JWT_ENCRYPTION_SECRET_FILE"))
-AZURE_BLOB_CACHE_DIR = FilePath(get_str_var("AZURE_BLOB_CACHE_DIR"))
+TEMP_FILES_DIR = FilePath(get_str_var("TEMP_FILES_DIR"))
 ENV_TEST_API_KEY = get_str_var("ENV_TEST_API_KEY")
 AZURE_LLM_DEPLOYMENT_URL = HttpUrl(get_str_var("AZURE_LLM_DEPLOYMENT_URL"))
 AZURE_LLM_DEPLOYMENT_KEY = get_str_var("AZURE_LLM_DEPLOYMENT_KEY")
 AZURE_EMBEDDING_DEPLOYMENT_URL = HttpUrl(get_str_var("AZURE_EMBEDDING_DEPLOYMENT_URL"))
 AZURE_EMBEDDING_MODEL = get_str_var("AZURE_EMBEDDING_MODEL")
 AZURE_EMBEDDING_DEPLOYMENT_KEY = get_str_var("AZURE_EMBEDDING_DEPLOYMENT_KEY")
-
-"""
 #added intializations for azure search endpoints
 AZURE_SEARCH_ENDPOINT = HttpUrl(get_str_var("AZURE_SEARCH_ENDPOINT"))
 AZURE_SEARCH_API_KEY = get_str_var("AZURE_SEARCH_API_KEY")
 AZURE_SEARCH_INDEX_NAME = get_str_var("AZURE_SEARCH_INDEX_NAME")
 AZURE_SEARCH_EMBEDDING_DIMS = get_int_var("AZURE_SEARCH_EMBEDDING_DIMS")
-"""
 
 # Setup logging level
 setup_loggers(production=PRODUCTION)
@@ -54,27 +52,25 @@ logging.info("Loading Azure services...")
 # Credentials are automatically recognized based of the values of these env variables:
 # AZURE_CLIENT_ID, AZURE_TENANT_ID, and AZURE_CLIENT_SECRET
 credential = DefaultAzureCredential()
-AzureBlobService.init_singleton(credential, AZURE_STORAGE_ACCOUNT_NAME, AZURE_CONTAINER_NAME, AZURE_BLOB_CACHE_DIR)
+AzureBlobService.init_singleton(credential, AZURE_STORAGE_ACCOUNT_NAME, AZURE_CONTAINER_NAME, TEMP_FILES_DIR)
 JWTService.init_singleton(JWT_ENCRYPTION_SECRET_FILE, ENV_TEST_API_KEY)
 LLMService.init_singleton(AZURE_LLM_DEPLOYMENT_URL, AZURE_LLM_DEPLOYMENT_KEY)
-# <<<<<<< backend
-# """
-# #initialization for azure vector service
+AzureEmbeddingService.init_singleton(AZURE_EMBEDDING_DEPLOYMENT_URL, AZURE_EMBEDDING_MODEL,
+                                     AZURE_EMBEDDING_DEPLOYMENT_KEY)
 # AzureVectorService.init_singleton(
 #     endpoint=AZURE_SEARCH_ENDPOINT,
 #     api_key=AZURE_SEARCH_API_KEY,
 #     index_name=AZURE_SEARCH_INDEX_NAME,
 #     embedding_dims=AZURE_SEARCH_EMBEDDING_DIMS
 # )
-# """
-# =======
-# AzureEmbeddingService.init_singleton(AZURE_EMBEDDING_DEPLOYMENT_URL, AZURE_EMBEDDING_MODEL, AZURE_EMBEDDING_DEPLOYMENT_KEY)
+BackgroundMaterialProcessor(TEMP_FILES_DIR).start_task_scan_loop()
 
-# >>>>>>> dev
 logging.info("Starting FastAPI server...")
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from app.routes import auth, course, assignment, student_response, grading, course_material, rubric, user
+
 app = FastAPI(
     title="BU MET Autograder API",
     description="API for BU MET Autograder – an AI-based autograding tool. "
@@ -82,6 +78,26 @@ app = FastAPI(
                 "course materials, and rubrics.",
     version=APPLICATION_VERSION
 )
+
+
+# register error handlers
+@app.exception_handler(ValidationError)
+async def catch_pydantic_validation_errs(request: Request, exc: ValidationError):
+    tb_str = ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+    logging.warning("ValidationError occurred:\n%s", tb_str)
+    return JSONResponse(
+        status_code=HTTP_BAD_REQUEST,
+        content={"detail": exc.errors()},
+    )
+
+@app.exception_handler(ValueError)
+async def catch_value_errs(request: Request, exc: ValueError):
+    tb_str = ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+    logging.warning("ValueError occurred:\n%s", tb_str)
+    return JSONResponse(
+        status_code=HTTP_BAD_REQUEST,
+        content={"detail": str(exc)},
+    )
 
 
 # Include routers for modular endpoints with appropriate prefixes and tags.

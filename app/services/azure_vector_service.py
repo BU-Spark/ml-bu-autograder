@@ -20,6 +20,7 @@ from azure.search.documents.indexes.models import (
     SimpleField,
     SearchFieldDataType
 )
+from pydantic import HttpUrl
 
 # Global variable to hold the AzureVectorService singleton instance.
 azure_instance: Optional["AzureVectorService"] = None
@@ -165,6 +166,24 @@ class AzureVectorService:
                 results_batch.append([])
 
         return results_batch
+    def get_vector_ids_by_material_id(self, material_id: str) -> List[str]:
+        """
+        Retrieves vector document IDs associated with the given course material ID.
+        Args:
+            material_id (str): The course material ID prefix used in vector document IDs.
+        Returns:
+            List[str]: A list of document IDs matching the prefix.
+        """
+        try:
+            filter_query = f"startswith(id, '{material_id}-chunk-')"
+            results = self.client.search(search_text="", filter=filter_query, select=["id"], top=1000)
+            ids = [doc["id"] for doc in results]
+
+            logging.info(f"Retrieved vector IDs for material '{material_id}': {ids}")
+            return ids
+        except Exception as e:
+            logging.error(f"Error retrieving vector IDs for material '{material_id}': {str(e)}")
+            raise
 
     def delete_documents_by_ids(self, ids: List[str]):
         """
@@ -214,7 +233,7 @@ class AzureVectorService:
             raise
 
     @staticmethod
-    def init_singleton(endpoint: str, api_key: str, index_name: str, embedding_dims: int = 1536):
+    def init_singleton(endpoint: HttpUrl, api_key: str, index_name: str, embedding_dims: int = 1536):
         """
         Initialize the AzureVectorService singleton.
 
@@ -302,37 +321,3 @@ class AzureVectorService:
         except Exception as e:
             logging.error("❌ Error retrieving closest vectors: " + str(e), exc_info=True)
             return []
-
-
-
-#will remove later 
-if __name__ == "__main__":
-    # Setup logging configuration
-    logging.basicConfig(level=logging.INFO)
-
-    # Replace these with your actual Azure Search service details.
-    endpoint = "endpoint"
-    api_key = "api_key"
-    index_name = "index_name"
-
-    # Initialize the AzureVectorService singleton.
-    AzureVectorService.init_singleton(endpoint, api_key, index_name)
-    service = AzureVectorService.get_instance()
-
-    # Prepare a test document with a dummy vector (ensure the vector length matches the embedding dimensions)
-    test_vector = [0.1] * 1536  # Example vector for testing.
-    test_doc_id = "test-doc-1"
-    test_blob_path = "blob/test/doc1"
-
-    # Wait a short moment to allow the indexing process to complete.
-    logging.info("Waiting for the document to be indexed...")
-    time.sleep(5)
-
-    # Retrieve the closest matching vectors and associated metadata (vector and metadata include id and file_path).
-    logging.info("Retrieving the closest matching vectors and metadata...")
-    results = service.retrieve_closest_vectors_and_blob_paths(test_vector, top_k=2)
-
-    # Display the results.
-    print("\nSearch Results:")
-    for result in results:
-        print(result)

@@ -3,10 +3,10 @@ from typing import Optional
 from fastapi import APIRouter, Body, Depends
 from pydantic import BaseModel
 
-from app.models import UserToken
 from app.models.user import User
-from app.utils import JWTService
-from app.utils.azure_blob_service import AzureBlobService
+from app.models import UserToken
+from app.utils.jwt_service import JWTService
+from app.services.azure_blob_service import AzureBlobService
 
 
 class UserPreferencesUpdate(BaseModel):

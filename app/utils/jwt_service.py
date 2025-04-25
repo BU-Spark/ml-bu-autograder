@@ -10,7 +10,7 @@ from pydantic import FilePath
 
 from app.models import User, PersonalAccessToken, WebsiteAccessToken
 from app.models.token import UserToken, TokenType
-from app.utils import AzureBlobService
+from app.services import AzureBlobService
 
 jwt_service: Optional["JWTService"] = None
 

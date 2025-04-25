@@ -1,111 +1,25 @@
+import uuid
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, status, Query, Depends
 
-from app.models import Course, GradedStudentResponseReference
+from fastapi import APIRouter, HTTPException, status, Query, Depends
+from pydantic import FilePath
+
+from app.models import Course
 from app.models.grade import Grade
-from app.utils import JWTService, UserToken, llm_service
-from app.utils.azure_blob_service import AzureBlobService
+from app.utils import llm_service, get_str_var
+from app.models import UserToken
+from app.utils.jwt_service import JWTService
+from app.services.azure_blob_service import AzureBlobService
 
 router = APIRouter()
 user_from_auth = JWTService.get_instance().from_authorization_header
 llm_service = llm_service.LLMService.get_instance()
 
 
-async def grading_worker():
-    # TODO: this should process a queue of pending grading responses.
-    #  Step 1: Convert the student's response (which might be a pdf, txt, etc)
-    #          into a Document object that we can work with.
-    #  Step 2: Grab the rubric for the assignment and the question instructions
-    #  Step 3: Query the vector database with the student's response grabbing all topn
-    #          relevant documents.
-    #  Step 4: Go grab those documents (texts and images) from Azure blob storage. It might
-    #          also be possible to simply get azure to generate a URL for these documents
-    #          and then send that to the LLM.
-    #  Step 5: Once we have the RAG-ed documents associated with the prompt, use the
-    #          assignment instructions, rubric, RAG-ed course material chunks, and student
-    #          response to generate a prompt for auto-grading.
-    #  Step 6: Grab the auto-graded response, upload it to Azure, and move on to the next assignment
-    #          in the queue (if any).
-    ...
-
-def do_grading(responses: list[GradedStudentResponseReference]):
-        """
-        Grades a list of student responses by interacting with the LLM service.
-
-        This function:
-        1. Combines the content from all provided responses.
-        2. Extracts common metadata (student_id, assignment_id, question_index)
-            from the first response (assuming all belong to the same student/assignment).
-        3. Builds a prompt using a system instruction and the student response.
-        4. Calls the LLM service's structured response method to auto-grade.
-        5. Ensures any missing metadata is filled in from the original response.
-
-        Args:
-            responses (List[GradedStudentResponseReference]): List of responses for a student.
-
-        Returns:
-            Grade: A Grade object as returned by the LLM service.
-        """
-        if not responses:
-            raise ValueError("No student responses provided for grading.")
-
-        # Combine all available textual content from the responses.
-        # We assume each response has a 'content' attribute containing the student's answer.
-        combined_content = "\n".join(
-            r.content.strip() for r in responses if hasattr(r, "content") and r.content
-        )
-        
-        # Retrieve common metadata from the first response.
-        first_response = responses[0]
-        student_id = first_response.student_id
-        assignment_id = first_response.assignment_id
-        question_index = first_response.question_index
-        max_score = 10  # You can adjust this default or fetch it from the rubric.
-
-        # Build the prompt for the LLM using the PromptBuilder.
-        system_instruction = (
-            "You are an expert auto-grader. Evaluate the following student's response "
-            "based on the assignment rubric and grading criteria. Return your evaluation "
-            "as a JSON object with the following keys: student_id, assignment_id, question_index, "
-            "score (an integer between 0 and max_score), max_score, and feedback."
-        )
-        user_prompt = (
-            f"Student Response:\n{combined_content}\n\n"
-            "Please provide a detailed grade along with feedback."
-        )
-        
-        prompt = (
-            llm_service.PromptBuilder.builder()
-            .add_message(llm_service. PromptRole.SYSTEM, system_instruction)
-            .add_message(llm_service.PromptRole.USER, user_prompt)
-            .build()
-        )
-
-        # Retrieve the LLM service singleton instance.
-        llm_service = llm_service.LLMService.get_instance()
-        if llm_service is None:
-            raise RuntimeError("LLMService instance is not initialized.")
-
-        # Use the LLM service to generate a structured grading response.
-        grade: Grade = llm_service.generate_structured_response(prompt, Grade)
-
-        # Ensure that the grade has all the necessary metadata, using fallback values if needed.
-        if not grade.student_id:
-            grade.student_id = student_id
-        if not grade.assignment_id:
-            grade.assignment_id = assignment_id
-        if grade.question_index is None:
-            grade.question_index = question_index
-        if not grade.max_score:
-            grade.max_score = max_score
-        return grade    
-
-
 @router.post(
     "/grade/specific",
-    response_model=List[Grade],
     summary="Grade Specific Responses",
-    description="Grades or regrades a specific student responses for an assignment.",
+    description="Grades or regrades a specific student's responses for an assignment.",
     responses={
         400: {"detail": "Missing or invalid parameters."},
         404: {"detail": "Course, assignment, rubric, or student responses not found."},
@@ -119,14 +33,12 @@ async def grade_specific(
         course_id: str = Query(..., description="Unique identifier of the course."),
         assignment_id: str = Query(..., description="Identifier of the assignment."),
         student_ids: List[str] = Query(..., description="List of student identifiers to grade."),
-        question_index: Optional[int] = Query(None, description="Optional index of the question. Grades all questions if omitted."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
 
-    # validate params
-    semester = Course.validate_semester(semester)
-    course_id = Course.normalize_lowercase(course_id)
+    # validate params by attempting to create a course object
+    Course(semester=semester, course_id=course_id)
 
     # Check if course exists
     if not blob_uploader.course_exists(semester, course_id):
@@ -142,36 +54,26 @@ async def grade_specific(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment does not exist.")
 
     # Check if the rubric exists
-    rubric = None
-    if question_index is not None:
-        rubric = blob_uploader.get_sub_rubric(semester, course_id, assignment_id, question_index)
-    else:
-        rubric = blob_uploader.get_rubric(semester, course_id, assignment_id)
-
+    rubric = blob_uploader.get_rubric(semester, course_id, assignment_id)
     if rubric is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Grading rubric does not exist.")
 
     # Get all responses for the specified students
     grades = []
     for student_id in student_ids:
-        if question_index is not None:
-            # Grade specific question
-            response = blob_uploader.list_student_responses(
-                semester, course_id, assignment_id, student_id,
-                question_index
-            )
-            if response:
-                grade = do_grading(response)  # This is a placeholder for the actual grading logic
-                grades.append(grade)
-        else:
-            # Grade all questions
-            responses = blob_uploader.list_student_responses(
-                semester, course_id, assignment_id
-            )
-            student_responses = [r for r in responses if r.student_id == student_id]
-            for response in student_responses:
-                grade = do_grading(response)  # This is a placeholder for the actual grading logic
-                grades.append(grade)
+        # Grade all questions
+        responses = blob_uploader.list_student_responses(
+            semester, course_id, assignment_id, student_id, None, False
+        )
+
+        for response in responses:
+            random_uuid = uuid.uuid4()
+            save_path = FilePath(
+                f"{get_str_var('TEMP_FILES_DIR')}/{random_uuid}.json")
+            # A background process will pick this up and process it trust.
+            # See app/utils/bg_material_processor.py.
+            with open(save_path, 'w') as f:
+                f.write(response.model_dump_json(indent=4))
 
     if not grades:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No matching responses found.")
@@ -181,7 +83,6 @@ async def grade_specific(
 
 @router.post(
     "/grade/ungraded",
-    response_model=List[Grade],
     summary="Grade Ungraded Responses",
     description="Grades all ungraded responses for a specific assignment (optionally for a specific question).",
     responses={
@@ -201,9 +102,8 @@ async def grade_ungraded(
 ):
     blob_uploader = AzureBlobService.get_instance()
 
-    # validate params
-    semester = Course.validate_semester(semester)
-    course_id = Course.normalize_lowercase(course_id)
+    # validate params by attempting to create a course object
+    Course(semester=semester, course_id=course_id)
 
     # Check if course exists
     if not blob_uploader.course_exists(semester, course_id):
@@ -249,8 +149,15 @@ async def grade_ungraded(
     # Grade ungraded responses
     grades = []
     for response in ungraded_responses:
-        grade = do_grading(response)  # This is a placeholder for the actual grading logic
-        grades.append(grade)
+        # A background process will pick this up and process it trust.
+        # See app/utils/bg_material_processor.py.
+        random_uuid = uuid.uuid4()
+        save_path = FilePath(
+            f"{get_str_var('TEMP_FILES_DIR')}/{random_uuid}.student_response.json")
+        # A background process will pick this up and process it trust.
+        # See app/utils/bg_material_processor.py.
+        with open(save_path, 'w') as f:
+            f.write(response.model_dump_json(indent=4))
 
     return grades
 
@@ -277,9 +184,8 @@ async def grade_all(
 ):
     blob_uploader = AzureBlobService.get_instance()
 
-    # validate params
-    semester = Course.validate_semester(semester)
-    course_id = Course.normalize_lowercase(course_id)
+    # validate params by attempting to create a course object
+    Course(semester=semester, course_id=course_id)
 
     # Check if course exists
     if not blob_uploader.course_exists(semester, course_id):
@@ -315,7 +221,14 @@ async def grade_all(
     # Grade all responses
     grades = []
     for response in responses:
-        grade = do_grading(response)  # This is a placeholder for the actual grading logic
-        grades.append(grade)
+        # A background process will pick this up and process it trust.
+        # See app/utils/bg_material_processor.py.
+        random_uuid = uuid.uuid4()
+        save_path = FilePath(
+            f"{get_str_var('TEMP_FILES_DIR')}/{random_uuid}.json")
+        # A background process will pick this up and process it trust.
+        # See app/utils/bg_material_processor.py.
+        with open(save_path, 'w') as f:
+            f.write(response.model_dump_json(indent=4))
 
     return grades

@@ -3,9 +3,10 @@ from typing import List, Optional
 from fastapi import APIRouter, HTTPException, status, Query, Depends
 from pydantic import EmailStr
 
+from app.models import UserToken
+from app.utils.jwt_service import JWTService
 from app.models.course import Course
-from app.utils import JWTService, UserToken
-from app.utils.azure_blob_service import AzureBlobService
+from app.services.azure_blob_service import AzureBlobService
 
 router = APIRouter()
 user_from_auth = JWTService.get_instance().from_authorization_header
@@ -63,9 +64,8 @@ async def delete_course(
         course_id: str = Query(..., description="Unique identifier of the course to delete."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
-    # validate params
-    semester = Course.validate_semester(semester)
-    course_id = Course.normalize_lowercase(course_id)
+    # validate params by attempting to create a course object
+    Course(semester=semester, course_id=course_id)
 
     if user_meta is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="You are not authenticated.")
@@ -95,7 +95,8 @@ async def delete_course(
 @router.patch(
     "/course/transfer",
     summary="Transfer Course Materials",
-    description="Transfers course materials and rubric data from a previous semester to a new one.",
+    description="Transfers course materials and rubric data from a previous semester to a new one. Note:"
+                "This has NOT yet been implemented!",
     responses={
         404: {"detail": "Source or destination course not found."},
         400: {"detail": "Invalid parameters."},
@@ -134,9 +135,8 @@ async def get_course(
         course_id: str = Query(..., description="Unique identifier of the course."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
-    # validate params
-    semester = Course.validate_semester(semester)
-    course_id = Course.normalize_lowercase(course_id)
+    # validate params by attempting to create a course object
+    Course(semester=semester, course_id=course_id)
 
     blob_uploader = AzureBlobService.get_instance()
 
@@ -190,9 +190,8 @@ async def add_course_instructor(
         instructor: EmailStr = Query(..., description="Email of the instructor to add."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
-    # validate params
-    semester = Course.validate_semester(semester)
-    course_id = Course.normalize_lowercase(course_id)
+    # validate params by attempting to create a course object
+    Course(semester=semester, course_id=course_id, instructors={instructor})
     instructor = Course.normalize_instructor_email(instructor)
 
     blob_uploader = AzureBlobService.get_instance()
@@ -236,9 +235,8 @@ async def remove_course_instructor(
         instructor: EmailStr = Query(..., description="Email of the instructor to remove."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
-    # validate params
-    semester = Course.validate_semester(semester)
-    course_id = Course.normalize_lowercase(course_id)
+    # validate params by attempting to create a course object
+    Course(semester=semester, course_id=course_id, instructors={instructor})
     instructor = Course.normalize_instructor_email(instructor)
 
     blob_uploader = AzureBlobService.get_instance()

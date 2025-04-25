@@ -19,6 +19,16 @@ class GradingFlag(str, Enum):
 
     IGNORE_FORMATTING = "IGNORE_FORMATTING"
 
+    def get_description(self):
+        if self == GradingFlag.IGNORE_SPELLINGS:
+            return "Ignore minor spelling mistakes if they do not affect the comprehension of the material."
+        elif self == GradingFlag.IGNORE_GRAMMAR:
+            return "Ignore minor grammar issues if they do not affect the comprehension of the material."
+        elif self == GradingFlag.ORIGINALITY:
+            return "Reward originality and thoughtful ideas."
+        else:
+            return "Unknown flag."
+
 
 class GradingCriteria(BaseModel):
     """
@@ -49,7 +59,7 @@ class SubRubric(BaseModel):
     def check_grading_criteria(cls, values):
         max_points = values.max_points
         grading_criteria = values.grading_criteria
-        if grading_criteria is not None:
+        if grading_criteria is not None and len(grading_criteria) != 0:
             total_allocated = 0
             for criteria in grading_criteria:
                 # Check each criterion individually
@@ -81,15 +91,14 @@ class Rubric(BaseModel):
             "List of grading flags that modify grading behavior. Options:\n"
             "- `IGNORE_SPELLINGS`: Ignore minor spelling mistakes.\n"
             "- `IGNORE_GRAMMAR`: Ignore minor grammar issues.\n"
-            "- `ORIGINALITY`: Reward originality and deduct for unoriginal ideas.\n"
-            "- `IGNORE_FORMATTING`: Ignore formatting issues."
+            "- `ORIGINALITY`: Reward originality and deduct for unoriginal ideas."
         )
     )
     overall_instructor_guidelines: Optional[str] = Field(
         None, description="General grading criteria applicable to all questions."
     )
     sub_rubrics: List[SubRubric] = Field(
-        ...,
+        default_factory=list,
         description="List of sub-rubrics specifying grading for individual questions.",
     )
 

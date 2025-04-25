@@ -9,8 +9,8 @@ from pydantic import EmailStr
 
 from app.models.token import PersonalAccessToken, UserToken, WebsiteAccessToken
 from app.models.user import User
-from app.utils import JWTService
-from app.utils.azure_blob_service import AzureBlobService
+from app.services.azure_blob_service import AzureBlobService
+from app.utils.jwt_service import JWTService
 
 router = APIRouter()
 user_from_auth = JWTService.get_instance().from_authorization_header

@@ -1,14 +1,29 @@
 import re
 from typing import List, Optional
 
+from azure.core.exceptions import HttpResponseError
 from pydantic import BaseModel, Field, field_validator
 
 
 class Question(BaseModel):
     question_text: str = Field(..., description="The text of the question.")
-    question_graphics_figures: Optional[str] = Field(
-        None, description="Base64-encoded PNG image representing optional graphics/figures for the question."
+    # TODO: it would be really nice if questions supported figures/images. But not worth ATM.
+    # question_graphics_figures: Optional[str] = Field(
+    #     None, description="Base64-encoded PNG image representing optional graphics/figures for the question."
+    # )
+    independent_from_previous: bool = Field(
+        True, description="Whether the question is independent from previous questions. What we mean by this is that"
+                          "the LLM does not need to know any information about the previous question to answer this "
+                          "one."
     )
+
+    # TODO: add support for questions that may depend on context from the previous question.
+    @field_validator("independent_from_previous", mode='before')
+    def validate_identifier(cls, value: bool) -> bool:
+        """Ensures format is valid."""
+        if value is False:
+            raise HttpResponseError("Sorry! Currently, only independent questions are supported.")
+        return value
 
 
 class Assignment(BaseModel):
