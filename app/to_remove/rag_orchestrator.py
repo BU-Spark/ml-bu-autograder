@@ -5,7 +5,7 @@ from deprecated import deprecated
 from openai import AzureOpenAI, OpenAIError, OpenAI
 
 # Assuming the refactored retriever is in the same directory or installable
-from .azure_ai_search_retriever import AzureAISearchRetriever
+from app.to_remove.azure_ai_search_retriever import AzureAISearchRetriever
 
 # Setup basic logging if not configured elsewhere
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
