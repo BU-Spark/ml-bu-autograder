@@ -1,15 +1,10 @@
-<<<<<<< HEAD
 # app/routes/rubric.py
-=======
-from typing import Optional
->>>>>>> 403752feee3206c64f1870525767b22004419e97
 
 import re
 from typing import Optional, List
 from fastapi import APIRouter, HTTPException, status, Query, Body, Depends
 
 from app.models import Course
-<<<<<<< HEAD
 # Rubric model now expects assignment_id as str
 from app.models.rubric import Rubric, SubRubric, GradingFlag
 from app.utils import JWTService, UserToken
@@ -17,22 +12,17 @@ from app.utils.azure_blob_service import AzureBlobService
 import logging
 
 logger = logging.getLogger(__name__)
-=======
 from app.models.rubric import Rubric
 from app.models import UserToken
 from app.utils.jwt_service import JWTService
 from app.services.azure_blob_service import AzureBlobService
 from app.utils.llm_service import LLMService, PromptBuilder, PromptRole
->>>>>>> 403752feee3206c64f1870525767b22004419e97
 
 router = APIRouter()
 user_from_auth = JWTService.get_instance().from_authorization_header
 
-<<<<<<< HEAD
 # Removed unused EditSubRubricRequest model definition
 
-=======
->>>>>>> 403752feee3206c64f1870525767b22004419e97
 
 @router.put(
     "/rubric",
@@ -85,8 +75,6 @@ async def create_or_replace_rubric(
         403: {"detail": "Authenticated but access is not allowed."}
     }
 )
-<<<<<<< HEAD
-=======
 async def get_ai_rubric(
         semester: str = Query(..., description="Semester of the course."),
         course_id: str = Query(..., description="Identifier of the course."),
@@ -227,7 +215,6 @@ async def get_ai_rubric(
                 detail=f"Failed to enhance rubric using LLM: {str(e)}"
         )
 
->>>>>>> 403752feee3206c64f1870525767b22004419e97
 
 @router.get(
     "/rubric",
@@ -237,7 +224,7 @@ async def get_ai_rubric(
     # ... responses ...
 )
 async def get_rubric(
-<<<<<<< HEAD
+
         semester: str = Query(..., description="Semester..."),
         course_id: str = Query(..., description="Course ID."),
         # --- CHANGED TYPE: Back to str ---
@@ -245,17 +232,11 @@ async def get_rubric(
         # --- END CHANGE ---
         # Removing question_index as endpoint returns full Rubric
         #question_index: Optional[int] = Query(..., description="Question index."),
-=======
-        semester: str = Query(..., description="Semester of the course."),
-        course_id: str = Query(..., description="Identifier of the course."),
-        assignment_id: str = Query(..., description="Identifier of the assignment."),
-        question_index: Optional[int] = Query(None, description="Optional question index to retrieve a specific sub-rubric."),
->>>>>>> 403752feee3206c64f1870525767b22004419e97
+        
         user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
 
-<<<<<<< HEAD
     # validate params
     try:
         semester = Course.validate_semester(semester)
@@ -263,10 +244,6 @@ async def get_rubric(
         # Add validation for assignment_id pattern if needed
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid parameter: {e}")
-=======
-    # validate params by attempting to create a course object
-    Course(semester=semester, course_id=course_id)
->>>>>>> 403752feee3206c64f1870525767b22004419e97
 
     # Auth Checks...
     if not blob_uploader.course_exists(semester, course_id):
