@@ -1,6 +1,7 @@
 import re
 from typing import List, Optional
 
+from azure.core.exceptions import HttpResponseError
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -17,7 +18,7 @@ class Assignment(BaseModel):
     semester: str = Field(..., description="The semester associated with the course.")
     course_id: str = Field(..., description="Associated course identifier.")
     assignment_id: str = Field(
-        None, description="The unique title of the assignment."
+        None, description="The unique ID of the assignment."
     )
     assignment_guidelines: Optional[str] = Field(
         None, description="General instructions or formatting requirements."
@@ -41,6 +42,7 @@ class Assignment(BaseModel):
         """Converts to lowercase and trims spaces."""
         return value.strip().lower()
 
+
     @field_validator("semester", mode='before')
     def validate_semester(cls, value: str) -> str:
         """Converts to lowercase and trims spaces."""
@@ -50,3 +52,4 @@ class Assignment(BaseModel):
                 "Correct format (case-sensitive) looks like: seasonYYYY. (e.g. spring2025)"
             )
         return value.strip().lower()
+

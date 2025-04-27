@@ -17,7 +17,7 @@
 
 # Generated files
 .idea/**/contentModel.xml
-
+myenv/
 # Sensitive or high-churn files
 .idea/**/dataSources/
 .idea/**/dataSources.ids
@@ -180,3 +180,9 @@ __pycache__/
 .env
 .ipynb_checkpoints
 app.log
+app/utils/test,py
+app/utils/legacy_vector_store.py
+test,py
+test,py copy
+env
+test.py

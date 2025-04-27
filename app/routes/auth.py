@@ -10,9 +10,14 @@ from pydantic import EmailStr
 
 from app.models.token import PersonalAccessToken, UserToken, WebsiteAccessToken
 from app.models.user import User
+<<<<<<< HEAD
 # Assuming JWTService and AzureBlobService are correctly imported from app.utils
 from app.utils import JWTService
 from app.utils.azure_blob_service import AzureBlobService
+=======
+from app.services.azure_blob_service import AzureBlobService
+from app.utils.jwt_service import JWTService
+>>>>>>> 403752feee3206c64f1870525767b22004419e97
 
 # Setup basic logging if not configured elsewhere in your app setup
 # logging.basicConfig(level=logging.INFO) # Consider configuring logging globally

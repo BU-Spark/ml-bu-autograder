@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # course_material.py
 
 import re
@@ -46,6 +47,21 @@ class CourseMaterialCreate(BaseModel):
         return value.lower()
 
 # --- Router Setup ---
+=======
+import uuid
+from typing import List
+
+from fastapi import APIRouter, HTTPException, Query, Body, Depends
+from pydantic import FilePath
+
+from app.models import Course
+from app.models.course_material import CourseMaterialData, CourseMaterialReference
+from app.utils import get_str_var
+from app.models import UserToken
+from app.utils.jwt_service import JWTService
+from app.services.azure_blob_service import AzureBlobService
+from app.services.azure_vector_service import AzureVectorService
+>>>>>>> 403752feee3206c64f1870525767b22004419e97
 router = APIRouter()
 user_from_auth = JWTService.get_instance().from_authorization_header
 
@@ -53,7 +69,7 @@ user_from_auth = JWTService.get_instance().from_authorization_header
 
 @router.get(
     "/course_materials",
-    response_model=List[CourseMaterial],
+    response_model=List[CourseMaterialReference],
     summary="Get All Course Materials",
     # ... (rest of definition)
 )
@@ -62,6 +78,7 @@ async def get_course_materials(
         course_id: str = Query(..., description="Identifier of the course."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
+<<<<<<< HEAD
     # validate params
     try:
         # Use validators directly if available, otherwise use model's
@@ -96,20 +113,42 @@ async def get_course_materials(
     except Exception as e:
         logger.exception(f"Failed to list materials for {semester}/{course_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve course materials.")
+=======
+    # validate params by attempting to create a course object
+    Course(semester=semester, course_id=course_id)
+
+    blob_uploader = AzureBlobService.get_instance()
+
+    # Check if the course exists
+    course_exists = blob_uploader.course_exists(semester, course_id)
+    if not course_exists:
+        raise HTTPException(status_code=404, detail="Course does not exist.")
+
+    # Check if user has perms on course
+    user = blob_uploader.get_user(user_meta.user_email)
+    if not user.authenticated_courses.__contains__((semester, course_id)):
+        raise HTTPException(status_code=403, detail="Authenticated but access is not allowed.")
+
+    # Get all course materials
+    materials = blob_uploader.list_course_materials(semester, course_id)
+
+    return materials
+>>>>>>> 403752feee3206c64f1870525767b22004419e97
 
 
 @router.get(
     "/course_material",
-    response_model=CourseMaterial,
+    response_model=CourseMaterialReference,
     summary="Get Specific Course Material",
      # ... (rest of definition)
 )
 async def get_course_material(
         semester: str = Query(..., description="Semester of the course."),
         course_id: str = Query(..., description="Identifier of the course."),
-        material_id: int = Query(..., description="Unique identifier of the specific material."),
+        material_id: str = Query(..., description="Unique identifier of the specific material."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
+<<<<<<< HEAD
     # validate params (similar validation logic as above)
     try:
         semester = Course.validate_semester(semester)
@@ -142,16 +181,40 @@ async def get_course_material(
     except Exception as e:
          logger.exception(f"Failed to get material {material_id} for {semester}/{course_id}: {e}")
          raise HTTPException(status_code=500, detail="Failed to retrieve course material.")
+=======
+    # validate params by attempting to create a course object
+    Course(semester=semester, course_id=course_id)
+
+    blob_uploader = AzureBlobService.get_instance()
+
+    # Check if the course exists
+    course_exists = blob_uploader.course_exists(semester, course_id)
+    if not course_exists:
+        raise HTTPException(status_code=404, detail="Course does not exist.")
+
+    # Check if user has perms on course
+    user = blob_uploader.get_user(user_meta.user_email)
+    if not user.authenticated_courses.__contains__((semester, course_id)):
+        raise HTTPException(status_code=403, detail="Authenticated but access is not allowed.")
+
+    # Get specific course material
+    material = blob_uploader.get_course_material(semester, course_id, material_id)
+    if not material:
+        raise HTTPException(status_code=404, detail="Course material does not exist.")
+
+    return material
+>>>>>>> 403752feee3206c64f1870525767b22004419e97
 
 
 @router.post(
     "/course_material",
-    response_model=CourseMaterial,
+    response_model=CourseMaterialReference,
     summary="Upload Course Material",
     description="Uploads new course material. A unique integer ID will be generated.",
     # ... (rest of definition)
 )
 async def upload_course_material(
+<<<<<<< HEAD
         # Use the corrected Create model
         material_data: CourseMaterialCreate = Body(..., description="Course material details and file data (without material_id)."),
         user_meta: UserToken = Depends(user_from_auth),
@@ -214,6 +277,41 @@ async def upload_course_material(
         logger.exception(f"Failed during material upload or ID generation for {semester}/{course_id}: {e}")
         if isinstance(e, HTTPException): raise e
         raise HTTPException(status_code=500, detail="Failed to save course material.")
+=======
+        material: CourseMaterialData = Body(..., description="Course material object containing details and file data."),
+        user_meta: UserToken = Depends(user_from_auth),
+):
+    blob_uploader = AzureBlobService.get_instance()
+
+    # Check if the course exists
+    course_exists = blob_uploader.course_exists(material.semester, material.course_id)
+    if not course_exists:
+        raise HTTPException(status_code=404, detail="Course does not exist.")
+
+    # Check if user has perms on course
+    user = blob_uploader.get_user(user_meta.user_email)
+    if not user.authenticated_courses.__contains__((material.semester, material.course_id)):
+        raise HTTPException(status_code=403, detail="Authenticated but access is not allowed.")
+
+    # Check if material already exists
+    if blob_uploader.course_material_exists(material.semester, material.course_id, material.material_id):
+        raise HTTPException(status_code=409, detail="Material with this ID already exists.")
+
+    # Upload the material
+    blob_uploader.upload_course_material(material)
+
+    # Save object to file otherwise if too many requests
+    # accumulate we will run out of ram very quick
+    random_uuid = uuid.uuid4()
+    save_path = FilePath(f"{get_str_var('TEMP_FILES_DIR')}/{random_uuid}.course_materials.json")
+
+    # A background process will pick this up and process it trust.
+    # See app/utils/bg_material_processor.py.
+    with open(save_path, 'w') as f:
+        f.write(material.model_dump_json(indent=4))
+
+    return material
+>>>>>>> 403752feee3206c64f1870525767b22004419e97
 
 
 @router.delete(
@@ -224,9 +322,10 @@ async def upload_course_material(
 async def delete_course_material(
         semester: str = Query(..., description="Semester of the course."),
         course_id: str = Query(..., description="Identifier of the course."),
-        material_id: int = Query(..., description="Unique identifier of the material to delete."),
+        material_id: str = Query(..., description="Unique identifier of the material to delete."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
+<<<<<<< HEAD
     # validate params (similar validation logic)
     try:
         semester = Course.validate_semester(semester)
@@ -265,16 +364,45 @@ async def delete_course_material(
     except Exception as e:
         logger.exception(f"Failed to delete material {material_id} from {semester}/{course_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to delete course material.")
+=======
+    # validate params by attempting to create a course object
+    Course(semester=semester, course_id=course_id)
+
+    blob_uploader = AzureBlobService.get_instance()
+
+    # Check if the course exists
+    course_exists = blob_uploader.course_exists(semester, course_id)
+    if not course_exists:
+        raise HTTPException(status_code=404, detail="Course does not exist.")
+
+    # Check if user has perms on course
+    user = blob_uploader.get_user(user_meta.user_email)
+    if not user.authenticated_courses.__contains__((semester, course_id)):
+        raise HTTPException(status_code=403, detail="Authenticated but access is not allowed.")
+
+    # Check if material exists
+    material = blob_uploader.course_material_exists(semester, course_id, material_id)
+    if not material:
+        raise HTTPException(status_code=404, detail="Course material does not exist.")
+
+    # Delete the material
+    blob_uploader.delete_course_material(semester, course_id, material_id)
+    
+    # TODO: josh delete the AI search vectors associated with this course material
+
+    return {"detail": "Course material deleted successfully."}
+>>>>>>> 403752feee3206c64f1870525767b22004419e97
 
 
 @router.patch(
     "/course_material",
-    response_model=CourseMaterial,
+    response_model=CourseMaterialReference,
     summary="Update Course Material",
     description="Updates existing course material (name, notes). Does not re-upload file data.",
     # ... (rest of definition) ...
 )
 async def update_course_material(
+<<<<<<< HEAD
         # --- CORRECTED: Expect the full CourseMaterial object directly ---
         material_update: CourseMaterial = Body(..., description="Full course material object with updated name/notes."),
         # --- END CORRECTION ---
@@ -349,3 +477,66 @@ async def update_course_material(
     except Exception as e:
         logger.exception(f"Failed to update material {material_id} in {semester}/{course_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to update course material.")
+=======
+        material: CourseMaterialData = Body(..., description="Course material object with updated data."),
+        user_meta: UserToken = Depends(user_from_auth),
+):
+    blob_uploader = AzureBlobService.get_instance()
+    vector_service = AzureVectorService.get_instance()
+    # Check if the course exists
+    course_exists = blob_uploader.course_exists(material.semester, material.course_id)
+    if not course_exists:
+        raise HTTPException(status_code=404, detail="Course does not exist.")
+
+    # Check if user has perms on course
+    user = blob_uploader.get_user(user_meta.user_email)
+    if not user.authenticated_courses.__contains__((material.semester, material.course_id)):
+        raise HTTPException(status_code=403, detail="Authenticated but access is not allowed.")
+
+    # Check if material exists
+    existing_material = blob_uploader.course_material_exists(material.semester, material.course_id,
+                                                             material.material_id)
+    if not existing_material:
+        raise HTTPException(status_code=404, detail="Course material does not exist.")
+    
+    # TODO: josh delete vector associated with this course material first
+    ### Legacy code for NON CHUNKED FILES
+    # After successful update, delete associated vectors
+        # Retrieve the vector IDs associated with this material_id
+    # vector_ids_to_delete = vector_service.get_vector_ids_by_material_id(material.material_id)
+
+    # # Delete the retrieved vector IDs
+    # if vector_ids_to_delete:
+    #     vector_service.delete_documents_by_ids(vector_ids_to_delete)
+    #     print(f"Deleted vectors associated with material_id '{material.material_id}'.")
+    # else:
+    #     print(f"No vectors found for material_id '{material.material_id}' to delete.")
+
+    # # Update the material
+    # blob_uploader.upload_course_material(material)
+    # Step 1: Retrieve all chunk paths (these are the vector document IDs)
+    chunk_paths = blob_uploader.find_chunks_paths(
+        semester_key=material.semester,
+        course_id=material.course_id,
+        material_id=material.material_id
+    )
+
+    # Step 2: Delete those vectors by their IDs (i.e. chunk paths)
+    if chunk_paths:
+        vector_service.delete_documents_by_ids(chunk_paths)
+        print(f"✅ Deleted {len(chunk_paths)} vectors for material_id '{material.material_id}'.")
+    else:
+        print(f"ℹ️ No vectors found to delete for material_id '{material.material_id}'.")
+
+    # Save object to file otherwise if too many requests
+    # accumulate we will run out of ram very quick
+    random_uuid = uuid.uuid4()
+    save_path = FilePath(f"{get_str_var('TEMP_FILES_DIR')}/{random_uuid}.{material.data.data_type.extension}")
+
+    # A background process will pick this up and process it trust.
+    # See app/utils/bg_material_processor.py.
+    with open(save_path, 'w') as f:
+        f.write(material.model_dump_json(indent=4))
+
+    return material
+>>>>>>> 403752feee3206c64f1870525767b22004419e97

@@ -1,26 +1,25 @@
+import uuid
 from typing import List, Optional
-import re
-from fastapi import APIRouter, HTTPException, status, Query, Depends
-from pydantic import BaseModel, Field, field_validator
 
-from app.models import StudentResponse, Course
+from fastapi import APIRouter, HTTPException, status, Query, Depends
+from pydantic import FilePath
+
+from app.models import Course
 from app.models.grade import Grade
-from app.utils import JWTService, UserToken
-from app.utils.azure_blob_service import AzureBlobService
+from app.utils import llm_service, get_str_var
+from app.models import UserToken
+from app.utils.jwt_service import JWTService
+from app.services.azure_blob_service import AzureBlobService
 
 router = APIRouter()
 user_from_auth = JWTService.get_instance().from_authorization_header
-
-
-def do_grading(r):
-    ...  # TODO
+llm_service = llm_service.LLMService.get_instance()
 
 
 @router.post(
     "/grade/specific",
-    response_model=List[Grade],
     summary="Grade Specific Responses",
-    description="Grades or regrades a specific student responses for an assignment.",
+    description="Grades or regrades a specific student's responses for an assignment.",
     responses={
         400: {"detail": "Missing or invalid parameters."},
         404: {"detail": "Course, assignment, rubric, or student responses not found."},
@@ -32,16 +31,14 @@ def do_grading(r):
 async def grade_specific(
         semester: str = Query(..., description="Course semester."),
         course_id: str = Query(..., description="Unique identifier of the course."),
-        assignment_id: int = Query(..., description="Identifier of the assignment."),
+        assignment_id: str = Query(..., description="Identifier of the assignment."),
         student_ids: List[str] = Query(..., description="List of student identifiers to grade."),
-        question_index: Optional[int] = Query(None, description="Optional index of the question. Grades all questions if omitted."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
 
-    # validate params
-    semester = Course.validate_semester(semester)
-    course_id = Course.normalize_lowercase(course_id)
+    # validate params by attempting to create a course object
+    Course(semester=semester, course_id=course_id)
 
     # Check if course exists
     if not blob_uploader.course_exists(semester, course_id):
@@ -57,36 +54,26 @@ async def grade_specific(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment does not exist.")
 
     # Check if the rubric exists
-    rubric = None
-    if question_index is not None:
-        rubric = blob_uploader.get_sub_rubric(semester, course_id, assignment_id, question_index)
-    else:
-        rubric = blob_uploader.get_rubric(semester, course_id, assignment_id)
-
+    rubric = blob_uploader.get_rubric(semester, course_id, assignment_id)
     if rubric is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Grading rubric does not exist.")
 
     # Get all responses for the specified students
     grades = []
     for student_id in student_ids:
-        if question_index is not None:
-            # Grade specific question
-            response = blob_uploader.get_student_response(
-                semester, course_id, assignment_id,
-                question_index, student_id
-            )
-            if response:
-                grade = do_grading(response)  # This is a placeholder for the actual grading logic
-                grades.append(grade)
-        else:
-            # Grade all questions
-            responses = blob_uploader.list_student_responses(
-                semester, course_id, assignment_id
-            )
-            student_responses = [r for r in responses if r.student_id == student_id]
-            for response in student_responses:
-                grade = do_grading(response)  # This is a placeholder for the actual grading logic
-                grades.append(grade)
+        # Grade all questions
+        responses = blob_uploader.list_student_responses(
+            semester, course_id, assignment_id, student_id, None, False
+        )
+
+        for response in responses:
+            random_uuid = uuid.uuid4()
+            save_path = FilePath(
+                f"{get_str_var('TEMP_FILES_DIR')}/{random_uuid}.json")
+            # A background process will pick this up and process it trust.
+            # See app/utils/bg_material_processor.py.
+            with open(save_path, 'w') as f:
+                f.write(response.model_dump_json(indent=4))
 
     if not grades:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No matching responses found.")
@@ -96,7 +83,6 @@ async def grade_specific(
 
 @router.post(
     "/grade/ungraded",
-    response_model=List[Grade],
     summary="Grade Ungraded Responses",
     description="Grades all ungraded responses for a specific assignment (optionally for a specific question).",
     responses={
@@ -110,15 +96,14 @@ async def grade_specific(
 async def grade_ungraded(
         semester: str = Query(..., description="Course semester."),
         course_id: str = Query(..., description="Unique identifier of the course."),
-        assignment_id: int = Query(..., description="Identifier of the assignment."),
+        assignment_id: str = Query(..., description="Identifier of the assignment."),
         question_index: Optional[int] = Query(None, description="Optional index of the question to grade. Grades all ungraded questions if omitted."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
 
-    # validate params
-    semester = Course.validate_semester(semester)
-    course_id = Course.normalize_lowercase(course_id)
+    # validate params by attempting to create a course object
+    Course(semester=semester, course_id=course_id)
 
     # Check if course exists
     if not blob_uploader.course_exists(semester, course_id):
@@ -145,7 +130,7 @@ async def grade_ungraded(
 
     # Get all responses
     responses = blob_uploader.list_student_responses(
-        semester, course_id, assignment_id, question_index
+        semester, course_id, assignment_id, None, question_index
     )
 
     # Filter out already graded responses
@@ -164,8 +149,15 @@ async def grade_ungraded(
     # Grade ungraded responses
     grades = []
     for response in ungraded_responses:
-        grade = do_grading(response)  # This is a placeholder for the actual grading logic
-        grades.append(grade)
+        # A background process will pick this up and process it trust.
+        # See app/utils/bg_material_processor.py.
+        random_uuid = uuid.uuid4()
+        save_path = FilePath(
+            f"{get_str_var('TEMP_FILES_DIR')}/{random_uuid}.student_response.json")
+        # A background process will pick this up and process it trust.
+        # See app/utils/bg_material_processor.py.
+        with open(save_path, 'w') as f:
+            f.write(response.model_dump_json(indent=4))
 
     return grades
 
@@ -186,15 +178,14 @@ async def grade_ungraded(
 async def grade_all(
         semester: str = Query(..., description="Course semester."),
         course_id: str = Query(..., description="Unique identifier of the course."),
-        assignment_id: int = Query(..., description="Identifier of the assignment."),
+        assignment_id: str = Query(..., description="Identifier of the assignment."),
         question_index: Optional[int] = Query(None, description="Optional index of the question to grade or regrade. Grades all questions if omitted."),
         user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
 
-    # validate params
-    semester = Course.validate_semester(semester)
-    course_id = Course.normalize_lowercase(course_id)
+    # validate params by attempting to create a course object
+    Course(semester=semester, course_id=course_id)
 
     # Check if course exists
     if not blob_uploader.course_exists(semester, course_id):
@@ -221,7 +212,7 @@ async def grade_all(
 
     # Get all responses
     responses = blob_uploader.list_student_responses(
-        semester, course_id, assignment_id, question_index
+        semester, course_id, assignment_id, None, question_index
     )
 
     if not responses:
@@ -230,7 +221,14 @@ async def grade_all(
     # Grade all responses
     grades = []
     for response in responses:
-        grade = do_grading(response)  # This is a placeholder for the actual grading logic
-        grades.append(grade)
+        # A background process will pick this up and process it trust.
+        # See app/utils/bg_material_processor.py.
+        random_uuid = uuid.uuid4()
+        save_path = FilePath(
+            f"{get_str_var('TEMP_FILES_DIR')}/{random_uuid}.json")
+        # A background process will pick this up and process it trust.
+        # See app/utils/bg_material_processor.py.
+        with open(save_path, 'w') as f:
+            f.write(response.model_dump_json(indent=4))
 
     return grades

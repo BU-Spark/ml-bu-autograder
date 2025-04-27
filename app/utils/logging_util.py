@@ -40,3 +40,11 @@ def setup_loggers(production=False):
     logger.handlers.clear()  # Clear any existing handlers (prevents duplicates)
     logger.addHandler(file_handler)
     logger.addHandler(console_handler)
+
+    # Disable loggers from spammy packages
+    logging.getLogger("azure").setLevel(logging.WARNING)
+    logging.getLogger("adlfs").setLevel(logging.WARNING)
+    logging.getLogger("msal").setLevel(logging.WARNING)
+    logging.getLogger("azure.identity").setLevel(logging.WARNING)
+    logging.getLogger("fsspec").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
