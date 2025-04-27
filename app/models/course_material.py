@@ -12,7 +12,6 @@ class CourseMaterial(BaseModel):
     """
     semester: str = Field(..., description="The semester associated with the course.")
     course_id: str = Field(..., description="Associated course identifier.")
-<<<<<<< HEAD
     material_id: int = Field(..., description="Unique material identifier.")
     material_name: str = Field(..., description="Title or name of the material.")
     additional_notes: Optional[str] = Field(
@@ -27,14 +26,6 @@ class CourseMaterial(BaseModel):
     def normalize_lowercase(cls, value: str) -> str:
         """Converts course_id and semester to lowercase and trims spaces."""
         return value.strip().lower()
-=======
-    material_id: str = Field(..., description="The unique title or name of the material.")
-    # TODO: would be nice to support some additional notes for LLM for course material adding more
-    #  context but not worth the time supporting ATM.
-    # additional_notes: Optional[str] = Field(
-    #     None, description="Optional instructor notes."
-    # )
->>>>>>> 1e49de1db1886ead0ccd3ca3b8f1f43b7dedf5fb
 
     @field_validator("semester", mode='before')
     def validate_semester(cls, value: str) -> str:

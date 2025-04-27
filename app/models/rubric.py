@@ -5,11 +5,7 @@ from enum import Enum
 from typing import List, Optional
 import math
 
-<<<<<<< HEAD
-from pydantic import BaseModel, Field, field_validator, root_validator
-=======
 from pydantic import BaseModel, Field, field_validator, model_validator
->>>>>>> 1e49de1db1886ead0ccd3ca3b8f1f43b7dedf5fb
 
 
 class GradingFlag(str, Enum):
@@ -36,7 +32,6 @@ class GradingCriteria(BaseModel):
 
 
 class SubRubric(BaseModel):
-<<<<<<< HEAD
     question_index: int = Field(..., description="Index...")
     max_points: float = Field(..., ge=0, description="Max points (non-negative).")
     leniency: Optional[int] = Field(None, ge=1, le=5, description="Leniency...")
@@ -57,21 +52,6 @@ class SubRubric(BaseModel):
                     f"for question index {q_index}"
                 )
         return criteria_list
-=======
-    """
-    Sub-rubric for an individual question.
-    """
-    question_index: int = Field(..., description="Index of the question.")
-    max_points: float = Field(..., description="Maximum points for this question.")
-    instructor_guideline: Optional[str] = Field(
-        None, description="General instruction guidelines outline the grading rules for the question."
-    )
-    grading_criteria: Optional[List[GradingCriteria]] = Field(None, description="A breakdown of the grading criteria. "
-                                                                                "If this field is specified, "
-                                                                                "the sum of the points allocated to "
-                                                                                "each grading criteria must sum to "
-                                                                                "'max_points'.")
->>>>>>> 1e49de1db1886ead0ccd3ca3b8f1f43b7dedf5fb
 
     @model_validator(mode="after")
     def check_grading_criteria(cls, values):
@@ -98,7 +78,6 @@ class SubRubric(BaseModel):
 
 
 class Rubric(BaseModel):
-<<<<<<< HEAD
     semester: str = Field(..., description="Semester...")
     course_id: str = Field(..., description="Course ID.")
     # --- CHANGED TYPE: Back to str ---
@@ -108,29 +87,6 @@ class Rubric(BaseModel):
     leniency: int = Field(3, ge=1, le=5, description="Leniency...")
     overall_instructor_guidelines: Optional[str] = Field(None, description="Guidelines...")
     sub_rubrics: List[SubRubric] = Field(..., description="Sub-rubrics...")
-=======
-    """
-    Rubric object containing grading instructions.
-    """
-    semester: str = Field(..., description="The semester associated with the course.")
-    course_id: str = Field(..., description="Associated course identifier.")
-    assignment_id: str = Field(..., description="Associated assignment's ID.")
-    grading_flags: Optional[List[GradingFlag]] = Field(
-        None, description=(
-            "List of grading flags that modify grading behavior. Options:\n"
-            "- `IGNORE_SPELLINGS`: Ignore minor spelling mistakes.\n"
-            "- `IGNORE_GRAMMAR`: Ignore minor grammar issues.\n"
-            "- `ORIGINALITY`: Reward originality and deduct for unoriginal ideas."
-        )
-    )
-    overall_instructor_guidelines: Optional[str] = Field(
-        None, description="General grading criteria applicable to all questions."
-    )
-    sub_rubrics: List[SubRubric] = Field(
-        default_factory=list,
-        description="List of sub-rubrics specifying grading for individual questions.",
-    )
->>>>>>> 1e49de1db1886ead0ccd3ca3b8f1f43b7dedf5fb
 
     @field_validator("course_id", mode="before")
     def normalize_lowercase(cls, value: str) -> str:
@@ -139,7 +95,7 @@ class Rubric(BaseModel):
 
     @field_validator("semester", mode='before')
     def validate_semester(cls, value: str) -> str:
-<<<<<<< HEAD
+        """Converts to lowercase and trims spaces."""
         if not isinstance(value, str): raise TypeError("semester must be a string")
         val_strip = value.strip()
         if not re.fullmatch(r"[a-z]{1,12}[0-9]{4}", val_strip.lower()):
@@ -155,12 +111,10 @@ class Rubric(BaseModel):
         if not isinstance(value, str):
             # Log warning if needed: logger.warning(f"Converting non-string assignment_id '{value}' to string.")
             return str(value)
-        return value # Return the string value
-    # --- END ADDED ---
-=======
-        """Converts to lowercase and trims spaces."""
         if re.fullmatch("[a-z]{1,12}[0-9]{4}", value) is None:
             raise ValueError("Semester is in an invalid format. "
                              "Correct format (case-sensitive) looks like: seasonYYYY. (e.g. spring2025)")
         return value.strip().lower()
->>>>>>> 1e49de1db1886ead0ccd3ca3b8f1f43b7dedf5fb
+
+    # --- END ADDED ---
+        

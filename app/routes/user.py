@@ -6,15 +6,9 @@ from fastapi import APIRouter, Body, Depends, HTTPException, status # Add status
 from pydantic import BaseModel
 
 from app.models.user import User
-<<<<<<< HEAD
-# <<<--- Corrected: Import JWTService directly if needed, or rely on singleton --- >>>
-from app.utils import JWTService
-from app.utils.azure_blob_service import AzureBlobService
-=======
 from app.models import UserToken
 from app.utils.jwt_service import JWTService
 from app.services.azure_blob_service import AzureBlobService
->>>>>>> 1e49de1db1886ead0ccd3ca3b8f1f43b7dedf5fb
 
 class UserPreferencesUpdate(BaseModel):
     first_name: Optional[str] = None
