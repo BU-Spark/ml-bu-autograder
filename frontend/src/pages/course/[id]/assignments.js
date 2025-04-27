@@ -89,22 +89,29 @@ export default function Assignments() {
       const detail = error.response.data?.detail;
       if (detail) {
         if (Array.isArray(detail)) {
+          // Handle FastAPI validation errors (loc, msg, type)
           displayError = detail.map(err => `${err.loc?.join('.')} - ${err.msg}`).slice(0, 3).join('; ');
           if (detail.length > 3) displayError += '...';
         } else if (typeof detail === 'string') {
+          // Handle simple string detail messages
           displayError = detail;
         } else {
-          try { displayError = JSON.stringify(detail); } catch { /* ignore */ }
+          // Fallback for other object structures
+          try { displayError = JSON.stringify(detail); } catch { /* ignore serialization error */ }
         }
       } else if (error.response.statusText) {
+        // Use HTTP status text if detail is unavailable
         displayError = `Error: ${error.response.status} ${error.response.statusText}`;
       }
     } else if (error.request) {
+      // Network error (request made but no response)
       displayError = "Network Error: Could not contact server.";
     } else if (error.message) {
+      // Other errors (e.g., setup errors)
       displayError = error.message;
     }
-    return displayError;
+    // Ensure a default message is returned if nothing else was determined
+    return displayError || defaultMessage;
   };
 
 
@@ -130,6 +137,7 @@ export default function Assignments() {
         if (!Array.isArray(assignmentData.questions)) {
              console.warn("Questions field not an array, setting to empty:", assignmentData.questions);
              assignmentData.questions = [];
+             // Removed the stray 'a' here
         } else {
              // Sort questions by index for consistent display
              assignmentData.questions.sort((a, b) => (a.question_index ?? Infinity) - (b.question_index ?? Infinity));
@@ -298,51 +306,86 @@ export default function Assignments() {
     }));
   };
 
+  // =========================================================================
+  // === handleCreateAssignment - Updated to pass query params & handle index ===
+  // =========================================================================
   const handleCreateAssignment = async () => {
-    if (!courseId || !semester) return showAlert('Course context missing.', 'warning');
+    // --- Basic validation ---
+    if (!courseId || !semester) {
+        console.error("handleCreateAssignment: Missing courseId or semester", { courseId, semester });
+        return showAlert('Course context missing.', 'warning');
+    }
     if (!newAssignmentData.questions.length || newAssignmentData.questions.some(q => !q.question_text?.trim())) {
         return showAlert('Please add at least one question and ensure all question fields are filled.', 'warning');
     }
     setActionLoading(true);
     try {
+      // --- Construct the Payload for the Request Body ---
+      // Includes semester/courseId (as backend Body expects full Assignment model)
+      // AND includes placeholder question_index (to pass backend validation temporarily)
       const assignmentPayload = {
+        // assignment_id will be null/empty, backend should generate if needed
+        assignment_id: newAssignmentData.idToFetch, // Explicitly null
         course_id: courseId,
         semester: semester,
-        // Send null if empty string, otherwise send the trimmed string
         assignment_guidelines: newAssignmentData.assignment_guidelines?.trim() || null,
-        // Filter out empty questions and map to required structure
+
+        // Map questions to include placeholder index for backend validation
         questions: newAssignmentData.questions
-                            .map(q => q.question_text?.trim()) // Get trimmed text
-                            .filter(text => text) // Filter out empty/null strings
-                            .map(text => ({ question_text: text, question_graphics_figures: null })), // Map to payload structure
+            .map(q => q.question_text?.trim()) // Get trimmed text
+            .filter(text => text) // Filter out empty/null strings
+            .map((text, index) => ({
+                question_index: index, // <<<< Placeholder Index added here
+                question_text: text,
+                question_graphics_figures: null
+            })),
       };
-      console.log("CREATING assignment with payload:", assignmentPayload);
-      const response = await assignmentService.createAssignment(assignmentPayload);
+
+      console.log("--- handleCreateAssignment ---");
+      console.log("Attempting to call assignmentService.createAssignment with:");
+      console.log("  Semester (for query):", semester);
+      console.log("  Course ID (for query):", courseId);
+      console.log("  Payload (for body):", JSON.stringify(assignmentPayload, null, 2)); // Pretty print payload
+
+      // --- Make the API Call ---
+      // Pass semester and courseId explicitly to the service function.
+      // The service function MUST use these to build query parameters in the URL.
+      const response = await assignmentService.createAssignment(
+          semester,           // Argument 1: Semester (for query)
+          courseId,           // Argument 2: Course ID (for query)
+          assignmentPayload   // Argument 3: Payload (for body)
+      );
+
+      // --- Success logic ---
       const createdAssignmentData = response?.data;
       console.log("RESPONSE from createAssignment:", response);
 
       if (!createdAssignmentData || typeof createdAssignmentData.assignment_id === 'undefined') {
           throw new Error(createdAssignmentData?.detail || "Invalid response after creating assignment.");
       }
-      // Prepare a simplified object for the list state if needed, or use the full one
       const assignmentForList = {
         assignment_id: createdAssignmentData.assignment_id,
         assignment_guidelines: createdAssignmentData.assignment_guidelines,
-        // maybe other minimal fields returned by create...
       };
-      setAssignments(prev => [...prev, assignmentForList]); // Add to list
-      setNewAssignmentData({ assignment_guidelines: '', questions: [{ question_text: '' }] }); // Reset form
+      setAssignments(prev => [...prev, assignmentForList]);
+      setNewAssignmentData({ assignment_guidelines: '', questions: [{ question_text: '' }] });
       setCreateDialogOpen(false);
       showAlert(`Assignment created (ID: ${createdAssignmentData.assignment_id}). Selecting it...`);
-      handleSelectAssignment(createdAssignmentData); // Select the new one (pass the full object if available)
+      handleSelectAssignment(createdAssignmentData);
+
     } catch (error) {
-      console.error("Failed to create assignment:", error);
+      // --- Error Handling ---
+      console.error("Failed to create assignment in handleCreateAssignment:", error);
       const displayError = formatApiError(error, 'Failed to create assignment.');
       showAlert(displayError, 'error');
     } finally {
+      // --- Cleanup ---
       setActionLoading(false);
     }
   };
+  // =========================================================================
+  // =========================================================================
+
 
   const openEditAssignmentDialog = (assignmentToEdit) => {
     if (!assignmentToEdit || typeof assignmentToEdit.assignment_id === 'undefined') return;
@@ -363,6 +406,8 @@ export default function Assignments() {
     setActionLoading(true);
     try {
       console.log(`UPDATING assignment ${assignmentId} metadata with payload:`, updatePayload);
+      // Assuming updateAssignmentMetadata in service uses semester/courseId/assignmentId for path/query
+      // and payload for the body. Check its implementation if needed.
       await assignmentService.updateAssignmentMetadata(semester, courseId, assignmentId, updatePayload);
       console.log("RESPONSE from updateAssignmentMetadata successful.");
 
@@ -400,6 +445,7 @@ export default function Assignments() {
     setActionLoading(true);
     setDeleteAssignmentDialogOpen(false);
     try {
+      // Assuming deleteAssignment uses courseId/semester/idToDelete for path/query params
       await assignmentService.deleteAssignment(courseId, semester, idToDelete);
       console.log(`Assignment ${idToDelete} reported as deleted by API.`);
       showAlert(`Assignment (ID: ${idToDelete}) deleted successfully.`);
@@ -433,22 +479,36 @@ export default function Assignments() {
         return showAlert('Question text is required.', 'warning');
      }
     const assignmentId = selectedAssignment.assignment_id; // Store ID
-    // Payload for the backend API
-    const questionPayload = { question_text: questionFormData.question_text.trim(), question_graphics_figures: null };
+
+    // --- Payload Structure for Add Question ---
+    // Backend expects { "question": Question } where Question requires index (placeholder)
+    const addQuestionPayload = {
+        question: {
+            question_index: 0, // Placeholder - backend MUST ignore/overwrite this
+            question_text: questionFormData.question_text.trim(),
+            question_graphics_figures: null
+        }
+    };
+
     setActionLoading(true);
     try {
-      console.log(`ADDING question to assignment ${assignmentId}:`, questionPayload);
-      // API might return the new question object or just confirmation/index
-      const response = await assignmentService.addQuestion(semester, courseId, assignmentId, questionPayload);
+      console.log(`ADDING question to assignment ${assignmentId}.`);
+      console.log("  Query/Path Params:", { semester, courseId, assignmentId });
+      console.log("  Request Body Payload:", addQuestionPayload);
+
+      // Pass the wrapped payload structure to the service function
+      const response = await assignmentService.addQuestion(
+          semester,
+          courseId,
+          assignmentId,
+          addQuestionPayload // Send the wrapped payload
+        );
       console.log("RESPONSE from addQuestion:", response);
 
-      // Check if the backend response indicates success (e.g., status 201 or returns data)
-      // We don't strictly need the new index if we refetch details.
       if (response?.status >= 200 && response?.status < 300) { // Check status code range
         showAlert('Question added. Refreshing details...');
         await fetchAssignmentDetails(assignmentId); // Refresh to get updated list and indices
       } else {
-        // If status code is not success or response is unexpected
         throw new Error(response?.data?.detail || "Failed to add question, invalid response received.");
       }
     } catch (error) {
@@ -461,8 +521,8 @@ export default function Assignments() {
     }
   };
 
-  // <<<--- NEW: Function to open the edit dialog --- >>>
   const openEditQuestionDialog = (question) => {
+    console.log("Opening edit dialog for question:", question);
     if (!question || typeof question.question_index !== 'number') {
         console.error("Cannot edit question: Invalid question object provided.", question);
         showAlert("Cannot edit question: Invalid data.", "warning");
@@ -479,7 +539,6 @@ export default function Assignments() {
     setEditQuestionDialogOpen(true);
   };
 
-  // <<<--- NEW: Function to handle the edit API call --- >>>
   const handleEditQuestion = async () => {
     const { question_text, question_index } = questionFormData;
 
@@ -491,15 +550,32 @@ export default function Assignments() {
     }
 
     const assignmentId = selectedAssignment.assignment_id; // Store ID
-    // API expects updated question data in the body
-    const questionPayload = { question_text: question_text.trim(), question_graphics_figures: null }; // Add other fields if needed
     const indexToEdit = question_index;
+
+    // --- Payload Structure for Edit Question ---
+    // Backend expects { "question": Question } where Question requires the correct index
+    const editQuestionPayload = {
+        question: {
+            question_index: indexToEdit, // Include the index being edited
+            question_text: question_text.trim(),
+            question_graphics_figures: null // Add other fields if needed
+        }
+    };
 
     setActionLoading(true);
     try {
-      console.log(`EDITING question index ${indexToEdit} for assignment ${assignmentId}:`, questionPayload);
-      // Assume assignmentService has an editQuestion method
-      await assignmentService.editQuestion(semester, courseId, assignmentId, indexToEdit, questionPayload);
+      console.log(`EDITING question index ${indexToEdit} for assignment ${assignmentId}.`);
+      console.log("  Query/Path Params:", { semester, courseId, assignmentId, indexToEdit });
+      console.log("  Request Body Payload:", editQuestionPayload);
+
+      // Pass the wrapped payload structure to the service function
+      await assignmentService.editQuestion(
+          semester,
+          courseId,
+          assignmentId,
+          indexToEdit,
+          editQuestionPayload // Send the wrapped payload
+        );
       console.log("RESPONSE from editQuestion successful.");
 
       showAlert('Question updated. Refreshing details...');
@@ -516,6 +592,9 @@ export default function Assignments() {
     }
   };
 
+  // =========================================================================
+  // === onDragEnd - Updated payload structure ===
+  // =========================================================================
   const onDragEnd = useCallback(async (result) => {
     const { source, destination } = result;
     // Basic validation
@@ -531,20 +610,27 @@ export default function Assignments() {
     // Optimistic UI Update
     setSelectedAssignment(prev => ({ ...prev, questions: currentQuestions }));
 
-    // Payload for backend is the list of ORIGINAL question_index values in the NEW order
-    const newIndexOrder = currentQuestions.map(q => q.question_index);
-    if (newIndexOrder.some(idx => typeof idx !== 'number')) {
-        console.error("Error preparing reorder payload: Some questions missing original index.", currentQuestions);
+    // --- Payload Structure for Reorder ---
+    // Backend expects { "questions": [{ "question_index": N }, ...] }
+    const reorderPayload = {
+        questions: currentQuestions.map(q => ({ question_index: q.question_index }))
+    };
+
+    // Validation for the payload structure (optional but good)
+    if (!reorderPayload.questions || !Array.isArray(reorderPayload.questions) || reorderPayload.questions.some(item => typeof item.question_index !== 'number')) {
+        console.error("Error preparing reorder payload: Structure invalid or missing index.", currentQuestions);
         showAlert("Error preparing reorder data. Please refresh.", "error");
         fetchAssignmentDetails(selectedAssignment.assignment_id); // Revert optimistic update
         return;
     }
-    console.log("SENDING new index order:", newIndexOrder);
+    console.log("SENDING reorder payload:", reorderPayload); // Log the new structure
+
     const assignmentId = selectedAssignment.assignment_id; // Store ID
 
     setActionLoading(true);
     try {
-      await assignmentService.modifyQuestionOrder(semester, courseId, assignmentId, newIndexOrder);
+      // Pass the wrapped payload structure to the service function
+      await assignmentService.modifyQuestionOrder(semester, courseId, assignmentId, reorderPayload);
       showAlert('Order updated. Refreshing details...');
       await fetchAssignmentDetails(assignmentId); // Refresh from backend to confirm final order and indices
     } catch (error) {
@@ -558,6 +644,9 @@ export default function Assignments() {
       setActionLoading(false);
     }
   }, [selectedAssignment, semester, courseId, fetchAssignmentDetails, showAlert]); // Added showAlert
+  // =========================================================================
+  // =========================================================================
+
 
   const openDeleteQuestionDialog = (index) => {
     if (typeof index !== 'number') {
@@ -581,6 +670,7 @@ export default function Assignments() {
     setDeleteQuestionDialogOpen(false); // Close dialog
     try {
       console.log(`DELETING question index ${indexToDelete} from assignment ${assignmentId}`);
+      // Assuming removeQuestion uses semester/courseId/assignmentId/indexToDelete for path/query
       await assignmentService.removeQuestion(semester, courseId, assignmentId, indexToDelete);
       console.log("RESPONSE from removeQuestion successful.");
       showAlert('Question deleted. Refreshing details...');
@@ -597,7 +687,7 @@ export default function Assignments() {
   };
 
   // --- RENDER FUNCTIONS ---
-
+  // (No changes needed in render functions)
   const renderAssignmentList = () => {
     if (loadingAssignments) {
         return <Grid container spacing={3} sx={{ mb: 4 }}>{[1, 2, 3].map(n => <Grid item xs={12} sm={6} md={4} key={`skeleton-${n}`}><CardSkeleton height={150} /></Grid>)}</Grid>;
@@ -825,7 +915,7 @@ export default function Assignments() {
         </DialogActions>
       </Dialog>
 
-      {/* <<<--- NEW: Edit Question Dialog --- >>> */}
+      {/* Edit Question Dialog */}
       <Dialog open={editQuestionDialogOpen} onClose={() => !actionLoading && setEditQuestionDialogOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle>Edit Question (Assignment {selectedAssignment?.assignment_id ?? 'N/A'}, Original Index {questionFormData.question_index ?? 'N/A'})</DialogTitle>
         <DialogContent>

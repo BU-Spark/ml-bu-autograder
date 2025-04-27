@@ -1,0 +1,13 @@
+{
+    "question_index": 1,
+    "max_points": 5.0,
+    "leniency": 2,
+    "instructor_guideline": "",
+    "grading_criteria": [
+        {
+            "criteria_id": "neat code",
+            "criteria": "check if code is organized",
+            "points": 5.0
+        }
+    ]
+}

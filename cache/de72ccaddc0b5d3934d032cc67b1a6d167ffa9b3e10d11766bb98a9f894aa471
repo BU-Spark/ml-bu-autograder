@@ -4,20 +4,16 @@
     "last_name": "",
     "authenticated_courses": [
         [
-            "summer2025",
-            "met404"
-        ],
-        [
-            "spring2025",
-            "cs543"
-        ],
-        [
-            "spring2025",
-            "cs581"
-        ],
-        [
             "spring2024",
             "cs581"
+        ],
+        [
+            "spring2025",
+            "cs581"
+        ],
+        [
+            "summer2025",
+            "met404"
         ]
     ],
     "dark_mode": false

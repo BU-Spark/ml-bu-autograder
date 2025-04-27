@@ -6,6 +6,8 @@ from fastapi import APIRouter, HTTPException, Query, Body, Depends, Path # Ensur
 from pydantic import BaseModel, Field, field_validator
 
 from app.models import Course
+# Assuming Assignment and Question models are now defined in app.models.assignment
+# and Question includes 'question_index: int'
 from app.models.assignment import Assignment, Question
 from app.utils import JWTService, UserToken
 from app.utils.azure_blob_service import AzureBlobService
@@ -16,59 +18,32 @@ logger = logging.getLogger(__name__)
 
 # --- Pydantic Models ---
 
+class QuestionIndexObject(BaseModel):
+    question_index: int = Field(..., description="The 0-based index of the question within the assignment.")
+
+# Assuming Question model (imported) now includes question_index: int
+
 class EditQuestionRequest(BaseModel):
-    semester: str = Field(..., description="Semester of the course.")
-    course_id: str = Field(..., description="Identifier of the course.")
-    assignment_id: str = Field(..., description="Identifier of the assignment.")
-    question_index: int = Field(..., description="Index of the question.")
-    question: Question = Field(..., description="The updated question data.")
+    """ Request body is just the updated Question object """
+    question: Question = Field(..., description="The updated question data, including its question_index.")
 
-    @classmethod
-    @field_validator("semester", mode='before')
-    def validate_semester(cls, value: str) -> str:
-        """Converts to lowercase and trims spaces."""
-        # Corrected Regex Logic
-        if not re.fullmatch(r"[a-zA-Z]{1,12}[0-9]{4}", value.strip()):
-            raise ValueError("Semester is in an invalid format. "
-                             "Correct format looks like: seasonYYYY. (e.g. spring2025)")
-        return value.strip().lower()
-
+    # No need for separate semester, course_id, assignment_id, question_index here
+    # as they will be path/query parameters in the endpoint.
 
 class AddQuestionRequest(BaseModel):
-    semester: str = Field(..., description="Semester of the course.")
-    course_id: str = Field(..., description="Identifier of the course.")
-    assignment_id: str = Field(..., description="Identifier of the assignment to update.")
-    question: Question = Field(..., description="The data of the new question. (Notice: You cannot specify "
-                                                        "the index for this question. If you wish to re-order this "
-                                                        "question, you must make a separate modify order request.)")
+    """ Request body is just the new Question object (index will be ignored/assigned) """
+    # The Question model requires question_index, but it will be ignored and assigned by the backend.
+    # Alternatively, make a specific AddQuestionPayload model without the index.
+    # Let's assume for now the frontend sends a Question object, maybe with a placeholder index.
+    question: Question = Field(..., description="The data of the new question. The provided index will be ignored.")
 
-    @classmethod
-    @field_validator("semester", mode='before')
-    def validate_semester(cls, value: str) -> str:
-        """Converts to lowercase and trims spaces."""
-        # Corrected Regex Logic
-        if not re.fullmatch(r"[a-zA-Z]{1,12}[0-9]{4}", value.strip()):
-            raise ValueError("Semester is in an invalid format. "
-                             "Correct format looks like: seasonYYYY. (e.g. spring2025)")
-        return value.strip().lower()
-
+    # No need for semester, course_id, assignment_id here if they are path/query params
 
 class ModifyOrderRequest(BaseModel):
-    semester: str = Field(..., description="Semester of the course.")
-    course_id: str = Field(..., description="Identifier of the course.")
-    assignment_id: str = Field(..., description="Identifier of the assignment.")
-    list_of_question_indexes: List[int] = Field(..., description="New order for question indexes.")
+    """ Request body contains the new order """
+    list_of_question_indexes: List[QuestionIndexObject] = Field(..., description="List of objects, each containing the original question_index, in the desired new order.")
 
-    @classmethod
-    @field_validator("semester", mode='before')
-    def validate_semester(cls, value: str) -> str:
-        """Converts to lowercase and trims spaces."""
-        # Corrected Regex Logic
-        if not re.fullmatch(r"[a-zA-Z]{1,12}[0-9]{4}", value.strip()):
-            raise ValueError("Semester is in an invalid format. "
-                             "Correct format looks like: seasonYYYY. (e.g. spring2025)")
-        return value.strip().lower()
-
+    # No need for semester, course_id, assignment_id here if they are path/query params
 
 class AssignmentMetadataUpdate(BaseModel):
     """Payload for updating assignment metadata."""
@@ -84,8 +59,38 @@ class AssignmentMetadataUpdate(BaseModel):
 router = APIRouter()
 user_from_auth = JWTService.get_instance().from_authorization_header
 
-# Note: list_assignment_ids function is defined in the original code but not used here.
-# If it's part of AzureBlobService, it doesn't need to be defined here.
+
+# --- Utility for Auth Checks (Example - Adapt as needed) ---
+async def check_course_auth(
+    semester: str,
+    course_id: str,
+    user_meta: UserToken = Depends(user_from_auth)
+) -> AzureBlobService:
+    """ Dependency to validate params and check user auth for a course """
+    try:
+        validated_semester = Course.validate_semester(semester)
+        validated_course_id = Course.normalize_lowercase(course_id)
+    except ValueError as e:
+        logger.warning(f"Invalid semester/course format: {semester}/{course_id} - {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+    blob_uploader = AzureBlobService.get_instance()
+
+    if not blob_uploader.course_exists(validated_semester, validated_course_id):
+        logger.warning(f"Course not found during auth check: {validated_semester}/{validated_course_id}")
+        raise HTTPException(status_code=404, detail="Course does not exist.")
+
+    user = blob_uploader.get_user(user_meta.user_email)
+    if not user:
+        logger.error(f"Authenticated user not found in store: {user_meta.user_email}")
+        # Use 403 Forbidden as user is authenticated but lacks profile/permissions
+        raise HTTPException(status_code=403, detail="User data not found.")
+
+    if (validated_semester, validated_course_id) not in user.authenticated_courses:
+        logger.warning(f"User {user_meta.user_email} forbidden access to {validated_semester}/{validated_course_id}")
+        raise HTTPException(status_code=403, detail="Authenticated but access to this course is not allowed.")
+
+    return blob_uploader # Return service instance for reuse in endpoint
 
 # --- API Endpoints ---
 
@@ -94,6 +99,7 @@ user_from_auth = JWTService.get_instance().from_authorization_header
     response_model=Assignment,
     summary="Create Assignment",
     description="Creates a new assignment with questions and guidelines.",
+    status_code=201, # Use 201 Created for successful creation
     responses={
         400: {"detail": "Missing or invalid parameters."},
         404: {"detail": "Course does not exist."},
@@ -104,113 +110,99 @@ user_from_auth = JWTService.get_instance().from_authorization_header
 )
 async def create_assignment(
     assignment: Assignment = Body(..., description="The assignment to create."),
-    user_meta: UserToken = Depends(user_from_auth),
+    blob_uploader: AzureBlobService = Depends(check_course_auth), # Use dependency for auth
+    # Note: check_course_auth implicitly depends on user_meta
 ):
     """
     Creates a new assignment for a course.
+    Assigns sequential question_index values (0, 1, 2...) to the questions.
     If assignment_id is not provided, generates the next sequential integer ID.
     """
-    blob_uploader: AzureBlobService = AzureBlobService.get_instance()
+    # Course auth already checked by dependency
+    # Validation of semester/course_id format done in dependency
 
-    # 1. Validate & Auth Checks
-    try:
-        assignment.semester = Course.validate_semester(assignment.semester)
-        assignment.course_id = Course.normalize_lowercase(assignment.course_id)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    if not blob_uploader.course_exists(assignment.semester, assignment.course_id):
-        logger.warning(f"Attempt to create assignment for non-existent course: {assignment.semester}/{assignment.course_id}")
-        raise HTTPException(status_code=404, detail="Course does not exist.")
-
-    user = blob_uploader.get_user(user_meta.user_email)
-    if not user:
-         logger.error(f"Authenticated user not found in user store: {user_meta.user_email}")
-         raise HTTPException(status_code=403, detail="User data not found.")
-    if (assignment.semester, assignment.course_id) not in user.authenticated_courses:
-        logger.warning(f"User {user_meta.user_email} forbidden access to {assignment.semester}/{assignment.course_id}")
-        raise HTTPException(status_code=403, detail="Authenticated but access to this course is not allowed.")
-
-    # 2. Determine/Generate assignment_id
+    # 1. Determine/Generate assignment_id (if needed)
     if assignment.assignment_id is None or assignment.assignment_id == "":
         logger.info(f"assignment_id not provided for course {assignment.semester}/{assignment.course_id}. Generating next sequential ID.")
         try:
-            existing_assignment_objects = blob_uploader.list_assignments(assignment.semester, assignment.course_id)
-            logger.debug(f"list_assignments returned {len(existing_assignment_objects)} assignment objects.")
-
+            # Logic to find max existing integer ID (simplified - ensure robust implementation)
+            existing_assignments = blob_uploader.list_assignments(assignment.semester, assignment.course_id)
             max_id = -1
-            if isinstance(existing_assignment_objects, list):
-                for assign_obj in existing_assignment_objects:
-                    if hasattr(assign_obj, 'assignment_id') and assign_obj.assignment_id is not None:
-                        try:
-                            current_id_int = int(str(assign_obj.assignment_id))
-                            if current_id_int > max_id:
-                                max_id = current_id_int
-                        except (ValueError, TypeError):
-                            logger.debug(f"Ignoring non-integer assignment ID '{assign_obj.assignment_id}' while calculating max integer ID.")
-                    else:
-                        logger.warning(f"Object found via list_assignments missing 'assignment_id' or it's None: {assign_obj}")
-            else:
-                logger.error(f"list_assignments for {assignment.semester}/{assignment.course_id} did not return a list. Type: {type(existing_assignment_objects)}")
-                # Consider how critical this is. Maybe default to 0 or raise 500.
-                raise ValueError("Internal server error: Failed to retrieve existing assignments.")
-
+            for assign_obj in existing_assignments:
+                try:
+                    current_id_int = int(str(assign_obj.assignment_id))
+                    max_id = max(max_id, current_id_int)
+                except (ValueError, TypeError, AttributeError):
+                    continue # Ignore non-integer IDs or objects without the attribute
             next_id_int = max_id + 1
             assignment.assignment_id = str(next_id_int)
-            logger.info(f"Generated NEW sequential integer assignment_id: {assignment.assignment_id} for course {assignment.semester}/{assignment.course_id}")
-
+            logger.info(f"Generated NEW sequential integer assignment_id: {assignment.assignment_id}")
         except Exception as e:
-            logger.exception(f"Error generating next assignment ID for {assignment.semester}/{assignment.course_id}: {e}")
+            logger.exception(f"Error generating next assignment ID: {e}")
             raise HTTPException(status_code=500, detail="Could not determine the next assignment ID.")
 
-    # 3. Check for conflict with the determined ID
+    # 2. Check for conflict with the determined ID
     if blob_uploader.assignment_exists(assignment.semester, assignment.course_id, assignment.assignment_id):
-        logger.warning(f"Attempt to create assignment with existing ID: {assignment.semester}/{assignment.course_id}/{assignment.assignment_id}")
+        logger.warning(f"Conflict: Assignment ID '{assignment.assignment_id}' already exists.")
         raise HTTPException(
             status_code=409,
             detail=f"Assignment with ID '{assignment.assignment_id}' already exists for this course."
         )
 
+    # 3. Assign question_index to incoming questions
+    if assignment.questions:
+        for i, q in enumerate(assignment.questions):
+            q.question_index = i # <<<--- Assign index based on list order
+            logger.debug(f"Assigning index {i} to question: {q.question_text[:30]}...")
+    else:
+        logger.info(f"Creating assignment {assignment.assignment_id} with no initial questions.")
+
     # 4. Upload assignment data
     try:
-        # Assign indices to questions before upload if needed
-        if assignment.questions:
-             for i, q in enumerate(assignment.questions):
-                 if hasattr(q, 'question_index'): # Check if Question model has the field
-                    q.question_index = i
+        # Upload main metadata. Does this save questions too? Depends on implementation.
+        blob_uploader.upload_assignment_metadata(assignment)
 
-        blob_uploader.upload_assignment_metadata(assignment) # Upload main metadata + potentially questions if model includes them
-
-        # If questions are NOT saved by upload_assignment_metadata, upload them individually:
-        # (Comment this block out if upload_assignment_metadata saves the whole object including questions)
+        # If questions need separate upload:
+        # (Assuming upload_assignment_metadata DOES NOT save questions)
         if assignment.questions:
-             for i, question in enumerate(assignment.questions):
-                 q_index = question.question_index if hasattr(question, 'question_index') and question.question_index is not None else i
+            logger.info(f"Uploading {len(assignment.questions)} questions individually for assignment {assignment.assignment_id}...")
+            for question in assignment.questions:
+                 # Ensure question_index exists before using it
+                 if not hasattr(question, 'question_index') or question.question_index is None:
+                      logger.error(f"Programming Error: Question index was not assigned before upload attempt for assignment {assignment.assignment_id}")
+                      raise ValueError("Internal error: Question index missing before upload.")
                  blob_uploader.upload_question_metadata(
-                     assignment.semester, assignment.course_id, assignment.assignment_id, q_index, question
+                     assignment.semester, assignment.course_id, assignment.assignment_id,
+                     question.question_index, # Use the assigned index
+                     question
                  )
+        # (End optional separate upload block)
 
         logger.info(f"Successfully created assignment: {assignment.semester}/{assignment.course_id}/{assignment.assignment_id}")
 
-        # Refetch the created assignment to include final state in response
+        # Refetch to return the final state including potentially generated ID and assigned indices
+        # Important: Ensure get_assignment_metadata + list_questions return questions WITH indices
         created_assignment = blob_uploader.get_assignment_metadata(assignment.semester, assignment.course_id, assignment.assignment_id)
         if not created_assignment:
-             logger.error(f"Failed to retrieve assignment metadata immediately after creation: {assignment.semester}/{assignment.course_id}/{assignment.assignment_id}")
+             logger.error("Failed to retrieve assignment metadata immediately after creation.")
              raise HTTPException(status_code=500, detail="Failed to confirm assignment creation.")
+        # Fetch questions which should now include the index from storage
         created_assignment.questions = blob_uploader.list_questions(assignment.semester, assignment.course_id, assignment.assignment_id)
         return created_assignment
+    except HTTPException as http_exc:
+        raise http_exc # Re-raise HTTP exceptions
     except Exception as e:
-        logger.exception(f"Failed to upload assignment data for {assignment.semester}/{assignment.course_id}/{assignment.assignment_id}: {e}")
+        logger.exception(f"Failed to upload assignment data: {e}")
         raise HTTPException(status_code=500, detail="Failed to save assignment data to storage.")
 
 
-@router.patch(
-    "/assignment/add_question",
-    # response_model=Question, # Or just index { "question_index": int }
+@router.post( # Changed to POST as it creates a resource (a question)
+    "/assignments/{assignment_id}/questions", # More RESTful path
+    response_model=Question, # Return the created Question with its assigned index
     summary="Add Question",
-    description="Adds a new question to an assignment.",
+    status_code=201, # Use 201 Created
+    description="Adds a new question to the end of an assignment.",
     responses={
-        200: {"description": "Question added successfully", "content": {"application/json": {"example": {"question_index": 5}}}},
         400: {"detail": "Missing or invalid parameters."},
         404: {"detail": "Assignment not found."},
         401: {"detail": "Requester is not authenticated."},
@@ -218,100 +210,118 @@ async def create_assignment(
     }
 )
 async def add_question(
-        add_question_request: AddQuestionRequest = Body(...),
-        user_meta: UserToken = Depends(user_from_auth),
+        # Path parameters
+        assignment_id: str = Path(..., description="Identifier of the assignment."),
+        # Query parameters
+        semester: str = Query(..., description="Semester of the course."),
+        course_id: str = Query(..., description="Identifier of the course."),
+        # Request body
+        add_request: AddQuestionRequest = Body(...), # Contains the Question object
+        # Dependencies
+        blob_uploader: AzureBlobService = Depends(check_course_auth),
 ):
-    blob_uploader = AzureBlobService.get_instance()
-    semester = add_question_request.semester
-    course_id = add_question_request.course_id
-    assignment_id = add_question_request.assignment_id
-
-    # Auth Checks (condensed)
-    if not blob_uploader.course_exists(semester, course_id): raise HTTPException(status_code=404, detail="Course does not exist.")
-    user = blob_uploader.get_user(user_meta.user_email)
-    if not user or (semester, course_id) not in user.authenticated_courses: raise HTTPException(status_code=403, detail="User not found or access not allowed.")
-    if not blob_uploader.assignment_exists(semester, course_id, assignment_id): raise HTTPException(status_code=404, detail="Assignment does not exist.")
+    # Auth checked by dependency
+    if not blob_uploader.assignment_exists(semester, course_id, assignment_id):
+        raise HTTPException(status_code=404, detail="Assignment does not exist.")
 
     try:
         # Determine next index
-        question_index = blob_uploader.count_questions(semester, course_id, assignment_id)
+        # Ensure count_questions provides the correct next index (e.g., if indices are 0, 1, count should be 2)
+        next_question_index = blob_uploader.count_questions(semester, course_id, assignment_id)
+        logger.info(f"Determined next question index for {assignment_id} as {next_question_index}")
 
-        # Prepare question object
-        question_to_upload = add_question_request.question
-        if hasattr(question_to_upload, 'question_index'):
-            question_to_upload.question_index = question_index
+        # Prepare question object, assign the determined index
+        question_to_upload = add_request.question
+        question_to_upload.question_index = next_question_index # <<<--- Assign correct index
 
         # Upload question
         blob_uploader.upload_question_metadata(
-            semester, course_id, assignment_id, question_index, question_to_upload
+            semester, course_id, assignment_id,
+            next_question_index, # Use the determined index
+            question_to_upload
         )
-        logger.info(f"Added question index {question_index} to {semester}/{course_id}/{assignment_id}")
-        return {"question_index": question_index} # Return new index
+        logger.info(f"Added question index {next_question_index} to {semester}/{course_id}/{assignment_id}")
+
+        # Return the complete Question object including the assigned index
+        return question_to_upload
+
+    except HTTPException as http_exc:
+        raise http_exc
     except Exception as e:
         logger.exception(f"Failed to add question to {semester}/{course_id}/{assignment_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to add question.")
 
 
-@router.patch(
-    "/assignment/remove_question",
+@router.delete( # Changed to DELETE as it removes a resource
+    "/assignments/{assignment_id}/questions/{question_index}", # More RESTful path
     summary="Remove Question",
-    description="Removes a question from an assignment.",
+    status_code=200, # OK or 204 No Content could also work
+    description="Removes a question from an assignment and potentially re-indexes subsequent questions.",
     responses={
         200: {"description": "Question removed successfully", "content": {"application/json": {"example": {"detail": "Question removed successfully"}}}},
-        400: {"detail": "Missing or invalid parameters."},
+        400: {"detail": "Invalid index."},
         404: {"detail": "Assignment or question not found."},
         401: {"detail": "Requester is not authenticated."},
         403: {"detail": "Authenticated but access is not allowed."}
     }
 )
 async def remove_question(
+        # Path parameters
+        assignment_id: str = Path(..., description="Identifier of the assignment."),
+        question_index: int = Path(..., description="Index of the question to remove.", ge=0), # Ensure index is non-negative
+        # Query parameters
         semester: str = Query(..., description="Semester of the course."),
         course_id: str = Query(..., description="Identifier of the course."),
-        assignment_id: str = Query(..., description="Identifier of the assignment."),
-        question_index: int = Query(..., description="Index of the question to remove."),
-        user_meta: UserToken = Depends(user_from_auth),
+        # Dependencies
+        blob_uploader: AzureBlobService = Depends(check_course_auth),
 ):
-    # Validate params
+    # Auth checked by dependency
+    if not blob_uploader.assignment_exists(semester, course_id, assignment_id):
+        raise HTTPException(status_code=404, detail="Assignment does not exist.")
+
+    # Check if question index exists *before* attempting delete
+    # This check might be implicitly handled by delete_question_metadata if it raises errors,
+    # but explicit check is safer. Depends on AzureBlobService implementation.
+    if not blob_uploader.question_exists(semester, course_id, assignment_id, question_index): # Assuming question_exists method
+         logger.warning(f"Attempt to delete non-existent question index {question_index} from {assignment_id}")
+         raise HTTPException(status_code=404, detail=f"Question with index {question_index} does not exist.")
+
     try:
-        semester = Course.validate_semester(semester)
-        course_id = Course.normalize_lowercase(course_id)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    blob_uploader = AzureBlobService.get_instance()
-
-    # Auth Checks
-    if not blob_uploader.course_exists(semester, course_id): raise HTTPException(status_code=404, detail="Course does not exist.")
-    user = blob_uploader.get_user(user_meta.user_email)
-    if not user or (semester, course_id) not in user.authenticated_courses: raise HTTPException(status_code=403, detail="User not found or access not allowed.")
-    if not blob_uploader.assignment_exists(semester, course_id, assignment_id): raise HTTPException(status_code=404, detail="Assignment does not exist.")
-
-    # Check if question index is valid
-    try:
-        num_questions = blob_uploader.count_questions(semester, course_id, assignment_id)
-        if question_index < 0 or question_index >= num_questions:
-            logger.warning(f"Invalid question index {question_index} for removal in {semester}/{course_id}/{assignment_id}. Total questions: {num_questions}")
-            raise HTTPException(status_code=404, detail=f"Question with index {question_index} does not exist.")
-
         # Remove the question
         blob_uploader.delete_question_metadata(semester, course_id, assignment_id, question_index)
         logger.info(f"Removed question index {question_index} from {semester}/{course_id}/{assignment_id}")
 
-        # Optional: Add logic here to re-index subsequent questions if your storage requires sequential numbering without gaps.
+        # --- CRITICAL: Re-indexing Logic ---
+        # If your storage relies on sequential indices (e.g., files named 0.json, 1.json, 2.json),
+        # you MUST re-index questions with indices > deleted_index.
+        # This requires listing remaining questions, updating their index, and re-saving/renaming.
+        # Example (requires implementation in AzureBlobService):
+        try:
+            logger.info(f"Attempting to re-index questions in {assignment_id} after deleting index {question_index}")
+            blob_uploader.reindex_questions_after_delete(semester, course_id, assignment_id, question_index)
+            logger.info(f"Successfully re-indexed questions in {assignment_id} after delete.")
+        except NotImplementedError:
+             logger.warning(f"Re-indexing after delete is not implemented in AzureBlobService for {assignment_id}. Indices may now have gaps.")
+             # Decide if this is acceptable or should be a 501 Not Implemented error.
+        except Exception as reindex_err:
+             logger.error(f"Failed to re-index questions after deleting index {question_index} from {assignment_id}: {reindex_err}")
+             # This is problematic. The question is deleted, but indices are inconsistent.
+             # Return success but log error? Or return 500? Depends on requirements.
+             # For now, let's return success on delete but log the reindex failure.
 
         return {"detail":  "Question removed successfully"}
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
-        logger.exception(f"Failed to remove question {question_index} from {semester}/{course_id}/{assignment_id}: {e}")
+        logger.exception(f"Failed to remove question {question_index}: {e}")
         raise HTTPException(status_code=500, detail="Failed to remove question.")
 
 
-@router.patch(
-    "/assignment/edit_question",
+@router.put( # Changed to PUT as it replaces the resource at the given index
+    "/assignments/{assignment_id}/questions/{question_index}", # More RESTful path
     response_model=Question, # Return the updated Question object
     summary="Edit Question",
-    description="Edits an existing question in an assignment.",
+    description="Edits an existing question in an assignment by replacing it.",
     responses={
         400: {"detail": "Missing or invalid parameters."},
         404: {"detail": "Assignment or question not found."},
@@ -320,56 +330,59 @@ async def remove_question(
     }
 )
 async def edit_question(
-        edit_question_request: EditQuestionRequest = Body(...),
-        user_meta: UserToken = Depends(user_from_auth),
+        # Path parameters
+        assignment_id: str = Path(..., description="Identifier of the assignment."),
+        question_index: int = Path(..., description="Index of the question to edit.", ge=0),
+        # Query parameters
+        semester: str = Query(..., description="Semester of the course."),
+        course_id: str = Query(..., description="Identifier of the course."),
+        # Request body
+        edit_request: EditQuestionRequest = Body(...), # Contains the updated Question object
+        # Dependencies
+        blob_uploader: AzureBlobService = Depends(check_course_auth),
 ):
-    blob_uploader = AzureBlobService.get_instance()
-    semester = edit_question_request.semester
-    course_id = edit_question_request.course_id
-    assignment_id = edit_question_request.assignment_id
-    question_index = edit_question_request.question_index
+    # Auth checked by dependency
+    if not blob_uploader.assignment_exists(semester, course_id, assignment_id):
+        raise HTTPException(status_code=404, detail="Assignment does not exist.")
 
-    # Auth Checks
-    if not blob_uploader.course_exists(semester, course_id): raise HTTPException(status_code=404, detail="Course does not exist.")
-    user = blob_uploader.get_user(user_meta.user_email)
-    if not user or (semester, course_id) not in user.authenticated_courses: raise HTTPException(status_code=403, detail="User not found or access not allowed.")
-    if not blob_uploader.assignment_exists(semester, course_id, assignment_id): raise HTTPException(status_code=404, detail="Assignment does not exist.")
+    # --- Validation ---
+    # Ensure the index in the path matches the index in the payload
+    if edit_request.question.question_index != question_index:
+        logger.warning(f"Index mismatch in edit request: Path={question_index}, Payload={edit_request.question.question_index}")
+        raise HTTPException(status_code=400, detail="Question index in request body must match the index in the URL path.")
+
+    # Check if the question index actually exists for this assignment
+    if not blob_uploader.question_exists(semester, course_id, assignment_id, question_index): # Assuming question_exists method
+         logger.warning(f"Attempt to edit non-existent question index {question_index} in {assignment_id}")
+         raise HTTPException(status_code=404, detail=f"Question with index {question_index} does not exist.")
+    # --- End Validation ---
 
     try:
-        # Check if question index is valid
-        num_questions = blob_uploader.count_questions(semester, course_id, assignment_id)
-        if question_index < 0 or question_index >= num_questions:
-            logger.warning(f"Invalid question index {question_index} for edit in {semester}/{course_id}/{assignment_id}. Total questions: {num_questions}")
-            raise HTTPException(status_code=404, detail=f"Question with index {question_index} does not exist.")
+        # Prepare question object for upload (already validated)
+        question_to_upload = edit_request.question
 
-        # Prepare question object for upload
-        question_to_upload = edit_question_request.question
-        if hasattr(question_to_upload, 'question_index'):
-            question_to_upload.question_index = question_index
-
-        # Update the question metadata
+        # Update the question metadata - Use the index from the path/payload
         blob_uploader.upload_question_metadata(
-            semester, course_id, assignment_id, question_index, question_to_upload
+            semester, course_id, assignment_id,
+            question_index, # Use the validated index
+            question_to_upload
         )
         logger.info(f"Edited question index {question_index} in {semester}/{course_id}/{assignment_id}")
 
         # Return the updated question object
-        # It might be safer to refetch the question data after upload if upload doesn't return it
-        # updated_question = blob_uploader.get_question_metadata(semester, course_id, assignment_id, question_index) # If such a function exists
-        # return updated_question
-        return question_to_upload # Return the object that was sent for upload
+        return question_to_upload
 
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
-        logger.exception(f"Failed to edit question {question_index} in {semester}/{course_id}/{assignment_id}: {e}")
+        logger.exception(f"Failed to edit question {question_index}: {e}")
         raise HTTPException(status_code=500, detail="Failed to edit question.")
 
 
-@router.patch(
-    "/assignment/modify_order",
+@router.patch( # Stays PATCH as it modifies the order property of the assignment
+    "/assignments/{assignment_id}/questions/order", # More specific path
     summary="Modify Question Order",
-    description="Modifies the order of questions in an assignment.",
+    description="Modifies the order of questions in an assignment based on original indices.",
     responses={
         200: {"description": "Order updated successfully", "content": {"application/json": {"example": {"detail": "Question order updated successfully"}}}},
         400: {"detail": "Missing, invalid parameters or index mismatch."},
@@ -379,46 +392,58 @@ async def edit_question(
     }
 )
 async def modify_order(
+        # Path parameters
+        assignment_id: str = Path(..., description="Identifier of the assignment."),
+        # Query parameters
+        semester: str = Query(..., description="Semester of the course."),
+        course_id: str = Query(..., description="Identifier of the course."),
+        # Request body
         reorder_request: ModifyOrderRequest = Body(...),
-        user_meta: UserToken = Depends(user_from_auth),
+        # Dependencies
+        blob_uploader: AzureBlobService = Depends(check_course_auth),
 ):
-    blob_uploader = AzureBlobService.get_instance()
-    semester = reorder_request.semester
-    course_id = reorder_request.course_id
-    assignment_id = reorder_request.assignment_id
+    # Auth checked by dependency
+    if not blob_uploader.assignment_exists(semester, course_id, assignment_id):
+        raise HTTPException(status_code=404, detail="Assignment does not exist.")
+
     new_order = reorder_request.list_of_question_indexes
 
-    # Auth Checks
-    if not blob_uploader.course_exists(semester, course_id): raise HTTPException(status_code=404, detail="Course does not exist.")
-    user = blob_uploader.get_user(user_meta.user_email)
-    if not user or (semester, course_id) not in user.authenticated_courses: raise HTTPException(status_code=403, detail="User not found or access not allowed.")
-    if not blob_uploader.assignment_exists(semester, course_id, assignment_id): raise HTTPException(status_code=404, detail="Assignment does not exist.")
-
     try:
-        # Validate the new order list
-        num_questions = blob_uploader.count_questions(semester, course_id, assignment_id)
-        if num_questions != len(new_order):
-            logger.warning(f"Order modification length mismatch for {semester}/{course_id}/{assignment_id}. Expected {num_questions}, got {len(new_order)}")
-            raise HTTPException(status_code=400, detail="Number of indexes in list must match the current number of questions.")
-        if sorted(new_order) != list(range(num_questions)):
-            logger.warning(f"Invalid index permutation for order modification in {semester}/{course_id}/{assignment_id}. Received: {new_order}")
-            raise HTTPException(status_code=400, detail="List of indexes must be a valid permutation of existing question indices (0 to N-1).")
+        # Validate the new order list against existing questions
+        # Ensure count_questions and list_questions provide reliable info
+        current_questions = blob_uploader.list_questions(semester, course_id, assignment_id)
+        current_indices = sorted([q.question_index for q in current_questions]) # Get existing indices
 
-        # Reorder questions
+        num_questions = len(current_indices)
+
+        if num_questions != len(new_order):
+            logger.warning(f"Order modification length mismatch for {assignment_id}. Expected {num_questions}, got {len(new_order)}")
+            raise HTTPException(status_code=400, detail="Number of indexes in list must match the current number of questions.")
+
+        # Check if the submitted list contains exactly the same set of indices as currently exist
+        if set(new_order) != set(current_indices):
+            logger.warning(f"Invalid index set for order modification in {assignment_id}. Expected indices: {current_indices}, Received: {new_order}")
+            raise HTTPException(status_code=400, detail="List of indexes must contain exactly the same indexes as the existing questions.")
+
+        # Reorder questions - This function needs careful implementation in AzureBlobService
+        # It should likely fetch all questions, reassign their question_index based on the new order,
+        # and re-save/rename them.
         blob_uploader.reorder_questions(semester, course_id, assignment_id, new_order)
-        logger.info(f"Reordered questions for {semester}/{course_id}/{assignment_id} to: {new_order}")
+        logger.info(f"Reordered questions for {semester}/{course_id}/{assignment_id} according to original indices: {new_order}")
 
         return {"detail":  "Question order updated successfully"}
     except HTTPException as http_exc:
         raise http_exc
+    except NotImplementedError:
+        logger.error(f"Question reordering is not implemented in AzureBlobService for {assignment_id}.")
+        raise HTTPException(status_code=501, detail="Question reordering functionality is not implemented.")
     except Exception as e:
-        logger.exception(f"Failed to modify question order for {semester}/{course_id}/{assignment_id}: {e}")
+        logger.exception(f"Failed to modify question order for {assignment_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to modify question order.")
 
 
-# === NEW METADATA UPDATE ENDPOINT ===
 @router.patch(
-    "/assignments/{assignment_id}", # Use Path parameter for ID
+    "/assignments/{assignment_id}", # Existing endpoint
     response_model=Assignment,
     summary="Update Assignment Metadata",
     description="Updates top-level assignment details like guidelines.",
@@ -435,97 +460,53 @@ async def update_assignment_metadata(
     course_id: str = Query(..., description="Identifier of the course."),
     assignment_id: str = Path(..., description="Identifier of the assignment to update."),
     include_questions_in_response: bool = Query(True, description="Whether to include questions in the response."),
-    user_meta: UserToken = Depends(user_from_auth),
+    blob_uploader: AzureBlobService = Depends(check_course_auth), # Use dependency
 ):
-    """
-    Handles PATCH requests to update assignment metadata (e.g., guidelines).
-    """
-    logger.debug(f"Received PATCH request for /assignments/{assignment_id} with payload: {payload.model_dump()}") # Pydantic v2+
-    # logger.debug(f"Received PATCH request for /assignments/{assignment_id} with payload: {payload.dict()}") # Pydantic v1
-
-    # Basic validation
-    try:
-        semester = Course.validate_semester(semester)
-        course_id = Course.normalize_lowercase(course_id)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    blob_uploader = AzureBlobService.get_instance()
-
-    # --- Authentication & Authorization ---
-    if not blob_uploader.course_exists(semester, course_id):
-        logger.warning(f"Course not found: {semester}/{course_id} for PATCH /assignments/{assignment_id}")
-        raise HTTPException(status_code=404, detail="Course does not exist.")
-
-    user = blob_uploader.get_user(user_meta.user_email)
-    if not user:
-        logger.error(f"User not found in store: {user_meta.user_email} for PATCH /assignments/{assignment_id}")
-        raise HTTPException(status_code=403, detail="User data not found.")
-    if (semester, course_id) not in user.authenticated_courses:
-        logger.warning(f"User {user_meta.user_email} forbidden access for PATCH /assignments/{assignment_id} on {semester}/{course_id}")
-        raise HTTPException(status_code=403, detail="Authenticated but access to this course is not allowed.")
-
+    """ Handles PATCH requests to update assignment metadata (e.g., guidelines). """
+    # Auth checked by dependency
     if not blob_uploader.assignment_exists(semester, course_id, assignment_id):
-        logger.warning(f"Assignment not found: {semester}/{course_id}/{assignment_id} for PATCH")
         raise HTTPException(status_code=404, detail="Assignment does not exist.")
-    # --- End Auth/Authz ---
 
     try:
         # Get current data
         current_assignment = blob_uploader.get_assignment_metadata(semester, course_id, assignment_id)
         if not current_assignment:
-             logger.error(f"Assignment existed but failed to retrieve metadata: {semester}/{course_id}/{assignment_id}")
              raise HTTPException(status_code=404, detail="Assignment metadata could not be retrieved for update.")
 
-        updated = False
-        # Apply updates ONLY if field is present in payload and different
-        # Use model_dump(exclude_unset=True) to check only provided fields in Pydantic v2+
-        payload_data = payload.model_dump(exclude_unset=True)
-        # payload_data = payload.dict(exclude_unset=True) # Use this for Pydantic v1
+        update_data = payload.model_dump(exclude_unset=True) # Get only fields provided in payload
+        updated_assignment = current_assignment.model_copy(update=update_data) # Create updated copy (Pydantic v2+)
+        # updated_assignment = current_assignment.copy(update=update_data) # Pydantic v1
 
-        if 'assignment_guidelines' in payload_data:
-            # Check if value is actually different before marking as updated
-            if current_assignment.assignment_guidelines != payload_data['assignment_guidelines']:
-                logger.info(f"Updating guidelines for assignment {assignment_id}")
-                current_assignment.assignment_guidelines = payload_data['assignment_guidelines']
-                updated = True
-
-        # Add similar checks for other potential fields like assignment_name
-        # if 'assignment_name' in payload_data:
-        #     if current_assignment.assignment_name != payload_data['assignment_name']:
-        #         logger.info(f"Updating name for assignment {assignment_id}")
-        #         current_assignment.assignment_name = payload_data['assignment_name']
-        #         updated = True
-
-        if updated:
-            logger.info(f"Saving updated metadata for assignment {assignment_id} in {semester}/{course_id}")
-            blob_uploader.upload_assignment_metadata(current_assignment) # Overwrite/update the metadata file
+        # Check if anything actually changed
+        if current_assignment == updated_assignment:
+             logger.info(f"No actual metadata changes detected for assignment {assignment_id}")
         else:
-            logger.info(f"No metadata changes submitted or detected for assignment {assignment_id} in {semester}/{course_id}")
+            logger.info(f"Saving updated metadata for assignment {assignment_id}")
+            blob_uploader.upload_assignment_metadata(updated_assignment) # Overwrite/update
 
         # Return the potentially updated assignment object
         # Fetch fresh data again to ensure response reflects saved state
         final_assignment = blob_uploader.get_assignment_metadata(semester, course_id, assignment_id)
         if not final_assignment:
-             logger.error(f"Failed to retrieve final assignment metadata after potential update: {semester}/{course_id}/{assignment_id}")
              raise HTTPException(status_code=500, detail="Failed to retrieve updated assignment details.")
 
+        # Populate questions if requested (ensure list_questions returns index)
         if include_questions_in_response:
             final_assignment.questions = blob_uploader.list_questions(semester, course_id, assignment_id)
         else:
-            final_assignment.questions = None # Explicitly clear if not requested
+            final_assignment.questions = [] # Return empty list or None? Consistent response is good.
+
         return final_assignment
 
     except HTTPException as http_exc:
-        raise http_exc # Re-raise FastAPI's expected exceptions
+        raise http_exc
     except Exception as e:
-        logger.exception(f"Unexpected error updating assignment metadata for {semester}/{course_id}/{assignment_id}: {e}")
+        logger.exception(f"Unexpected error updating assignment metadata: {e}")
         raise HTTPException(status_code=500, detail="An internal server error occurred while updating assignment metadata.")
-# === END NEW METADATA UPDATE ENDPOINT ===
 
 
 @router.get(
-    "/assignment",
+    "/assignments/{assignment_id}", # Use path parameter
     response_model=Assignment,
     summary="Get Assignment",
     description="Retrieves a specific assignment by course and assignment ID.",
@@ -536,44 +517,38 @@ async def update_assignment_metadata(
     }
 )
 async def get_assignment(
+        # Path parameter
+        assignment_id: str = Path(..., description="Identifier of the assignment."),
+        # Query parameters
         semester: str = Query(..., description="Semester of the course."),
         course_id: str = Query(..., description="Identifier of the course."),
-        assignment_id: str = Query(..., description="Identifier of the assignment."),
         include_questions: bool = Query(True, description="Whether to include questions in the response."),
-        user_meta: UserToken = Depends(user_from_auth),
+        # Dependencies
+        blob_uploader: AzureBlobService = Depends(check_course_auth),
 ):
-    # Validate params
-    try:
-        semester = Course.validate_semester(semester)
-        course_id = Course.normalize_lowercase(course_id)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    blob_uploader = AzureBlobService.get_instance()
-
-    # Auth Checks
-    if not blob_uploader.course_exists(semester, course_id): raise HTTPException(status_code=404, detail="Course does not exist.")
-    user = blob_uploader.get_user(user_meta.user_email)
-    if not user or (semester, course_id) not in user.authenticated_courses: raise HTTPException(status_code=403, detail="User not found or access not allowed.")
-    if not blob_uploader.assignment_exists(semester, course_id, assignment_id): raise HTTPException(status_code=404, detail="Assignment does not exist.")
+    # Auth checked by dependency
+    if not blob_uploader.assignment_exists(semester, course_id, assignment_id):
+        raise HTTPException(status_code=404, detail="Assignment does not exist.")
 
     try:
         # Get assignment metadata
         assignment = blob_uploader.get_assignment_metadata(semester, course_id, assignment_id)
         if not assignment:
-            logger.error(f"Assignment existed but failed to get metadata: {semester}/{course_id}/{assignment_id}")
-            raise HTTPException(status_code=404, detail="Assignment metadata could not be retrieved.")
+             # This case should ideally be caught by assignment_exists, but double-check
+             raise HTTPException(status_code=404, detail="Assignment metadata could not be retrieved.")
 
+        # Fetch questions (which should include index) if requested
         if include_questions:
             assignment.questions = blob_uploader.list_questions(semester, course_id, assignment_id)
+            logger.debug(f"Retrieved {len(assignment.questions)} questions for assignment {assignment_id}")
         else:
-            assignment.questions = None # Explicitly set if not included
+            assignment.questions = [] # Return empty list if not included
 
         return assignment
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
-        logger.exception(f"Failed to get assignment {semester}/{course_id}/{assignment_id}: {e}")
+        logger.exception(f"Failed to get assignment {assignment_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve assignment details.")
 
 
@@ -589,41 +564,33 @@ async def get_assignment(
     }
 )
 async def list_assignments(
+        # Query parameters
         semester: str = Query(..., description="Semester of the course."),
         course_id: str = Query(..., description="Identifier of the course."),
-        include_questions: bool = Query(True, description="Whether to include questions in the response."),
-        user_meta: UserToken = Depends(user_from_auth),
+        include_questions: bool = Query(False, description="Whether to include questions details for each assignment."), # Default False for list view efficiency
+        # Dependencies
+        blob_uploader: AzureBlobService = Depends(check_course_auth),
 ):
-    # Validate params
+    # Auth checked by dependency
     try:
-        semester = Course.validate_semester(semester)
-        course_id = Course.normalize_lowercase(course_id)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    blob_uploader = AzureBlobService.get_instance()
-
-    # Auth Checks
-    if not blob_uploader.course_exists(semester, course_id): raise HTTPException(status_code=404, detail="Course does not exist.")
-    user = blob_uploader.get_user(user_meta.user_email)
-    if not user or (semester, course_id) not in user.authenticated_courses: raise HTTPException(status_code=403, detail="User not found or access not allowed.")
-
-    try:
-        # Get all assignments for the course
+        # Get all assignment metadata objects
         assignments = blob_uploader.list_assignments(semester, course_id)
+        logger.info(f"Found {len(assignments)} assignments for {semester}/{course_id}")
 
-        # For each assignment, get its questions if requested
+        # If questions requested, fetch them for each assignment
         if include_questions:
+            logger.info(f"Fetching questions for {len(assignments)} assignments...")
             for assignment in assignments:
-                # Ensure assignment_id exists before trying to list questions
                 if hasattr(assignment, 'assignment_id') and assignment.assignment_id is not None:
+                     # Ensure list_questions returns questions with index
                      assignment.questions = blob_uploader.list_questions(semester, course_id, assignment.assignment_id)
                 else:
-                     assignment.questions = [] # Assign empty list if ID is missing
-                     logger.warning(f"Assignment object missing ID when listing questions for {semester}/{course_id}: {assignment}")
+                     assignment.questions = []
+                     logger.warning(f"Assignment object missing ID when listing questions: {assignment}")
         else:
+            # Explicitly set questions to empty list if not included
             for assignment in assignments:
-                assignment.questions = None # Explicitly set to None
+                 assignment.questions = []
 
         return assignments
     except Exception as e:
@@ -632,9 +599,10 @@ async def list_assignments(
 
 
 @router.delete(
-    "/assignment",
+    "/assignments/{assignment_id}", # Use path parameter
     summary="Delete Assignment",
-    description="Deletes a specified assignment.",
+    status_code=200, # Or 204 No Content
+    description="Deletes a specified assignment and all its contents.",
     responses={
         200: {"description": "Assignment deleted successfully", "content": {"application/json": {"example": {"detail": "Assignment deleted successfully"}}}},
         404: {"detail": "Assignment or Course not found."},
@@ -643,32 +611,24 @@ async def list_assignments(
     }
 )
 async def delete_assignment(
+        # Path parameter
+        assignment_id: str = Path(..., description="Identifier of the assignment to delete."),
+        # Query parameters
         semester: str = Query(..., description="Semester of the course."),
         course_id: str = Query(..., description="Identifier of the course."),
-        assignment_id: str = Query(..., description="Identifier of the assignment to delete."),
-        user_meta: UserToken = Depends(user_from_auth),
+        # Dependencies
+        blob_uploader: AzureBlobService = Depends(check_course_auth),
 ):
-    # Validate params
-    try:
-        semester = Course.validate_semester(semester)
-        course_id = Course.normalize_lowercase(course_id)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    blob_uploader = AzureBlobService.get_instance()
-
-    # Auth Checks
-    if not blob_uploader.course_exists(semester, course_id): raise HTTPException(status_code=404, detail="Course does not exist.")
-    user = blob_uploader.get_user(user_meta.user_email)
-    if not user or (semester, course_id) not in user.authenticated_courses: raise HTTPException(status_code=403, detail="User not found or access not allowed.")
-    if not blob_uploader.assignment_exists(semester, course_id, assignment_id): raise HTTPException(status_code=404, detail="Assignment does not exist.")
+    # Auth checked by dependency
+    if not blob_uploader.assignment_exists(semester, course_id, assignment_id):
+        raise HTTPException(status_code=404, detail="Assignment does not exist.")
 
     try:
-        # Delete assignment
+        # Delete assignment - This should handle deleting questions, responses etc. within AzureBlobService
         blob_uploader.delete_assignment(semester, course_id, assignment_id)
         logger.info(f"Deleted assignment {semester}/{course_id}/{assignment_id}")
 
         return {"detail":  "Assignment deleted successfully"}
     except Exception as e:
-        logger.exception(f"Failed to delete assignment {semester}/{course_id}/{assignment_id}: {e}")
+        logger.exception(f"Failed to delete assignment {assignment_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to delete assignment.")

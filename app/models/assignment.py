@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class Question(BaseModel):
+    question_index: int = Field(..., description="The 0-based index of the question within the assignment.")
     question_text: str = Field(..., description="The text of the question.")
     question_graphics_figures: Optional[str] = Field(
         None,

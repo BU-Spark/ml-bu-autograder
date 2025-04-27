@@ -1,0 +1,23 @@
+{
+    "semester": "summer2025",
+    "course_id": "met404",
+    "assignment_id": "21",
+    "grading_flags": [],
+    "leniency": 3,
+    "overall_instructor_guidelines": "",
+    "sub_rubrics": [
+        {
+            "question_index": 0,
+            "max_points": 10.0,
+            "leniency": 2,
+            "instructor_guideline": "hello",
+            "grading_criteria": [
+                {
+                    "criteria_id": "coding",
+                    "criteria": "test",
+                    "points": 10.0
+                }
+            ]
+        }
+    ]
+}

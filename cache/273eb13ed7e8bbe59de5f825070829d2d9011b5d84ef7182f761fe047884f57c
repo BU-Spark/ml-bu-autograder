@@ -1,0 +1,13 @@
+{
+    "question_index": 0,
+    "max_points": 10.0,
+    "leniency": null,
+    "instructor_guideline": "",
+    "grading_criteria": [
+        {
+            "criteria_id": "code correctness",
+            "criteria": "must not have any criteria errors",
+            "points": 10.0
+        }
+    ]
+}

@@ -1,0 +1,13 @@
+{
+    "question_index": 0,
+    "max_points": 5.0,
+    "leniency": 3,
+    "instructor_guideline": "",
+    "grading_criteria": [
+        {
+            "criteria_id": "code correctness",
+            "criteria": "check if syntax is correct",
+            "points": 5.0
+        }
+    ]
+}
