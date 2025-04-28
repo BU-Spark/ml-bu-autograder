@@ -373,14 +373,17 @@ export default function CourseMaterials() {
 
   // Helper to get icon based on data_type (extension string)
   const getFileIcon = (extension) => {
-    const extLower = extension?.toLowerCase() ?? '';
+    // Ensure extension is treated as a string before calling toLowerCase
+    // Default to empty string if not a string or is null/undefined
+    const extLower = (typeof extension === 'string') ? extension.toLowerCase() : '';
+
     switch (extLower) {
       case 'pdf': return <PdfIcon fontSize="inherit" color="error" />;
       case 'doc': case 'docx': return <DocIcon fontSize="inherit" color="primary" />;
       case 'ppt': case 'pptx': return <SlideIcon fontSize="inherit" color="warning" />;
       case 'txt': return <FileIcon fontSize="inherit" color="info" />;
       case 'zip': return <ZipIcon fontSize="inherit" color="action" />;
-      default: return <GenericFileIcon fontSize="inherit" />;
+      default: return <GenericFileIcon fontSize="inherit" />; // Handles empty string '' too
     }
   };
 
@@ -427,7 +430,20 @@ export default function CourseMaterials() {
                   <Tooltip title={material.material_name || '(No Name)'}>
                       <Typography variant="h6" component="h2" align="center" noWrap gutterBottom> {material.material_name || '(No Name)'} </Typography>
                   </Tooltip>
-                  <Chip label={(material.data?.data_type || 'unknown').replace('.', '').toUpperCase()} size="small" variant="outlined" sx={{ mb: 1 }} />
+                  <Chip
+  label={
+    // Ensure we operate on a string before replacing/uppercasing
+    (typeof material.data?.data_type === 'string'
+      ? material.data.data_type // Use it if it's a string
+      : 'unknown' // Otherwise default to 'unknown'
+    )
+      .replace('.', '') // Now this is safe, removes potential leading dot
+      .toUpperCase() // Make it uppercase
+  }
+  size="small"
+  variant="outlined"
+  sx={{ mb: 1 }}
+/>
                   {material.additional_notes && (
                       <Tooltip title={<Typography sx={{ whiteSpace: 'pre-wrap' }}>{material.additional_notes}</Typography>}>
                          <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 1, height: '40px', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>

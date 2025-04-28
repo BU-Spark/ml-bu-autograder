@@ -3,18 +3,18 @@
  * Create, edit, and apply grading rubrics
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react'; // Added useMemo
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import {
   Alert,
-  Avatar,
+  // Avatar, // Removed unused
   Box,
   Button,
-  Card,
-  CardActionArea,
-  CardActions,
-  CardContent,
+  Card, // Keep for potential future use? User had it.
+  // CardActionArea, // Removed unused
+  // CardActions, // Removed unused
+  // CardContent, // Removed unused
   Chip,
   CircularProgress,
   Dialog,
@@ -32,7 +32,7 @@ import {
   MenuItem,
   Paper,
   Select,
-  Slider,
+  // Slider, // Removed - Leniency not in Pydantic model
   Snackbar,
   Switch,
   Tab,
@@ -41,7 +41,7 @@ import {
   Tooltip,
   Typography,
   Link as MuiLink,
-  useTheme, // Keep the import
+  useTheme, // Re-added
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import {
@@ -52,42 +52,33 @@ import {
   Lightbulb as LightbulbIcon,
   Save as SaveIcon,
   Assignment as AssignmentIcon,
-  RuleFolder as RubricIcon,
-  HelpOutline as HelpIcon,
-  Info as InfoIcon,
+  // RuleFolder as RubricIcon, // Removed unused
+  // HelpOutline as HelpIcon, // Removed unused
+  Info as InfoIcon, // Keep for mismatch icon
   PlaylistAddCheck as CriteriaIcon,
+  WarningAmber as WarningIcon, // Added for mismatch warning
 } from '@mui/icons-material';
 // Assuming api.js is correctly imported
 import { assignmentService, rubricService } from '../../../api'; // Adjust path if needed
-import CardSkeleton from '../../../components/CardSkeleton'; // Assuming exists
+// import { ERROR_MESSAGES } from '../../../api/config'; // Removed this import
+// import CardSkeleton from '../../../components/CardSkeleton'; // Assuming exists - Keep if needed
 import AISuggestionCard from '../../../components/AISuggestionCard'; // Assuming exists
 import ConfirmationDialog from '../../../components/ConfirmationDialog'; // Assuming exists
+// Removed logger import
 
 // Styled components - These need 'theme'
-const AssignmentSelectionCard = styled(Card)(({ theme, selected }) => ({
-  height: '100%',
-  display: 'flex',
-  flexDirection: 'column',
-  border: selected ? `2px solid ${theme.palette.primary.main}` : `1px solid ${theme.palette.divider}`,
-  transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out, border 0.2s ease-in-out',
-  cursor: 'pointer',
-  '&:hover': {
-    transform: 'translateY(-4px)',
-    boxShadow: theme.shadows[4],
-  },
-}));
-
 const RubricSection = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(3),
   marginBottom: theme.spacing(3),
   border: `1px solid ${theme.palette.divider}`,
+  borderRadius: theme.shape.borderRadius, // Added for consistency
 }));
 
 const CriteriaCard = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(2),
   marginBottom: theme.spacing(2),
-  borderLeft: `4px solid ${theme.palette.primary.light}`,
-  backgroundColor: theme.palette.background.default,
+  borderLeft: `4px solid ${theme.palette.info.light}`, // Adjusted color
+  backgroundColor: theme.palette.background.paper, // Use paper bg
   '&:last-child': {
     marginBottom: 0,
   },
@@ -104,12 +95,13 @@ const TabPanel = (props) => {
       aria-labelledby={`rubric-tab-${index}`}
       {...other}
     >
+      {/* Render content only when the tab is active */}
       {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
     </div>
   );
 };
 
-// Grading flags definition
+// Grading flags definition (aligned with Pydantic Enum)
 const GRADING_FLAGS_CONFIG = [
   { value: 'IGNORE_SPELLINGS', label: 'Ignore Spelling', description: 'AI ignores minor spelling mistakes during grading.' },
   { value: 'IGNORE_GRAMMAR', label: 'Ignore Grammar', description: 'AI ignores minor grammatical errors during grading.' },
@@ -120,23 +112,29 @@ const GRADING_FLAGS_CONFIG = [
 // Main component
 export default function RubricManagement() {
   const router = useRouter();
-  const theme = useTheme(); // <<<--- ADDED THIS LINE BACK
-  const { id: courseId, semester, assignmentId: assignmentIdParam } = router.query;
-  const selectedAssignmentId = typeof assignmentIdParam === 'string' ? assignmentIdParam : null;
+  const theme = useTheme(); // Re-added useTheme hook
+  const { id: courseIdParam, semester: semesterParam, assignmentId: assignmentIdParam } = router.query;
 
-  // State (rest of the state declarations)
+  // Normalize and memoize route parameters
+  const courseId = useMemo(() => typeof courseIdParam === 'string' ? courseIdParam.toLowerCase().trim() : null, [courseIdParam]);
+  const semester = useMemo(() => typeof semesterParam === 'string' ? semesterParam.toLowerCase().trim() : null, [semesterParam]);
+  const selectedAssignmentIdQuery = useMemo(() => typeof assignmentIdParam === 'string' ? assignmentIdParam : null, [assignmentIdParam]);
+
+  // State declarations
   const [assignments, setAssignments] = useState([]);
   const [selectedAssignment, setSelectedAssignment] = useState(null);
   const [rubric, setRubric] = useState(null);
+  const [rubricNotFound, setRubricNotFound] = useState(false);
   const [aiRubricSuggestion, setAiRubricSuggestion] = useState(null);
   const [loadingAssignments, setLoadingAssignments] = useState(true);
   const [loadingRubric, setLoadingRubric] = useState(false);
   const [loadingAI, setLoadingAI] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [saveError, setSaveError] = useState(null);
   const [tabValue, setTabValue] = useState(0);
   const [editMode, setEditMode] = useState(false);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(null);
   const [criteriaDialogOpen, setCriteriaDialogOpen] = useState(false);
   const [editingCriteriaIndex, setEditingCriteriaIndex] = useState(null);
   const [deleteCriteriaDialogOpen, setDeleteCriteriaDialogOpen] = useState(false);
@@ -150,287 +148,453 @@ export default function RubricManagement() {
 
   // --- Helper Functions ---
   const showAlert = useCallback((message, severity = 'success') => {
-    setAlertMessage(message);
-    setAlertSeverity(severity);
-    setAlertOpen(true);
+    setAlertMessage(message); setAlertSeverity(severity); setAlertOpen(true);
+    if (severity === 'error') console.error(`ALERT: ${message}`);
+    else if (severity === 'warning') console.warn(`ALERT: ${message}`);
+    else console.log(`ALERT: ${message}`);
   }, []);
 
   const formatApiError = useCallback((err, defaultMessage) => {
-    console.error("API Error:", err);
+    console.error("API Error Encountered:", err);
+    if (err instanceof Error && err.message && !err.response) {
+        if (err.isNotFoundError) return "The requested resource was not found (404).";
+        return err.message;
+    }
     if (err?.response?.data?.detail) {
-        if (Array.isArray(err.response.data.detail)) {
-            return err.response.data.detail.map(d => `${d.loc?.join('.') || 'error'}: ${d.msg}`).join('; ');
-        }
-        return String(err.response.data.detail);
+      if (Array.isArray(err.response.data.detail)) {
+        return err.response.data.detail
+           .map(d => `${d.loc?.slice(1).join('.') || 'Validation Error'}: ${d.msg}`)
+           .join('; ');
+      }
+      return String(err.response.data.detail);
     }
-    if (err?.message) {
-      return err.message;
-    }
-    return defaultMessage;
+    return defaultMessage || "An unexpected error occurred.";
   }, []);
 
-  function calculateTotalPoints(subRubric) {
-    return subRubric?.grading_criteria?.reduce((sum, c) => {
-        const points = parseFloat(String(c?.points));
-        return sum + (isNaN(points) ? 0 : points);
-    }, 0) ?? 0;
-  }
+  const calculateTotalPoints = useCallback((subRubric) => {
+    if (!Array.isArray(subRubric?.grading_criteria)) { return 0; }
+    return subRubric.grading_criteria.reduce((sum, c) => {
+      const points = parseFloat(String(c?.points));
+      return sum + (isNaN(points) || points < 0 ? 0 : points);
+    }, 0);
+  }, []);
 
+  // --- Creates an empty rubric structure matching Pydantic model ---
   const createEmptyRubric = useCallback((assignment) => {
-    if (!assignment || !semester || !courseId) {
-        console.error("Cannot create empty rubric: missing assignment, semester, or courseId");
-        return null;
+    if (!assignment?.assignment_id || !semester || !courseId) {
+      console.error("Cannot create empty rubric: missing context", { assignmentId: assignment?.assignment_id, semester, courseId });
+      return null;
     }
-    const currentAssignmentId = String(assignment.assignment_id);
-    const sortedQuestions = [...(assignment.questions || [])].sort((a,b) => (a.question_index ?? Infinity) - (b.question_index ?? Infinity));
+    const assignmentIdStr = String(assignment.assignment_id);
+    console.log(`Creating empty Pydantic-aligned rubric structure for assignment ${assignmentIdStr}`);
+
+    const sortedQuestions = (assignment.questions && Array.isArray(assignment.questions))
+      ? [...assignment.questions].sort((a, b) => (a.question_index ?? Infinity) - (b.question_index ?? Infinity))
+      : [];
+
     const subRubrics = sortedQuestions.map(question => ({
-        question_index: question.question_index,
-        max_points: 10,
-        instructor_guideline: '',
-        leniency: null,
-        grading_criteria: [],
+      question_index: question.question_index,
+      max_points: typeof question.max_points === 'number' ? question.max_points : 10.0,
+      instructor_guideline: null,
+      grading_criteria: [],
     }));
+
     return {
-        semester: semester,
-        course_id: courseId,
-        assignment_id: currentAssignmentId,
-        grading_flags: [],
-        leniency: 3,
-        overall_instructor_guidelines: '',
-        sub_rubrics: subRubrics,
+      semester: semester,
+      course_id: courseId,
+      assignment_id: assignmentIdStr,
+      grading_flags: [],
+      overall_instructor_guidelines: null,
+      sub_rubrics: subRubrics,
     };
-  }, [semester, courseId]);
+  }, [semester, courseId]); // Dependencies
 
 
   // --- Data Fetching ---
-  const fetchRubric = useCallback(async (assignment) => {
-    if (!semester || !courseId || !assignment?.assignment_id) {
-        console.warn("Cannot fetch rubric: Missing context or assignmentId.", { semester, courseId, assignment });
-        setRubric(createEmptyRubric(assignment)); setTabValue(0);
-        setCurrentQuestionIndex(assignment?.questions?.[0]?.question_index ?? 0);
-        setLoadingRubric(false); return;
+  const fetchRubric = useCallback(async (assignmentToFetch) => {
+    if (!semester || !courseId || !assignmentToFetch?.assignment_id) {
+      console.warn("fetchRubric skipped: Missing context.", { semester, courseId, assignmentId: assignmentToFetch?.assignment_id });
+      setRubric(null); setRubricNotFound(true); setLoadingRubric(false); setError(null); return;
     }
-    setLoadingRubric(true); setError(null);
-    const assignmentIdStr = String(assignment.assignment_id);
+
+    const assignmentIdStr = String(assignmentToFetch.assignment_id);
+    setLoadingRubric(true); setError(null); setSaveError(null); setRubricNotFound(false);
+    console.log(`Fetching rubric for assignment: ${assignmentIdStr}`);
+
     try {
-        const response = await rubricService.getRubric(semester, courseId, assignmentIdStr);
-        let fetchedRubricData = response.data; let completeRubric;
-        if (fetchedRubricData && typeof fetchedRubricData === 'object') {
-            if (typeof fetchedRubricData.assignment_id !== 'string') { fetchedRubricData.assignment_id = String(fetchedRubricData.assignment_id); }
-            completeRubric = { ...createEmptyRubric(assignment), ...fetchedRubricData };
-            const currentQuestionIndices = new Set(assignment.questions?.map(q => q.question_index) ?? []);
-            completeRubric.sub_rubrics = completeRubric.sub_rubrics?.filter(sr => currentQuestionIndices.has(sr.question_index)) ?? [];
-            assignment.questions?.forEach(q => { if (!completeRubric.sub_rubrics.some(sr => sr.question_index === q.question_index)) { completeRubric.sub_rubrics.push({ question_index: q.question_index, max_points: 10, leniency: null, instructor_guideline: '', grading_criteria: [] }); } });
-        } else { console.log(`No rubric/invalid data for assignment ${assignmentIdStr}. Creating empty.`); completeRubric = createEmptyRubric(assignment); }
-        completeRubric.sub_rubrics.sort((a, b) => (a.question_index ?? Infinity) - (b.question_index ?? Infinity));
-        setRubric(completeRubric); setAiRubricSuggestion(null); setTabValue(0);
-        setCurrentQuestionIndex(completeRubric.sub_rubrics[0]?.question_index ?? 0);
+      const response = await rubricService.getRubric(semester, courseId, assignmentIdStr);
+      const fetchedRubricData = response.data;
+      console.log("Fetched rubric data:", fetchedRubricData);
+
+      if (!fetchedRubricData || typeof fetchedRubricData !== 'object' || !fetchedRubricData.assignment_id) {
+        console.warn(`Invalid rubric data received for ${assignmentIdStr}. Treating as 404.`);
+        throw new Error("Not Found");
+      }
+
+      const baseRubric = createEmptyRubric(assignmentToFetch);
+      if (!baseRubric) throw new Error("Internal error: Failed to create base rubric.");
+
+      let completeRubric = {
+        ...baseRubric,
+        grading_flags: Array.isArray(fetchedRubricData.grading_flags) ? fetchedRubricData.grading_flags : [],
+        overall_instructor_guidelines: fetchedRubricData.overall_instructor_guidelines ?? null,
+      };
+
+      const fetchedSubRubricsMap = new Map((fetchedRubricData.sub_rubrics || []).map(sr => [sr.question_index, sr]));
+
+      completeRubric.sub_rubrics = baseRubric.sub_rubrics.map(baseSr => {
+        const fetchedSr = fetchedSubRubricsMap.get(baseSr.question_index);
+        if (fetchedSr) {
+          return {
+            ...baseSr,
+            max_points: typeof fetchedSr.max_points === 'number' ? fetchedSr.max_points : baseSr.max_points,
+            instructor_guideline: fetchedSr.instructor_guideline ?? null,
+            grading_criteria: Array.isArray(fetchedSr.grading_criteria)
+              ? fetchedSr.grading_criteria.map(c => ({
+                  criteria_id: c.criteria_id ?? '', criteria: c.criteria ?? '', points: typeof c.points === 'number' ? c.points : 0,
+                }))
+              : [],
+          };
+        }
+        return baseSr;
+      });
+
+      completeRubric.sub_rubrics.sort((a, b) => (a.question_index ?? Infinity) - (b.question_index ?? Infinity));
+
+      setRubric(completeRubric); setAiRubricSuggestion(null); setEditMode(false); setTabValue(0);
+      setCurrentQuestionIndex(completeRubric.sub_rubrics[0]?.question_index ?? null);
+
     } catch (err) {
-      console.error('Error fetching rubric:', err);
-       if (err.message?.includes('404') || err.message?.toLowerCase().includes('not found') || err?.response?.status === 404) { console.log(`No rubric found for assignment ${assignmentIdStr}. Creating empty.`); setRubric(createEmptyRubric(assignment)); setTabValue(0); setCurrentQuestionIndex(assignment?.questions?.[0]?.question_index ?? 0); }
-       else { const errorMsg = formatApiError(err, 'Failed to load rubric'); setError(errorMsg); showAlert(errorMsg, 'error'); setRubric(null); }
-    } finally { setLoadingRubric(false); }
+      const isNotFoundError = err?.isNotFoundError || err?.message === "Not Found";
+      if (isNotFoundError) {
+        console.log(`No rubric found for ${assignmentIdStr}. Initializing empty rubric.`);
+        const emptyRubric = createEmptyRubric(assignmentToFetch);
+        if (emptyRubric) {
+             setRubric(emptyRubric); setRubricNotFound(true); setEditMode(true); setTabValue(0);
+             setCurrentQuestionIndex(emptyRubric.sub_rubrics[0]?.question_index ?? null); setError(null);
+        } else {
+             console.error("Failed to create empty rubric after 404."); setError("Could not initialize new rubric."); setRubric(null);
+        }
+      } else {
+        console.error('Error fetching rubric:', err);
+        const errorMsg = formatApiError(err, 'Failed to load rubric'); setError(errorMsg); showAlert(errorMsg, 'error'); setRubric(null);
+      }
+    } finally {
+      setLoadingRubric(false);
+    }
   }, [semester, courseId, createEmptyRubric, showAlert, formatApiError]);
 
+
+  // --- Initial Data Load Effect ---
   useEffect(() => {
-    const fetchAssignmentsAndRubric = async () => {
-      if (!courseId || !semester) { setLoadingAssignments(false); setError("Course ID or Semester missing."); return; }
-      setLoadingAssignments(true); setLoadingRubric(true); setError(null); setRubric(null); setSelectedAssignment(null);
+    const fetchAssignmentsAndInitialRubric = async () => {
+      if (!courseId || !semester) { setLoadingAssignments(false); return; }
+      console.log(`Initial fetch effect: ${courseId}/${semester}, param=${selectedAssignmentIdQuery}`);
+      setLoadingAssignments(true); setLoadingRubric(false);
+      setError(null); setSaveError(null); setRubric(null); setRubricNotFound(false); setSelectedAssignment(null); setAssignments([]);
+      setAiRubricSuggestion(null); setEditMode(false); setTabValue(0); setCurrentQuestionIndex(null);
+
       try {
         const assignmentsResponse = await assignmentService.getAssignments(courseId, semester, true);
         const assignmentsData = assignmentsResponse?.data;
         if (!Array.isArray(assignmentsData)) throw new Error("Invalid assignment data.");
-        assignmentsData.sort((a,b) => String(a.assignment_id).localeCompare(String(b.assignment_id)));
+        assignmentsData.sort((a, b) => String(a.assignment_id).localeCompare(String(b.assignment_id)));
         setAssignments(assignmentsData);
-        let assignmentToSelect = null;
-        if (selectedAssignmentId !== null) {
-             assignmentToSelect = assignmentsData.find(a => String(a.assignment_id) === selectedAssignmentId);
-             if (!assignmentToSelect) { showAlert(`Assignment ID ${selectedAssignmentId} from URL not found. Loading first.`, 'warning'); assignmentToSelect = assignmentsData[0] ?? null; const firstId = assignmentsData[0]?.assignment_id; router.replace(`/course/${courseId}/rubrics?semester=${semester}${firstId ? `&assignmentId=${firstId}` : ''}`, undefined, { shallow: true }); }
-        } else {
-            assignmentToSelect = assignmentsData[0] ?? null;
-             if(assignmentToSelect) { router.replace(`/course/${courseId}/rubrics?semester=${semester}&assignmentId=${assignmentToSelect.assignment_id}`, undefined, { shallow: true }); }
-        }
-        if (assignmentToSelect) {
-             if(assignmentToSelect.questions) { assignmentToSelect.questions.sort((a, b) => (a.question_index ?? Infinity) - (b.question_index ?? Infinity)); }
-             setSelectedAssignment(assignmentToSelect);
-             await fetchRubric(assignmentToSelect);
-        } else { console.log("No assignments found."); setError("No assignments available."); setLoadingRubric(false); }
-      } catch (err) { console.error('Error fetching initial data:', err); const errorMsg = formatApiError(err, 'Failed loading data'); setError(errorMsg); showAlert(errorMsg, 'error'); setLoadingRubric(false); }
-      finally { setLoadingAssignments(false); }
+        console.log(`Fetched ${assignmentsData.length} assignments.`);
+
+        let assignmentToSelect = null; let targetAssignmentId = selectedAssignmentIdQuery;
+
+        if (assignmentsData.length > 0) {
+          if (targetAssignmentId) {
+            assignmentToSelect = assignmentsData.find(a => String(a.assignment_id) === targetAssignmentId);
+            if (!assignmentToSelect) {
+              showAlert(`Assignment ${targetAssignmentId} not found. Loading first.`, 'warning');
+              assignmentToSelect = assignmentsData[0]; targetAssignmentId = String(assignmentToSelect.assignment_id);
+              router.replace(`/course/${courseId}/rubrics?semester=${semester}&assignmentId=${targetAssignmentId}`, undefined, { shallow: true });
+            }
+          } else {
+            assignmentToSelect = assignmentsData[0]; targetAssignmentId = String(assignmentToSelect.assignment_id);
+            router.replace(`/course/${courseId}/rubrics?semester=${semester}&assignmentId=${targetAssignmentId}`, undefined, { shallow: true });
+          }
+
+          if (assignmentToSelect) {
+            if (!assignmentToSelect.questions || !Array.isArray(assignmentToSelect.questions)) assignmentToSelect.questions = [];
+            assignmentToSelect.questions.sort((a, b) => (a.question_index ?? Infinity) - (b.question_index ?? Infinity));
+            setSelectedAssignment(assignmentToSelect);
+            console.log(`Selected initial assignment: ${assignmentToSelect.assignment_id}`);
+            await fetchRubric(assignmentToSelect);
+          } else { console.error("Could not determine assignment to select."); setLoadingRubric(false); }
+        } else { console.warn("No assignments found."); setLoadingRubric(false); }
+
+      } catch (err) {
+        console.error('Error during initial load:', err);
+        const errorMsg = formatApiError(err, 'Failed loading initial data'); setError(errorMsg); showAlert(errorMsg, 'error');
+        setLoadingRubric(false); setLoadingAssignments(false);
+      } finally {
+        setLoadingAssignments(false);
+        console.log("Initial fetch effect finished.");
+      }
     };
-    fetchAssignmentsAndRubric();
-  }, [courseId, semester, selectedAssignmentId, formatApiError, showAlert, fetchRubric, router]);
+    if (courseId && semester) { fetchAssignmentsAndInitialRubric(); }
+     else { setLoadingAssignments(false); }
+  }, [courseId, semester, selectedAssignmentIdQuery, router, fetchRubric, formatApiError, showAlert]);
 
 
   // --- Event Handlers ---
   const handleSelectAssignment = useCallback((assignment) => {
-    const newAssignmentId = String(assignment?.assignment_id); const currentAssignmentId = String(selectedAssignment?.assignment_id);
-    if (!assignment || newAssignmentId === currentAssignmentId) return;
-    router.push(`/course/${courseId}/rubrics?semester=${semester}&assignmentId=${newAssignmentId}`, undefined, { shallow: true });
-    setTabValue(0); setEditMode(false); setAiRubricSuggestion(null); setRubric(null); setError(null);
-    setSelectedAssignment(assignment); setLoadingRubric(true);
-  }, [courseId, semester, selectedAssignment?.assignment_id, router]);
+    const newAssignmentIdStr = String(assignment?.assignment_id);
+    const currentAssignmentIdStr = String(selectedAssignment?.assignment_id);
+    if (!assignment || newAssignmentIdStr === currentAssignmentIdStr) return;
+    console.log(`Switching to assignment: ${newAssignmentIdStr}`);
+    if (!assignment.questions || !Array.isArray(assignment.questions)) assignment.questions = [];
+    assignment.questions.sort((a, b) => (a.question_index ?? Infinity) - (b.question_index ?? Infinity));
+    if (courseId && semester) router.push(`/course/${courseId}/rubrics?semester=${semester}&assignmentId=${newAssignmentIdStr}`, undefined, { shallow: true });
+    setSelectedAssignment(assignment); setRubric(null); setRubricNotFound(false); setAiRubricSuggestion(null);
+    setEditMode(false); setTabValue(0); setCurrentQuestionIndex(null); setError(null); setSaveError(null);
+    setLoadingRubric(true);
+    fetchRubric(assignment);
+  }, [courseId, semester, selectedAssignment?.assignment_id, router, fetchRubric]);
 
   const getAIRubricSuggestions = useCallback(async () => {
-    if (!selectedAssignment || !semester || !courseId) { showAlert("Select assignment.", "warning"); return; }
-    setLoadingAI(true);
+    if (!selectedAssignment || !semester || !courseId) { showAlert("Select assignment first.", "warning"); return; }
+    const assignmentIdStr = String(selectedAssignment.assignment_id);
+    console.log(`Requesting AI suggestions for ${assignmentIdStr}. Instructions: "${aiInstructions || 'None'}"`);
+    setLoadingAI(true); setError(null); setSaveError(null);
     try {
-      const response = await rubricService.getAIRubric( semester, courseId, String(selectedAssignment.assignment_id), aiInstructions || null );
+      const response = await rubricService.getAIRubric(semester, courseId, assignmentIdStr, aiInstructions || null);
       const aiRubricData = response?.data;
-      if (!aiRubricData || typeof aiRubricData !== 'object') throw new Error("Invalid AI response.");
+      if (!aiRubricData || typeof aiRubricData !== 'object' || !aiRubricData.assignment_id) throw new Error("Invalid AI response data.");
+      if (aiRubricData.semester !== semester || aiRubricData.course_id !== courseId || String(aiRubricData.assignment_id) !== assignmentIdStr) throw new Error("AI suggestion context mismatch.");
       setAiRubricSuggestion(aiRubricData); setAiInstructionsDialogOpen(false);
-      showAlert('AI suggestions generated!');
-    } catch (err) { const errorMsg = formatApiError(err, 'Failed AI suggestions'); showAlert(errorMsg, 'error'); }
+      showAlert('AI suggestions generated! Review below.', 'success');
+    } catch (err) { const errorMsg = formatApiError(err, 'Failed to get AI suggestions'); setError(errorMsg); showAlert(errorMsg, 'error'); }
     finally { setLoadingAI(false); }
   }, [selectedAssignment, semester, courseId, aiInstructions, showAlert, formatApiError]);
 
   const applyAIRubricSuggestions = useCallback(() => {
-    if (!aiRubricSuggestion) return;
-    if (aiRubricSuggestion.semester === semester && aiRubricSuggestion.course_id === courseId && String(aiRubricSuggestion.assignment_id) === String(selectedAssignment?.assignment_id)) {
-        const alignedRubric = { ...createEmptyRubric(selectedAssignment), ...aiRubricSuggestion };
-        alignedRubric.assignment_id = String(alignedRubric.assignment_id);
-        const currentQuestionIndices = new Set(selectedAssignment.questions?.map(q => q.question_index) ?? []);
-        alignedRubric.sub_rubrics = alignedRubric.sub_rubrics.filter(sr => currentQuestionIndices.has(sr.question_index));
-        selectedAssignment.questions?.forEach(q => { if (!alignedRubric.sub_rubrics.some(sr => sr.question_index === q.question_index)) { alignedRubric.sub_rubrics.push({ question_index: q.question_index, max_points: 10, leniency: null, instructor_guideline: '', grading_criteria: [] }); } });
-        alignedRubric.sub_rubrics.sort((a, b) => (a.question_index ?? Infinity) - (b.question_index ?? Infinity));
-        setRubric(alignedRubric); setAiRubricSuggestion(null); setEditMode(true);
-        showAlert('AI suggestions applied.', 'info');
-    } else { showAlert('Cannot apply: Identifiers mismatch.', 'error'); }
-  }, [aiRubricSuggestion, semester, courseId, selectedAssignment, showAlert, createEmptyRubric]);
+    if (!aiRubricSuggestion || !selectedAssignment) { console.warn("Apply AI suggestions cancelled: Missing suggestion or assignment context."); return; }
+    console.log("Applying AI suggestions...");
+    const baseRubric = createEmptyRubric(selectedAssignment);
+    if (!baseRubric) { showAlert("Internal error creating base rubric.", "error"); return; }
+    const alignedRubric = {
+      ...baseRubric,
+      grading_flags: Array.isArray(aiRubricSuggestion.grading_flags) ? aiRubricSuggestion.grading_flags : [],
+      overall_instructor_guidelines: aiRubricSuggestion.overall_instructor_guidelines ?? null,
+    };
+    const aiSubRubricsMap = new Map((aiRubricSuggestion.sub_rubrics || []).map(sr => [sr.question_index, sr]));
+    alignedRubric.sub_rubrics = baseRubric.sub_rubrics.map(baseSr => {
+      const aiSr = aiSubRubricsMap.get(baseSr.question_index);
+      if (aiSr) {
+        return { ...baseSr, max_points: typeof aiSr.max_points === 'number' ? aiSr.max_points : baseSr.max_points, instructor_guideline: aiSr.instructor_guideline ?? null,
+          grading_criteria: Array.isArray(aiSr.grading_criteria) ? aiSr.grading_criteria.map(c => ({ criteria_id: c.criteria_id ?? '', criteria: c.criteria ?? '', points: typeof c.points === 'number' ? c.points : 0 })) : [],
+        };
+      } return baseSr;
+    });
+    alignedRubric.sub_rubrics.sort((a, b) => (a.question_index ?? Infinity) - (b.question_index ?? Infinity));
+    setRubric(alignedRubric); setAiRubricSuggestion(null); setEditMode(true); setRubricNotFound(false); setTabValue(0);
+    setCurrentQuestionIndex(alignedRubric.sub_rubrics[0]?.question_index ?? null);
+    showAlert('AI suggestions applied. Review and save changes.', 'info');
+  }, [aiRubricSuggestion, selectedAssignment, createEmptyRubric, showAlert, semester, courseId]);
 
   const saveRubric = useCallback(async () => {
-    if (!rubric || !rubric.semester || !rubric.course_id || typeof rubric.assignment_id !== 'string') { showAlert("Cannot save: Missing identifiers.", "error"); return; }
-    let pointsMismatch = false; let mismatchDetails = [];
-    (rubric.sub_rubrics || []).forEach(sr => { const total = calculateTotalPoints(sr); if (total !== (sr.max_points ?? 0)) { pointsMismatch = true; mismatchDetails.push(`Q${sr.question_index + 1}`); } });
-    if (pointsMismatch) { showAlert(`Warning: Points mismatch for ${mismatchDetails.join(', ')}.`, "warning"); /* Optionally return */ }
-    setIsSaving(true);
+    if (!rubric || !rubric.semester || !rubric.course_id || !rubric.assignment_id) { showAlert("Cannot save: Rubric data incomplete.", "error"); return; }
+    if (!selectedAssignment || String(rubric.assignment_id) !== String(selectedAssignment.assignment_id)) { showAlert("Cannot save: Assignment mismatch.", "error"); setSaveError("Assignment mismatch"); return; }
+    console.log("Validating rubric before save...");
+    let pointsMismatch = false, mismatchDetails = [], invalidCriteria = false, invalidCriteriaDetails = [];
+    (rubric.sub_rubrics || []).forEach(sr => {
+      const qNum = sr.question_index + 1; const total = calculateTotalPoints(sr); const max = sr.max_points ?? 0;
+      if (Math.abs(total - max) > 0.001) { pointsMismatch = true; mismatchDetails.push(`Q${qNum}`); }
+      (sr.grading_criteria || []).forEach((c, i) => { if (!c.criteria_id?.trim() || !c.criteria?.trim() || !(typeof c.points === 'number' && c.points >= 0)) { invalidCriteria = true; invalidCriteriaDetails.push(`Q${qNum} Crit#${i+1}`); } });
+    });
+    if (invalidCriteria) { const msg = `Cannot save: Invalid criteria found (${invalidCriteriaDetails.join(', ')}). Check Title, Description, Points.`; showAlert(msg, "error"); setSaveError(msg); return; }
+    if (pointsMismatch) { showAlert(`Warning: Points mismatch for ${mismatchDetails.join(', ')}. Saving anyway.`, "warning"); }
+
+    setIsSaving(true); setError(null); setSaveError(null);
+    const payload = {
+        semester: rubric.semester, course_id: rubric.course_id, assignment_id: String(rubric.assignment_id),
+        grading_flags: rubric.grading_flags || [], overall_instructor_guidelines: rubric.overall_instructor_guidelines || null,
+        sub_rubrics: (rubric.sub_rubrics || []).map(sr => ({
+            question_index: sr.question_index, max_points: sr.max_points ?? 0, instructor_guideline: sr.instructor_guideline || null,
+            grading_criteria: (sr.grading_criteria || []).map(c => ({ criteria_id: c.criteria_id, criteria: c.criteria, points: c.points })),
+        })),
+    };
+    console.log("Sending payload to PUT /rubric:", payload);
     try {
-      await rubricService.createRubric(rubric); // API expects string ID
-      setEditMode(false); showAlert('Rubric saved.', 'success');
-      if(selectedAssignment) { await fetchRubric(selectedAssignment); }
-    } catch (err) { const errorMsg = formatApiError(err, 'Failed to save.'); showAlert(errorMsg, 'error'); }
+      await rubricService.createRubric(payload); console.log("Rubric saved.");
+      setEditMode(false); setRubricNotFound(false); showAlert('Rubric saved successfully.', 'success');
+      if(selectedAssignment) await fetchRubric(selectedAssignment);
+    } catch (err) { const errorMsg = formatApiError(err, 'Failed to save rubric.'); setSaveError(errorMsg); showAlert(errorMsg, 'error'); console.error("Save failed:", err); }
     finally { setIsSaving(false); }
-  }, [rubric, selectedAssignment, fetchRubric, showAlert, formatApiError]);
+  }, [rubric, selectedAssignment, fetchRubric, showAlert, formatApiError, calculateTotalPoints]);
 
 
-  const handleRubricSettingChange = useCallback((field, value) => { setRubric(prev => prev ? { ...prev, [field]: value } : null); }, []);
-  const handleSubRubricChange = useCallback((questionIndex, field, value) => { setRubric(prev => { if (!prev) return null; const newSubRubrics = prev.sub_rubrics.map(sr => sr.question_index === questionIndex ? { ...sr, [field]: value } : sr ); return { ...prev, sub_rubrics: newSubRubrics }; }); }, []);
-  const handleGradingFlagToggle = useCallback((flagValue) => { setRubric(prev => { if (!prev) return null; const currentFlags = prev.grading_flags || []; const updatedFlags = currentFlags.includes(flagValue) ? currentFlags.filter(f => f !== flagValue) : [...currentFlags, flagValue]; return { ...prev, grading_flags: updatedFlags }; }); }, []);
-  const handleTabChange = useCallback((event, newValue) => { setTabValue(newValue); if (newValue > 0 && rubric?.sub_rubrics?.[newValue - 1]) { setCurrentQuestionIndex(rubric.sub_rubrics[newValue - 1].question_index); } }, [rubric]);
+  // --- State Change Handlers ---
+  const handleRubricSettingChange = useCallback((field, value) => {
+      setRubric(prev => (prev ? { ...prev, [field]: value } : null));
+      setSaveError(null);
+  }, []);
+
+  const handleSubRubricChange = useCallback((questionIndex, field, value) => {
+     if (questionIndex === null || typeof questionIndex !== 'number') return;
+     setRubric(prev => {
+       if (!prev || !Array.isArray(prev.sub_rubrics)) return prev;
+       let found = false;
+       const newSubRubrics = prev.sub_rubrics.map(sr => {
+         if (sr.question_index === questionIndex) { found = true; return { ...sr, [field]: value }; }
+         return sr;
+       });
+       if (!found) console.warn(`SubRubric QIndex ${questionIndex} not found for update.`);
+       return found ? { ...prev, sub_rubrics: newSubRubrics } : prev;
+     });
+     setSaveError(null);
+   }, []);
+
+  const handleGradingFlagToggle = useCallback((flagValue) => {
+    setRubric(prev => {
+      if (!prev) return null;
+      const currentFlags = prev.grading_flags || [];
+      const updatedFlags = currentFlags.includes(flagValue) ? currentFlags.filter(f => f !== flagValue) : [...currentFlags, flagValue];
+      return { ...prev, grading_flags: updatedFlags };
+    });
+    setSaveError(null);
+  }, []);
+
+  const handleTabChange = useCallback((event, newValue) => {
+    setTabValue(newValue);
+    const targetQuestionIndex = newValue > 0 ? rubric?.sub_rubrics?.[newValue - 1]?.question_index : null;
+    setCurrentQuestionIndex(typeof targetQuestionIndex === 'number' ? targetQuestionIndex : null);
+    console.debug(`Tab changed to ${newValue}, currentQuestionIndex set to ${targetQuestionIndex ?? 'null'}`);
+  }, [rubric]);
 
   // --- Criteria Management ---
-  const openCriteriaDialog = (criteriaArrayIndex = null) => {
-      const targetSubRubric = rubric?.sub_rubrics.find(sr => sr.question_index === currentQuestionIndex);
-      if (!targetSubRubric) { showAlert("Sub-rubric not found.", "error"); return; }
-      if (criteriaArrayIndex !== null) {
-          const criteria = targetSubRubric.grading_criteria?.[criteriaArrayIndex];
-          if (criteria) { setCriteriaFormData({ criteria_id: criteria.criteria_id || '', criteria: criteria.criteria || '', points: criteria.points ?? 0, }); setEditingCriteriaIndex(criteriaArrayIndex); }
-          else { showAlert(`Criteria index ${criteriaArrayIndex} not found.`, "error"); return; }
-      } else { setCriteriaFormData({ criteria_id: '', criteria: '', points: 0 }); setEditingCriteriaIndex(null); }
-      setCriteriaDialogOpen(true);
-  };
+  const openCriteriaDialog = useCallback((criteriaArrayIndex = null) => {
+    if (currentQuestionIndex === null) { showAlert("Select a question tab first.", "warning"); return; }
+    const targetSubRubric = rubric?.sub_rubrics?.find(sr => sr.question_index === currentQuestionIndex);
+    if (!targetSubRubric) { showAlert("Cannot find data for current question.", "error"); return; }
+    setEditingCriteriaIndex(criteriaArrayIndex);
+    if (criteriaArrayIndex !== null) {
+      const criteria = targetSubRubric.grading_criteria?.[criteriaArrayIndex];
+      if (criteria) setCriteriaFormData({ criteria_id: criteria.criteria_id ?? '', criteria: criteria.criteria ?? '', points: criteria.points ?? 0 });
+      else { showAlert(`Criteria index ${criteriaArrayIndex} invalid.`, "error"); return; }
+    } else { setCriteriaFormData({ criteria_id: '', criteria: '', points: 0 }); }
+    setCriteriaDialogOpen(true);
+  }, [rubric, currentQuestionIndex, showAlert]);
 
-  const handleSaveCriteria = () => {
-      if (!criteriaFormData.criteria_id?.trim()) return showAlert('Criteria Title/ID required.', 'warning');
-      if (!criteriaFormData.criteria?.trim()) return showAlert('Criteria Description required.', 'warning');
-      if (criteriaFormData.points === '' || criteriaFormData.points === null || isNaN(parseFloat(criteriaFormData.points)) || parseFloat(criteriaFormData.points) < 0) return showAlert('Points must be >= 0.', 'warning');
-      const pointsValue = parseFloat(criteriaFormData.points); const newOrUpdatedCriteria = { criteria_id: criteriaFormData.criteria_id.trim(), criteria: criteriaFormData.criteria.trim(), points: pointsValue, };
-      const targetSubRubricArrayIndex = rubric?.sub_rubrics.findIndex(sr => sr.question_index === currentQuestionIndex);
-      if (targetSubRubricArrayIndex === -1 || targetSubRubricArrayIndex === undefined) { showAlert("Sub-rubric index not found.", "error"); return; }
-      setRubric(prev => {
-           if (!prev) return null; const newSubRubrics = [...prev.sub_rubrics]; const targetSubRubric = { ...(newSubRubrics[targetSubRubricArrayIndex] || {}) }; targetSubRubric.grading_criteria = [...(targetSubRubric.grading_criteria || [])];
-          if (editingCriteriaIndex !== null) { if (editingCriteriaIndex < targetSubRubric.grading_criteria.length) { targetSubRubric.grading_criteria[editingCriteriaIndex] = newOrUpdatedCriteria; } else { console.error("Edit index OOB!"); return prev; } }
-          else { targetSubRubric.grading_criteria.push(newOrUpdatedCriteria); }
-          newSubRubrics[targetSubRubricArrayIndex] = targetSubRubric; return { ...prev, sub_rubrics: newSubRubrics };
-      });
-      setCriteriaDialogOpen(false);
-  };
-
-   const openDeleteCriteriaDialog = (criteriaArrayIndex) => { if (typeof criteriaArrayIndex !== 'number' || criteriaArrayIndex < 0) return; setCriteriaToDelete({ criteriaArrayIndex }); setDeleteCriteriaDialogOpen(true); };
-
-  const handleDeleteCriteria = () => {
-    if (!rubric || !editMode || criteriaToDelete === null) return; const { criteriaArrayIndex } = criteriaToDelete; const targetSubRubricArrayIndex = rubric.sub_rubrics.findIndex(sr => sr.question_index === currentQuestionIndex);
-    if (targetSubRubricArrayIndex === -1 || targetSubRubricArrayIndex === undefined) { showAlert("Sub-rubric index not found.", "error"); setDeleteCriteriaDialogOpen(false); setCriteriaToDelete(null); return; }
+  const handleSaveCriteria = useCallback(() => {
+    if (currentQuestionIndex === null) { showAlert("No question selected.", "error"); return; }
+    const { criteria_id, criteria } = criteriaFormData; const pointsString = String(criteriaFormData.points).trim(); const pointsValue = parseFloat(pointsString);
+    if (!criteria_id?.trim()) { showAlert('Criteria Title/ID required.', 'warning'); return; }
+    if (!criteria?.trim()) { showAlert('Criteria Description required.', 'warning'); return; }
+    if (pointsString === '' || isNaN(pointsValue) || pointsValue < 0) { showAlert('Points must be number >= 0.', 'warning'); return; }
+    const newOrUpdatedCriteria = { criteria_id: criteria_id.trim(), criteria: criteria.trim(), points: pointsValue };
     setRubric(prev => {
-        if (!prev) return null; const newSubRubrics = [...prev.sub_rubrics]; const targetSubRubric = { ...(newSubRubrics[targetSubRubricArrayIndex] || {}) }; targetSubRubric.grading_criteria = [...(targetSubRubric.grading_criteria || [])];
-        if (criteriaArrayIndex < targetSubRubric.grading_criteria.length) { targetSubRubric.grading_criteria.splice(criteriaArrayIndex, 1); newSubRubrics[targetSubRubricArrayIndex] = targetSubRubric; return { ...prev, sub_rubrics: newSubRubrics }; }
-        else { console.error("Delete index OOB!"); return prev; }
+      if (!prev) return null;
+      const targetIdx = prev.sub_rubrics.findIndex(sr => sr.question_index === currentQuestionIndex); if (targetIdx === -1) return prev;
+      const newRubric = structuredClone(prev); const targetSr = newRubric.sub_rubrics[targetIdx];
+      if (!Array.isArray(targetSr.grading_criteria)) targetSr.grading_criteria = [];
+      if (editingCriteriaIndex !== null) { if (editingCriteriaIndex < targetSr.grading_criteria.length) targetSr.grading_criteria[editingCriteriaIndex] = newOrUpdatedCriteria; else { console.error("Edit index OOB!"); return prev; } }
+      else { targetSr.grading_criteria.push(newOrUpdatedCriteria); }
+      return newRubric;
     });
-    setDeleteCriteriaDialogOpen(false); setCriteriaToDelete(null);
-  };
+    setCriteriaDialogOpen(false); setEditingCriteriaIndex(null); setCriteriaFormData({ criteria_id: '', criteria: '', points: 0 }); setSaveError(null);
+  }, [criteriaFormData, currentQuestionIndex, editingCriteriaIndex, showAlert]);
 
-  const getQuestionText = useCallback((qIndex) => { const question = selectedAssignment?.questions?.find(q => q.question_index === qIndex); return question ? question.question_text : `Question Text (Index ${qIndex}) Not Found`; }, [selectedAssignment]);
+   const openDeleteCriteriaDialog = useCallback((criteriaArrayIndex) => {
+     if (currentQuestionIndex === null) { showAlert("Select question tab first.", "warning"); return; }
+     if (typeof criteriaArrayIndex !== 'number' || criteriaArrayIndex < 0) return;
+     const text = rubric?.sub_rubrics?.find(sr => sr.question_index === currentQuestionIndex)?.grading_criteria?.[criteriaArrayIndex]?.criteria_id || `Crit#${criteriaArrayIndex+1}`;
+     setCriteriaToDelete({ criteriaArrayIndex, text }); setDeleteCriteriaDialogOpen(true);
+   }, [rubric, currentQuestionIndex, showAlert]);
+
+  const handleDeleteCriteria = useCallback(() => {
+    if (!rubric || !editMode || criteriaToDelete === null || currentQuestionIndex === null) { setDeleteCriteriaDialogOpen(false); setCriteriaToDelete(null); return; }
+    const { criteriaArrayIndex } = criteriaToDelete;
+    setRubric(prev => {
+      if (!prev) return null; const targetIdx = prev.sub_rubrics.findIndex(sr => sr.question_index === currentQuestionIndex); if (targetIdx === -1) return prev;
+      const newRubric = structuredClone(prev); const targetSr = newRubric.sub_rubrics[targetIdx];
+      if (Array.isArray(targetSr.grading_criteria) && criteriaArrayIndex >= 0 && criteriaArrayIndex < targetSr.grading_criteria.length) { targetSr.grading_criteria.splice(criteriaArrayIndex, 1); }
+      else { console.error(`Delete index ${criteriaArrayIndex} OOB!`); return prev; }
+      return newRubric;
+    });
+    setDeleteCriteriaDialogOpen(false); setCriteriaToDelete(null); setSaveError(null);
+  }, [rubric, editMode, criteriaToDelete, currentQuestionIndex]);
+
+  const getQuestionText = useCallback((qIndex) => { const question = selectedAssignment?.questions?.find(q => q.question_index === qIndex); return question ? (question.question_text || `(Q${qIndex+1} No Text)`) : `Question Text (Index ${qIndex}) Not Found`; }, [selectedAssignment]);
+
+  // --- Calculate hasAnyMismatch at the top level ---
+  const currentSubRubricsForMemo = rubric?.sub_rubrics || [];
+  const hasAnyMismatch = useMemo(() =>
+      currentSubRubricsForMemo.some(sr => Math.abs(calculateTotalPoints(sr) - (sr.max_points ?? 0)) > 0.001)
+  , [currentSubRubricsForMemo, calculateTotalPoints]); // Use derived variable
 
   // --- Render Functions ---
   const renderAssignmentSelection = () => {
-    if (loadingAssignments) return <Typography sx={{ mb: 3, fontStyle: 'italic' }}>Loading assignments...</Typography>;
-    if (!assignments || assignments.length === 0) return <Alert severity="warning" sx={{ mb: 3 }}>No assignments found. {courseId && semester && <Link href={`/course/${courseId}/assignments?semester=${semester}`} passHref><MuiLink sx={{ ml: 1 }}>Create one?</MuiLink></Link>}</Alert>;
-    return ( <FormControl fullWidth variant="outlined" sx={{ mb: 3 }}> <InputLabel id="assignment-select-label">Select Assignment</InputLabel> <Select labelId="assignment-select-label" value={selectedAssignment?.assignment_id ?? ''} onChange={(e) => { const assignment = assignments.find((a) => String(a.assignment_id) === e.target.value); if (assignment) handleSelectAssignment(assignment); }} label="Select Assignment" disabled={loadingAssignments || loadingRubric || isSaving} > {assignments.map((assignment) => ( <MenuItem key={assignment.assignment_id} value={assignment.assignment_id}> {`Assignment ID: ${assignment.assignment_id}`} ({assignment.questions?.length ?? 0} Qs) </MenuItem> ))} </Select> </FormControl> );
+    if (loadingAssignments) return <Typography sx={{ mb: 3, fontStyle: 'italic', color: 'text.secondary' }}>Loading assignments...</Typography>;
+    if (!Array.isArray(assignments)) return <Alert severity="error" sx={{ mb: 3 }}>Failed to load assignments.</Alert>;
+    if (assignments.length === 0) return <Alert severity="info" sx={{ mb: 3 }}>No assignments found. {courseId && semester && <Link href={`/course/${courseId}/assignments?semester=${semester}`} passHref><MuiLink sx={{ ml: 1 }}>Create one?</MuiLink></Link>}</Alert>;
+    return (<FormControl fullWidth variant="outlined" sx={{ mb: 3 }} disabled={loadingRubric || isSaving || loadingAI}> <InputLabel id="assignment-select-label">Select Assignment</InputLabel> <Select labelId="assignment-select-label" value={selectedAssignment?.assignment_id ?? ''} onChange={(e) => { const assignment = assignments.find((a) => String(a.assignment_id) === e.target.value); if (assignment) handleSelectAssignment(assignment); }} label="Select Assignment"> {assignments.map((a) => ( <MenuItem key={a.assignment_id} value={a.assignment_id}>{`ID: ${a.assignment_id} (${a.questions?.length ?? 0} Qs)`}</MenuItem> ))} </Select> </FormControl>);
   };
 
+  // --- Render Rubric Content --- Moved hasAnyMismatch calculation outside ---
   const renderRubricContent = () => {
-    if (loadingRubric) return <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}><CircularProgress /> <Typography sx={{ ml: 2 }}>Loading rubric...</Typography></Box>;
-    if (!selectedAssignment) { if(!loadingAssignments && assignments.length > 0) return <Alert severity="info">Select assignment.</Alert>; if(!loadingAssignments && assignments.length === 0) return null; if(loadingAssignments) return null; return <Alert severity="warning">Select assignment.</Alert>; }
-    if (!rubric) { if(!loadingRubric) return <Alert severity="error">Could not load rubric. {error || ''}</Alert>; return null; }
+    if (loadingRubric) return <Box sx={{ display: 'flex', justifyContent: 'center', my: 5 }}><CircularProgress size={24} sx={{ mr: 2 }} /><Typography color="text.secondary">Loading rubric...</Typography></Box>;
+    if (!selectedAssignment) { if (!loadingAssignments && assignments.length > 0) return <Alert severity="info" icon={<AssignmentIcon />} sx={{ mt: 2 }}>Select an assignment.</Alert>; return null; }
+    if (!rubric && error && !rubricNotFound) return <Alert severity="error" sx={{ mt: 2 }}>Error loading rubric: {error}</Alert>;
+    if (!rubric && rubricNotFound && editMode) { /* Message shown below */ }
+    else if (!rubric) { console.error("Render error: Rubric is null unexpectedly."); return <Alert severity="error" sx={{ mt: 2 }}>Rubric data unavailable.</Alert>; }
 
-    return (
-      <>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}> <Typography variant="h5" color = "white">Rubric for Assignment ID: {selectedAssignment.assignment_id}</Typography> <Box> {editMode ? ( <> <Button variant="contained" color="primary" startIcon={isSaving ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />} onClick={saveRubric} sx={{ mr: 1 }} disabled={isSaving}>Save</Button> <Button variant="outlined" onClick={() => { setEditMode(false); fetchRubric(selectedAssignment); }} disabled={isSaving}>Cancel</Button> </> ) : ( <> <Button variant="outlined" startIcon={<LightbulbIcon />} onClick={() => setAiInstructionsDialogOpen(true)} sx={{ mr: 1 }} disabled={loadingAI || isSaving}>{loadingAI ? 'Generating...' : 'AI Suggestions'}</Button> <Button variant="contained" startIcon={<EditIcon />} onClick={() => setEditMode(true)} disabled={isSaving}>Edit</Button> </> )} </Box> </Box>
-        {aiRubricSuggestion && !editMode && ( <AISuggestionCard rubric={aiRubricSuggestion} onApply={applyAIRubricSuggestions} onDismiss={() => setAiRubricSuggestion(null)} sx={{ mb: 3 }} /> )}
-        <Paper sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}> <Tabs value={tabValue} onChange={handleTabChange} variant="scrollable" scrollButtons="auto" aria-label="rubric sections"> <Tab label="Overall Settings" id="rubric-tab-0" aria-controls="rubric-tabpanel-0" /> {(rubric.sub_rubrics || []).map((subRubric, index) => ( <Tab key={`question-tab-${subRubric.question_index}`} label={ <Box component="span" sx={{ display: 'flex', alignItems: 'center' }}> Q{subRubric.question_index + 1} {editMode && calculateTotalPoints(subRubric) !== (subRubric.max_points ?? 0) && ( <Tooltip title={`Points mismatch: Max(${subRubric.max_points ?? 0}), Criteria(${calculateTotalPoints(subRubric)})`}><InfoIcon color="warning" sx={{ ml: 1, fontSize: '1rem' }} /></Tooltip> )} </Box> } id={`rubric-tab-${index + 1}`} aria-controls={`rubric-tabpanel-${index + 1}`} /> ))} </Tabs> </Paper>
-        <TabPanel value={tabValue} index={0}> <RubricSection variant="outlined"> <Typography variant="h6" gutterBottom>General Settings</Typography> <Grid container spacing={3} alignItems="flex-start"> <Grid item xs={12} md={6}> <TextField label="Overall Guidelines" multiline minRows={4} maxRows={10} fullWidth value={rubric.overall_instructor_guidelines || ''} onChange={(e) => handleRubricSettingChange('overall_instructor_guidelines', e.target.value)} disabled={!editMode || isSaving} variant="outlined" margin="dense" placeholder="General instructions..."/> </Grid> <Grid item xs={12} md={6}> <Box sx={{mb: 2}}> <Typography gutterBottom id="global-leniency-label">Global Leniency</Typography> <Tooltip title="1=Strict, 5=Lenient."> <Slider value={rubric.leniency ?? 3} min={1} max={5} step={1} marks={[{ value: 1, label: '1' }, { value: 3, label: '3' }, { value: 5, label: '5' }]} valueLabelDisplay="auto" onChange={(e, value) => handleRubricSettingChange('leniency', value)} disabled={!editMode || isSaving} sx={{mt: 2, mb: 1, px: 1 }} aria-labelledby="global-leniency-label"/> </Tooltip> <Typography variant="caption" color="text.secondary" display="block">Grading strictness.</Typography> </Box> </Grid> <Grid item xs={12}> <Typography variant="subtitle1" gutterBottom>Grading Flags</Typography> <Typography variant="caption" color="text.secondary" display="block" sx={{mb: 1}}>Instruct AI.</Typography> <FormGroup row> {GRADING_FLAGS_CONFIG.map((flag) => ( <Tooltip key={flag.value} title={flag.description} arrow placement="top"> <FormControlLabel control={<Switch checked={(rubric.grading_flags || []).includes(flag.value)} onChange={() => handleGradingFlagToggle(flag.value)} disabled={!editMode || isSaving} color="primary" size="small"/>} label={flag.label} sx={{mr: 2}} /> </Tooltip> ))} </FormGroup> </Grid> </Grid> </RubricSection> </TabPanel>
-        {(rubric.sub_rubrics || []).map((subRubric, arrayIndex) => (
-          <TabPanel key={`subPanel-${subRubric.question_index}`} value={tabValue} index={arrayIndex + 1}>
-             <RubricSection variant="outlined"> <Typography variant="h6" gutterBottom>Question {subRubric.question_index + 1} Settings</Typography> <Paper variant="outlined" sx={{ p: 2, bgcolor: 'action.hover', mb: 3 }}><Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>{getQuestionText(subRubric.question_index)}</Typography></Paper> <Grid container spacing={2}> <Grid item xs={12} md={6}> <TextField label="Question Guideline" multiline minRows={3} maxRows={8} fullWidth value={subRubric.instructor_guideline || ''} onChange={(e) => handleSubRubricChange(subRubric.question_index, 'instructor_guideline', e.target.value)} disabled={!editMode || isSaving} variant="outlined" margin="dense" placeholder={`Instructions for Q${subRubric.question_index + 1} (optional)`}/> </Grid> <Grid item xs={12} sm={6} md={3}> <TextField label="Max Points" type="number" fullWidth value={subRubric.max_points ?? 0} onChange={(e) => handleSubRubricChange(subRubric.question_index, 'max_points', parseFloat(e.target.value) || 0)} disabled={!editMode || isSaving} InputProps={{ inputProps: { min: 0, step: 0.5 } }} variant="outlined" margin="dense" required/> </Grid> <Grid item xs={12} sm={6} md={3}> <FormControl fullWidth margin="dense" variant="outlined"> <InputLabel id={`q-leniency-label-${subRubric.question_index}`}>Leniency</InputLabel> <Select labelId={`q-leniency-label-${subRubric.question_index}`} value={subRubric.leniency ?? ''} onChange={(e) => handleSubRubricChange(subRubric.question_index, 'leniency', e.target.value === '' ? null : parseInt(e.target.value))} disabled={!editMode || isSaving} label="Leniency"> <MenuItem value=""><em>Global ({rubric.leniency ?? 3})</em></MenuItem> {[1, 2, 3, 4, 5].map(val => <MenuItem key={val} value={val}>{val}</MenuItem>)} </Select> </FormControl> </Grid> </Grid> </RubricSection>
-            <RubricSection variant="outlined">
-               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}> <Typography variant="h6">Grading Criteria</Typography> {editMode && <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={() => openCriteriaDialog()} disabled={isSaving}>Add Criteria</Button>} </Box>
-               {(!subRubric.grading_criteria || subRubric.grading_criteria.length === 0) ? ( <Box sx={{ textAlign: 'center', py: 3, border: `1px dashed ${theme.palette.divider}`, borderRadius: 1 }}> <CriteriaIcon sx={{ fontSize: 40, color: 'text.disabled', mb: 1 }} /> <Typography color="text.secondary">No criteria defined.</Typography> {editMode && <Button variant="text" startIcon={<AddIcon />} onClick={() => openCriteriaDialog()} sx={{ mt: 1 }} disabled={isSaving}>Add First</Button>} </Box> )
-               : ( <> {subRubric.grading_criteria.map((criteria, criteriaArrayIndex) => ( <CriteriaCard key={`criteria-${subRubric.question_index}-${criteriaArrayIndex}`} variant="outlined"> <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}> <Box sx={{ flexGrow: 1, mr: 1 }}> <Typography variant="subtitle1" fontWeight="medium" component="div">{criteria.criteria_id}</Typography> <Typography variant="body2" sx={{ mt: 0.5, whiteSpace: 'pre-wrap' }}>{criteria.criteria}</Typography> </Box> <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}> <Chip label={`${criteria.points} pts`} color="primary" size="small" variant="outlined" sx={{ mr: 0.5 }} /> {editMode && ( <> <Tooltip title="Edit"><IconButton color="primary" size="small" onClick={() => openCriteriaDialog(criteriaArrayIndex)} disabled={isSaving}><EditIcon fontSize="small" /></IconButton></Tooltip> <Tooltip title="Delete"><IconButton color="error" size="small" onClick={() => openDeleteCriteriaDialog(criteriaArrayIndex)} disabled={isSaving}><DeleteIcon fontSize="small" /></IconButton></Tooltip> </> )} </Box> </Box> </CriteriaCard> ))} <Divider sx={{ my: 2 }} /> <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}> <Typography variant="subtitle1" fontWeight="bold">Total:</Typography> <Typography variant="subtitle1" fontWeight="bold" color={calculateTotalPoints(subRubric) === (subRubric.max_points ?? 0) ? 'text.primary' : 'error.main'}> {calculateTotalPoints(subRubric)} / {subRubric.max_points ?? 0} </Typography> </Box> {calculateTotalPoints(subRubric) !== (subRubric.max_points ?? 0) && ( <Typography variant="caption" color="error" display="block" textAlign="right">Points mismatch!</Typography> )} </> )}
-            </RubricSection>
-          </TabPanel>
-        ))}
+    const currentSubRubrics = rubric.sub_rubrics || [];
+    // hasAnyMismatch is now calculated outside using useMemo
+
+    return (<>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 2 }}> <Typography variant="h5" component="h2" sx={{ flexGrow: 1, mr: 2 }}> Rubric Editor <Chip label={`Assignment: ${selectedAssignment.assignment_id}`} size="small" variant='outlined' sx={{ ml: 1.5 }} /> </Typography> <Box sx={{ display: 'flex', gap: 1 }}> {editMode ? (<> <Button variant="contained" onClick={saveRubric} disabled={isSaving} startIcon={isSaving ? <CircularProgress size={20} /> : <SaveIcon />}>{isSaving ? 'Saving...' : 'Save Rubric'}</Button> <Button variant="outlined" onClick={() => { setEditMode(false); setSaveError(null); if (selectedAssignment) fetchRubric(selectedAssignment); }} disabled={isSaving}>Cancel</Button> </>) : (<> {selectedAssignment && <Button variant="outlined" onClick={() => setAiInstructionsDialogOpen(true)} disabled={loadingAI || isSaving} startIcon={loadingAI ? <CircularProgress size={20}/> : <LightbulbIcon />}>{loadingAI ? 'Generating...' : 'AI Suggestions'}</Button>} <Button variant="contained" onClick={() => setEditMode(true)} disabled={isSaving || loadingAI || !rubric} startIcon={<EditIcon />}>Edit Rubric</Button> </>)} </Box> </Box>
+        {editMode && saveError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setSaveError(null)}>Save failed: {saveError}</Alert>}
+        {editMode && !saveError && hasAnyMismatch && <Alert severity="warning" icon={<WarningIcon />} sx={{ mb: 2 }}>Points mismatch detected in one or more questions.</Alert>}
+        {editMode && rubricNotFound && !saveError && <Alert severity="info" sx={{ mb: 2 }}>Creating a new rubric. Fill details and save.</Alert>}
+        {aiRubricSuggestion && !editMode && <AISuggestionCard rubricSuggestion={aiRubricSuggestion} onApply={applyAIRubricSuggestions} onDismiss={() => setAiRubricSuggestion(null)} sx={{ mb: 3 }} />}
+
+        <Paper elevation={0} sx={{ borderBottom: 1, borderColor: 'divider', mb: 0 }}> <Tabs value={tabValue} onChange={handleTabChange} variant="scrollable" scrollButtons="auto" aria-label="rubric tabs"> <Tab label="Overall Settings" id="tab-0" aria-controls="panel-0" sx={{ textTransform: 'none', fontWeight: tabValue === 0 ? 'bold' : 'normal' }} /> {currentSubRubrics.map((sr, i) => { const qNum = sr.question_index + 1; const match = Math.abs(calculateTotalPoints(sr) - (sr.max_points ?? 0)) < 0.001; return (<Tab key={`tab-${qNum}`} id={`tab-${i+1}`} aria-controls={`panel-${i+1}`} label={<Box sx={{ display: 'flex', alignItems: 'center' }}>Q{qNum}{!match && <Tooltip title="Points Mismatch"><WarningIcon color="warning" sx={{ ml: 0.5, fontSize: '1.1rem' }} /></Tooltip>}</Box>} sx={{ textTransform: 'none', fontWeight: tabValue === (i + 1) ? 'bold' : 'normal' }} />); })} </Tabs> </Paper>
+
+        <Box sx={{ mt: 0 }}>
+            <TabPanel value={tabValue} index={0}> <RubricSection variant="outlined"> <Typography variant="h6" gutterBottom>Overall Settings</Typography> <Grid container spacing={3}> <Grid item xs={12} md={7}> <TextField label="Overall Guidelines" multiline minRows={4} fullWidth value={rubric.overall_instructor_guidelines ?? ''} onChange={(e) => handleRubricSettingChange('overall_instructor_guidelines', e.target.value || null)} disabled={!editMode || isSaving} variant="outlined" margin="none" helperText="Optional overall grading instructions." /> </Grid> <Grid item xs={12} md={5}> <Typography variant="subtitle1" gutterBottom>AI Grading Flags</Typography> <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>Instruct AI grader behavior.</Typography> <FormGroup> {GRADING_FLAGS_CONFIG.map(f => (<Tooltip key={f.value} title={f.description}><FormControlLabel control={<Switch checked={(rubric.grading_flags || []).includes(f.value)} onChange={() => handleGradingFlagToggle(f.value)} disabled={!editMode || isSaving} size="small" />} label={f.label} sx={{ mr: 2, mb: 0.5 }} /></Tooltip>))} </FormGroup> </Grid> </Grid> </RubricSection> </TabPanel>
+            {currentSubRubrics.map((sr, i) => { const qNum = sr.question_index + 1; const totalPts = calculateTotalPoints(sr); const maxPts = sr.max_points ?? 0; const ptsMatch = Math.abs(totalPts - maxPts) < 0.001; return (
+                <TabPanel key={`panel-${qNum}`} value={tabValue} index={i + 1}>
+                    <RubricSection variant="outlined"> <Typography variant="h6" gutterBottom>Question {qNum} Settings</Typography> <Paper variant="outlined" sx={{ p: 2, bgcolor: 'grey.100', mb: 3 }}><Typography sx={{ whiteSpace: 'pre-wrap', fontStyle: 'italic' }}>{getQuestionText(sr.question_index)}</Typography></Paper> <Grid container spacing={2}> <Grid item xs={12} md={8}> <TextField label={`Q${qNum} Guideline`} multiline minRows={3} fullWidth value={sr.instructor_guideline ?? ''} onChange={(e) => handleSubRubricChange(sr.question_index, 'instructor_guideline', e.target.value || null)} disabled={!editMode || isSaving} variant="outlined" margin="none" helperText="Optional guideline for this question."/> </Grid> <Grid item xs={12} md={4}> <TextField label="Max Points" type="number" fullWidth required value={maxPts} onChange={(e) => handleSubRubricChange(sr.question_index, 'max_points', parseFloat(e.target.value) || 0)} disabled={!editMode || isSaving} InputProps={{ inputProps: { min: 0, step: 0.1 } }} variant="outlined" margin="none" error={editMode && !ptsMatch} helperText={editMode && !ptsMatch ? `≠ Criteria Sum (${totalPts.toFixed(1)})` : "Points for this question."} /> </Grid> </Grid> </RubricSection>
+                    <RubricSection variant="outlined"> <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}> <Typography variant="h6">Grading Criteria</Typography> {editMode && <Button variant="outlined" size="small" startIcon={<AddIcon />} onClick={() => openCriteriaDialog()} disabled={isSaving}>Add Criteria</Button>} </Box> {(!sr.grading_criteria || sr.grading_criteria.length === 0) ? (<Box sx={{ textAlign: 'center', py: 3, border: `1px dashed ${theme.palette.divider}` }}> <CriteriaIcon sx={{ fontSize: 40, color: 'text.disabled', mb: 1 }} /> <Typography color="text.secondary">No criteria defined.</Typography> {editMode && <Button variant="text" startIcon={<AddIcon />} onClick={() => openCriteriaDialog()} sx={{ mt: 1 }} disabled={isSaving}>Add First</Button>} </Box>) : (<> {sr.grading_criteria.map((c, cIdx) => (<CriteriaCard key={`crit-${qNum}-${cIdx}`} variant="outlined"> <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}> <Box sx={{ flexGrow: 1, mr: 1, overflow: 'hidden' }}> <Typography variant="subtitle1" fontWeight="medium" noWrap title={c.criteria_id}>{c.criteria_id || '(No Title)'}</Typography> <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, whiteSpace: 'pre-wrap' }}>{c.criteria || '(No Description)'}</Typography> </Box> <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', flexShrink: 0 }}> <Chip label={`${c.points ?? 0} pts`} size="small" variant="outlined" sx={{ mb: editMode ? 0.5 : 0 }} /> {editMode && <Box sx={{ display: 'flex' }}> <Tooltip title="Edit"><span><IconButton color="primary" size="small" onClick={() => openCriteriaDialog(cIdx)} disabled={isSaving} sx={{ p: 0.5 }}><EditIcon fontSize="small" /></IconButton></span></Tooltip> <Tooltip title="Delete"><span><IconButton color="error" size="small" onClick={() => openDeleteCriteriaDialog(cIdx)} disabled={isSaving} sx={{ p: 0.5 }}><DeleteIcon fontSize="small" /></IconButton></span></Tooltip> </Box>} </Box> </Box> </CriteriaCard>))} <Divider sx={{ my: 2 }} /> <Box sx={{ display: 'flex', justifyContent: 'space-between' }}> <Typography variant="body1" fontWeight="bold">Criteria Total:</Typography> <Typography variant="body1" fontWeight="bold" color={ptsMatch ? 'text.primary' : 'error.main'}>{totalPts.toFixed(1)} / {maxPts.toFixed(1)} pts</Typography> </Box> {!ptsMatch && <Typography variant="caption" color="error.main" display="block" textAlign="right" sx={{ mt: 0.5 }}>Sum doesn't match Max Points!</Typography>} </>)} </RubricSection>
+                </TabPanel>
+            );})}
+        </Box>
       </>
     );
   };
 
+
   // --- Main Component Return ---
   return (
-    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 }, maxWidth: 1200, mx: 'auto' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-        <IconButton edge="start" title="Back to Course" aria-label="back to course" onClick={() => router.push(`/course/${courseId}?semester=${semester}`)} sx={{ mr: 1 }} disabled={!courseId || !semester} > <ArrowBackIcon /> </IconButton>
-        <Typography variant="h4" component="h1" color="white">Rubric Management</Typography>
+        {courseId && semester ? <Tooltip title="Back to Course"><IconButton onClick={() => router.push(`/course/${courseId}?semester=${semester}`)} sx={{ mr: 1 }}><ArrowBackIcon /></IconButton></Tooltip> : <IconButton sx={{ mr: 1 }} disabled><ArrowBackIcon /></IconButton>}
+        <Typography variant="h4" component="h1">Rubric Management</Typography>
+        {courseId && <Chip label={courseId.toUpperCase()} size="small" sx={{ ml: 1.5 }} />} {semester && <Chip label={semester} size="small" variant="outlined" sx={{ ml: 0.5 }} />}
       </Box>
       {error && !loadingAssignments && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
       {renderAssignmentSelection()}
-      <Divider sx={{ my: 4 }} />
+      <Divider sx={{ my: 3 }} />
       {renderRubricContent()}
 
       {/* --- DIALOGS --- */}
       <Dialog open={criteriaDialogOpen} onClose={() => setCriteriaDialogOpen(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>{editingCriteriaIndex !== null ? 'Edit' : 'Add'} Grading Criteria {typeof currentQuestionIndex === 'number' ? `for Q${currentQuestionIndex + 1}` : ''}</DialogTitle>
-          <DialogContent>
-              <TextField autoFocus label="Criteria Title/ID" fullWidth value={criteriaFormData.criteria_id} onChange={(e) => setCriteriaFormData({ ...criteriaFormData, criteria_id: e.target.value })} margin="dense" required placeholder="e.g., Code Correctness" error={!criteriaFormData.criteria_id?.trim()} helperText={!criteriaFormData.criteria_id?.trim() ? "Title is required" : ""} />
-              <TextField label="Criteria Description" fullWidth multiline rows={3} value={criteriaFormData.criteria} onChange={(e) => setCriteriaFormData({ ...criteriaFormData, criteria: e.target.value })} margin="dense" required placeholder="Description of criteria..." error={!criteriaFormData.criteria?.trim()} helperText={!criteriaFormData.criteria?.trim() ? "Description is required" : ""} />
-              <TextField label="Points" type="number" fullWidth value={criteriaFormData.points} onChange={(e) => setCriteriaFormData({ ...criteriaFormData, points: e.target.value })} margin="dense" required InputProps={{ inputProps: { min: 0, step: 0.5 }, endAdornment: <InputAdornment position="end">pts</InputAdornment> }} error={!(parseFloat(criteriaFormData.points) >= 0 && criteriaFormData.points !== '')} helperText={!(parseFloat(criteriaFormData.points) >= 0 && criteriaFormData.points !== '') ? "Points must be 0 or greater" : ""} />
-          </DialogContent>
-          <DialogActions>
-              <Button onClick={() => setCriteriaDialogOpen(false)}>Cancel</Button>
-              <Button onClick={handleSaveCriteria} variant="contained" color="primary" disabled={!criteriaFormData.criteria_id?.trim() || !criteriaFormData.criteria?.trim() || !(parseFloat(criteriaFormData.points) >= 0 && criteriaFormData.points !== '')}> {editingCriteriaIndex !== null ? 'Save Changes' : 'Add Criteria'} </Button>
-          </DialogActions>
+        <DialogTitle>{editingCriteriaIndex !== null ? 'Edit' : 'Add'} Grading Criteria {typeof currentQuestionIndex === 'number' ? `for Q${currentQuestionIndex + 1}` : ''}</DialogTitle>
+        <DialogContent> <TextField autoFocus label="Criteria Title/ID" fullWidth value={criteriaFormData.criteria_id} onChange={(e) => setCriteriaFormData(prev => ({ ...prev, criteria_id: e.target.value }))} margin="dense" required error={!criteriaFormData.criteria_id?.trim()} helperText={!criteriaFormData.criteria_id?.trim() ? "Required" : ""} /> <TextField label="Criteria Description" fullWidth multiline rows={3} value={criteriaFormData.criteria} onChange={(e) => setCriteriaFormData(prev => ({ ...prev, criteria: e.target.value }))} margin="dense" required error={!criteriaFormData.criteria?.trim()} helperText={!criteriaFormData.criteria?.trim() ? "Required" : ""} /> <TextField label="Points" type="number" fullWidth value={criteriaFormData.points} onChange={(e) => setCriteriaFormData(prev => ({ ...prev, points: e.target.value }))} margin="dense" required InputProps={{ inputProps: { min: 0, step: 0.1 }, endAdornment: <InputAdornment position="end">pts</InputAdornment> }} error={!(parseFloat(String(criteriaFormData.points).trim()) >= 0 && String(criteriaFormData.points).trim() !== '')} helperText={!(parseFloat(String(criteriaFormData.points).trim()) >= 0 && String(criteriaFormData.points).trim() !== '') ? "Must be >= 0" : ""} /> </DialogContent>
+        <DialogActions> <Button onClick={() => setCriteriaDialogOpen(false)}>Cancel</Button> <Button onClick={handleSaveCriteria} variant="contained" disabled={!criteriaFormData.criteria_id?.trim() || !criteriaFormData.criteria?.trim() || !(parseFloat(String(criteriaFormData.points).trim()) >= 0 && String(criteriaFormData.points).trim() !== '')}> {editingCriteriaIndex !== null ? 'Save Changes' : 'Add Criteria'} </Button> </DialogActions>
       </Dialog>
-      <ConfirmationDialog open={deleteCriteriaDialogOpen} onClose={() => setDeleteCriteriaDialogOpen(false)} title="Delete Grading Criteria?" description="Are you sure you want to delete this grading criteria? This action cannot be undone." confirmText="Delete" cancelText="Cancel" confirmColor="error" onConfirm={handleDeleteCriteria}/>
+      <ConfirmationDialog open={deleteCriteriaDialogOpen} onClose={() => setDeleteCriteriaDialogOpen(false)} title="Delete Grading Criteria?" description={`Delete criteria "${criteriaToDelete?.text ?? 'this criteria'}"? Cannot be undone.`} confirmText="Delete" confirmColor="error" onConfirm={handleDeleteCriteria}/>
       <Dialog open={aiInstructionsDialogOpen} onClose={() => !loadingAI && setAiInstructionsDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle><Box sx={{ display: 'flex', alignItems: 'center' }}><LightbulbIcon sx={{ mr: 1, color: 'warning.main' }} />AI Rubric Suggestions</Box></DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" paragraph>The AI will analyze the selected assignment's questions ({selectedAssignment?.questions?.length ?? 0} questions) to suggest rubric criteria. Add specific instructions below if needed.</Typography>
-          <TextField label="Instructions for AI (Optional)" fullWidth multiline rows={4} value={aiInstructions} onChange={(e) => setAiInstructions(e.target.value)} margin="dense" placeholder="e.g., Focus on logical reasoning..." disabled={loadingAI} />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setAiInstructionsDialogOpen(false)} disabled={loadingAI}>Cancel</Button>
-          <Button onClick={getAIRubricSuggestions} variant="contained" color="primary" disabled={loadingAI} startIcon={loadingAI ? <CircularProgress size={20} color="inherit"/> : <LightbulbIcon />}> {loadingAI ? 'Generating...' : 'Get AI Suggestions'} </Button>
-        </DialogActions>
+        <DialogTitle><Box sx={{ display: 'flex', alignItems: 'center' }}><LightbulbIcon sx={{ mr: 1 }} color="warning" /> AI Rubric Suggestions</Box></DialogTitle>
+        <DialogContent> <Typography variant="body2" paragraph>AI will analyze assignment ({selectedAssignment?.assignment_id}, {selectedAssignment?.questions?.length ?? 0} Qs){rubric && !rubricNotFound ? ' & current rubric' : ''} to suggest improvements. Add optional instructions.</Typography> <TextField label="Instructions for AI (Optional)" fullWidth multiline rows={4} value={aiInstructions} onChange={(e) => setAiInstructions(e.target.value)} margin="dense" placeholder="e.g., Focus on reasoning..." disabled={loadingAI} /> </DialogContent>
+        <DialogActions> <Button onClick={() => setAiInstructionsDialogOpen(false)} disabled={loadingAI}>Cancel</Button> <Button onClick={getAIRubricSuggestions} variant="contained" disabled={loadingAI || !selectedAssignment} startIcon={loadingAI ? <CircularProgress size={20}/> : <LightbulbIcon />}> {loadingAI ? 'Generating...' : 'Get Suggestions'} </Button> </DialogActions>
       </Dialog>
-      <Snackbar open={alertOpen} autoHideDuration={6000} onClose={() => setAlertOpen(false)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+      <Snackbar open={alertOpen} autoHideDuration={6000} onClose={(evt, reason) => { if(reason === 'clickaway') return; setAlertOpen(false);}} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
           <Alert onClose={() => setAlertOpen(false)} severity={alertSeverity} variant="filled" sx={{ width: '100%' }}>{alertMessage}</Alert>
       </Snackbar>
     </Box>
