@@ -70,13 +70,4 @@ For a 1,000-word essay (~750 tokens input, ~250 tokens output):
 
 ---
 
-## 5. System Workflow
 
-```mermaid
-flowchart TD
-    A[Upload Assignment] --> B[Optional OCR (Azure AI DI)]
-    B --> C[Embed Submission (Cohere Embed v4)]
-    C --> D[Retrieve Similar Materials]
-    D --> E[GPT-4.1 Grading]
-    E --> F[Output Score + Feedback]
-    F --> G[Store in LMS/Database]
