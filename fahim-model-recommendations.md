@@ -7,7 +7,7 @@ Design and recommend an optimal AI model architecture for a scalable, accurate, 
 - Rubric-aligned text grading
 - Summarization of content
 - Retrieval of supporting material
-- Optional multimodal input (text, scanned documents)
+- Optional multimodal input (text, scanned documents, slides)
 
 ---
 
@@ -22,28 +22,31 @@ Design and recommend an optimal AI model architecture for a scalable, accurate, 
 
 ---
 
-## 3. Model Configurations & Hyperparameters
+## 3. Model Configurations & Hyperparameters (Updated)
 
 ### ✅ GPT-4.1 (Azure OpenAI)
 
-- **Temperature:** `0.2` (low variability, high rubric alignment)
+- **Temperature:** `0.2` (low variance → consistent rubric alignment)
 - **Top-p:** `1.0`
 - **Max tokens per call:** `2048`
 - **Frequency penalty:** `0`
 - **Presence penalty:** `0`
+- **Recommended use:** Narrative-heavy grading, final pass.
 
 ### ✅ GPT-4.1 mini
 
-- **Temperature:** `0.3` (slightly higher for natural summarization)
+- **Temperature:** `0.3–0.4` (moderate variance → flexible summarization across file types)
 - **Top-p:** `1.0`
 - **Max tokens per call:** `1024`
+- **Recommended use:** First-pass summarization of DOCX, PDF captions, PPTX content.
 
 ### ✅ Cohere Embed v4 Multimodal
 
-- **efSearch:** `500–1000`
-- **topK:** `5–10`
+- **efSearch:** `1000`
+- **topK:** `10`
 - **Dimension:** `1024`
-- Embeddings precomputed and stored in a vector DB.
+- **Embedding source:** Pre-compute vectors across all uploaded files.
+- **Recommended use:** Retrieve supporting material across multi-document context.
 
 ### ✅ Azure AI Document Intelligence
 
@@ -51,22 +54,24 @@ Design and recommend an optimal AI model architecture for a scalable, accurate, 
 
 ---
 
-## 4. Pricing Estimates (as of April 2025)
+## 4. Updated Pricing Estimates (per typical submission)
 
-| Model                     | Estimated Price (per 1K tokens) | Notes                                                   |
-|--------------------------|--------------------------------|--------------------------------------------------------|
-| **GPT-4.1**               | **$0.06–$0.08**                | Higher cost, use for final grading and complex feedback.|
-| **GPT-4.1 mini**          | **$0.015–$0.02**               | 3–4x cheaper; use for intermediate summaries.          |
-| **Cohere Embed v4**       | **$0.0001–$0.0002 per embed**  | Pay per embedding vector generation.                   |
-| **Azure AI OCR**          | **$1.50 per 1,000 pages**       | OCR charge for document ingestion.                     |
+Assuming a student submission includes:
+- 1 DOCX (~1,000 tokens)
+- 1 PDF with diagrams (~500 tokens)
+- 1 PPTX (~300 tokens)
 
-**Example:**
+Estimated token counts:
+- **Total input tokens:** ~1,700
+- **Total output tokens (feedback):** ~600
 
-For a 1,000-word essay (~750 tokens input, ~250 tokens output):
+| Model Strategy                    | Estimated Cost per Submission      | Notes                                          |
+|----------------------------------|-----------------------------------|------------------------------------------------|
+| GPT-4.1 only                     | ~$0.14                            | Direct grading and feedback in GPT-4.1         |
+| GPT-4.1 mini + GPT-4.1 final     | ~$0.10                            | Summarize with mini; final pass with GPT-4.1   |
+| Optional OCR (1–2 pages)         | ~$0.0015–$0.003                   | Add if scanned files need text extraction      |
 
-- GPT-4.1 grading → ~$0.06
-- GPT-4.1 mini summary + GPT-4.1 final → ~$0.08 total
-- Optional OCR (1 page) → ~$0.0015
+✅ Using GPT-4.1 mini for pre-processing reduces costs by ~30% while maintaining quality for rubric-based grading.
 
 ---
 
@@ -77,3 +82,66 @@ For a 1,000-word essay (~750 tokens input, ~250 tokens output):
 | Cost-efficiency    | ❌                      | ✅✅✅                   | ✅✅✅                        |
 | Multimodal support | ❌                      | ❌                      | ✅✅✅                        |
 | Explainability     | ✅✅✅                   | ✅✅                     | N/A                         |
+
+---
+
+## 5. Variance and Bias Considerations (Updated for Multi-Document Submissions)
+
+With submissions consisting of DOCX (text), PDF (annotated diagrams), and PPTX (slide summaries), the AI model must handle:
+
+✅ Structured text (narrative)  
+✅ Sparse/informal text (slides)  
+✅ Diagram captions and figure descriptions  
+✅ Optional OCR-extracted text (from scanned PDFs)
+
+This increases **input variability**, which impacts both **variance** and **bias** in model outputs.
+
+| Model               | Baseline Tendency            | Impact of Configs (Multi-Document)         | Recommendation                                   |
+|--------------------|-----------------------------|-------------------------------------------|------------------------------------------------|
+| **GPT-4.1**         | ✅ Low variance, low bias    | Works well with mixed input but risks overfitting long narratives | Use **temp = 0.2**, **freq/pres penalty = 0** for grading narrative-heavy docs. |
+| **GPT-4.1 mini**    | ✅ Low bias, ↑ variance      | Handles summarizing sparse/informal text well | Keep **temp = 0.3–0.4** → allows flexible summarization across formats. |
+| **Cohere Embed v4** | N/A (embedding model)       | Higher **topK** may be needed to retrieve scattered info across files | Use **efSearch = 1000**, **topK = 10** to ensure retrieval doesn’t miss diagram metadata. |
+
+---
+
+### 🔍 Key Observations (Multi-Document):
+
+✅ **GPT-4.1** → reliable for long narrative grading but needs low temp to avoid drift across inconsistent formats.
+
+✅ **GPT-4.1 mini** → introduces helpful variance to **compress diverse inputs** (diagrams + slides → short summary).
+
+✅ **Variance increases naturally when combining document types → control using temp + low penalty settings.**
+
+---
+
+### How to control variance & bias:
+
+- **Temperature:** lower → deterministic, lower variance; higher → more diverse but less aligned.
+- **Frequency/Presence penalties:** prevent repetition or overuse; keep **0** to avoid penalizing rubric terms.
+- **Search params (Cohere):** higher **efSearch/topK** → reduces retrieval variance (missed info).
+
+---
+
+## 6. When to Favor Bias or Variance?
+
+| Scenario                              | Recommendation                                            |
+|--------------------------------------|----------------------------------------------------------|
+| Strict rubric adherence               | Low variance → GPT-4.1, temp = 0.2                        |
+| Flexible interpretation allowed       | Slight ↑ variance → GPT-4.1 mini, temp = 0.3–0.4          |
+| Grading novel/creative responses      | Higher variance → temp = 0.4–0.5                          |
+| High-stakes final exams               | Minimize variance → GPT-4.1, temp ≤ 0.2                   |
+
+---
+
+## 7. Practical Example:
+
+✅ **Final exam essay →**  
+Use GPT-4.1, temperature = 0.2, freq_penalty = 0, pres_penalty = 0
+
+✅ **Weekly reflection →**  
+Use GPT-4.1 mini, temperature = 0.3–0.4
+
+✅ **Multi-file grading (DOCX + PDF + PPTX) →**  
+Summarize with GPT-4.1 mini (temp = 0.3–0.4)
+
+Final grading with GPT-4.1 (temp = 0.2)
