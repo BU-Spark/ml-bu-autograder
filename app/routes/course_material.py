@@ -1,3 +1,4 @@
+import logging
 import uuid
 from typing import List
 
@@ -229,6 +230,21 @@ async def update_course_material(
 
     # Update the material
     blob_uploader.upload_course_material(material)
+
+    # Step 1: Retrieve all chunk paths (these are the vector document IDs)
+    chunk_paths = blob_uploader.find_chunks_paths(
+        semester_key=material.semester,
+        course_id=material.course_id,
+        material_id=material.material_id
+    )
+
+    # Step 2: Delete those vectors by their IDs (i.e. chunk paths)
+    # TODO
+    # if chunk_paths:
+    #     vector_service.delete_documents_by_ids(chunk_paths)
+    #     logging.debug(f"Deleted {len(chunk_paths)} vectors for material_id '{material.material_id}'.")
+    # else:
+    #     logging.debug(f"No vectors found to delete for material_id '{material.material_id}'.")
 
     # Save object to file otherwise if too many requests
     # accumulate we will run out of ram very quick
