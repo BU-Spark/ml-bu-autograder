@@ -70,4 +70,10 @@ For a 1,000-word essay (~750 tokens input, ~250 tokens output):
 
 ---
 
-
+| Criterion          | GPT-4.1                 | GPT-4.1 mini            | Cohere Embed v4             |
+|-------------------|------------------------|------------------------|-----------------------------|
+| Accuracy           | ✅✅✅                   | ✅✅                     | N/A                         |
+| Speed              | ✅                      | ✅✅✅                   | ✅✅✅                        |
+| Cost-efficiency    | ❌                      | ✅✅✅                   | ✅✅✅                        |
+| Multimodal support | ❌                      | ❌                      | ✅✅✅                        |
+| Explainability     | ✅✅✅                   | ✅✅                     | N/A                         |
