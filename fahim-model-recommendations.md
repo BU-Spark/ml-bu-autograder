@@ -145,3 +145,22 @@ Use GPT-4.1 mini, temperature = 0.3–0.4
 Summarize with GPT-4.1 mini (temp = 0.3–0.4)
 
 Final grading with GPT-4.1 (temp = 0.2)
+
+
+## References
+
+- [Ajami, S., & Arab-Chadegani, R. (2013). Barriers to implement Electronic Health Records (EHRs). *Materia Socio-Medica*, 25(3), 213–215.](https://doi.org/10.5455/msm.2013.25.213-215)
+
+- [Bayomy, N. A., Khedr, A. E., & Abd-Elmegid, L. A. (2021). Adaptive model to support business process reengineering. *PeerJ Computer Science*, 7, e505.](https://doi.org/10.7717/peerj-cs.505)
+
+- [OpenAI. (2024). GPT-4 technical report.](https://openai.com/research/gpt-4)
+
+- [Cohere. (2024). Introducing Cohere Embed v4 Multimodal.](https://docs.cohere.com/docs/embed)
+
+- [Microsoft Azure. (2024). Azure AI Document Intelligence documentation.](https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/)
+
+- [OpenAI. (2024). Pricing for GPT-4.](https://openai.com/pricing)
+
+- [Cohere. (2024). Pricing.](https://cohere.com/pricing)
+
+- [Microsoft Azure. (2024). Azure Cognitive Services pricing.](https://azure.microsoft.com/en-us/pricing/details/cognitive-services/)
