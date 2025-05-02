@@ -162,6 +162,7 @@ async def google_oauth(
     """
     Exchanges the authorization code for an access token and ID token.
     """
+    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Not Implemented.")
     # TODO FAHIM: make sure this code works too
     #  Exchange authorization code for tokens
     token_data = {
@@ -212,6 +213,7 @@ async def google_oauth(
     description="Returns the Google OAuth URL for redirecting users to authentication.",
 )
 async def get_oauth_url():
+    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Not Implemented.")
     # TODO FAHIM: complete this
     client_id = "your_google_client_id"
     redirect_uri = "your_redirect_uri"

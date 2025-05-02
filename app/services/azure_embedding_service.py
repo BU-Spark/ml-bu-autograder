@@ -76,12 +76,12 @@ class AzureEmbeddingService:
             azure_embedding_model (str): The name of the model to be used for generating embeddings.
         """
         self.text_client = EmbeddingsClient(
-            endpoint=azure_embedding_endpoint.encoded_string(),
+            endpoint=str(azure_embedding_endpoint),
             credential=AzureKeyCredential(azure_embedding_key),
             model=azure_embedding_model
         )
         self.image_client = ImageEmbeddingsClient(
-            endpoint=azure_embedding_endpoint.encoded_string(),
+            endpoint=str(azure_embedding_endpoint),
             credential=AzureKeyCredential(azure_embedding_key),
             model=azure_embedding_model
         )

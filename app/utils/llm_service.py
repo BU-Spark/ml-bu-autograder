@@ -169,7 +169,7 @@ class PromptBuilder:
     def add_image_url(self, role: PromptRole, image_url: HttpUrl) -> "PromptBuilder":
         prompt_data = PromptData(
                     prompt_type=PromptType.IMAGE_WEB_URL,
-                    file_data=image_url.encoded_string(),
+                    file_data=str(image_url),
                 )
         if self._previous_message is not None and self._previous_message.role == role:
             self._previous_message.prompt_data_list.append(
@@ -237,10 +237,10 @@ class LLMService:
             raise ValueError("api-version is required in the endpoint URL")
         self.client = AzureOpenAI(
             api_version=api_version,
-            azure_endpoint=endpoint_url.encoded_string(),
+            azure_endpoint=str(endpoint_url),
             api_key=api_key,
         )
-        self.deployment_name = endpoint_url.encoded_string().split('/')[5]
+        self.deployment_name = str(endpoint_url).split('/')[5]
 
     def generate_response(self, prompts: List[ChatCompletionMessageParam]) -> str:
         response = self.client.chat.completions.create(

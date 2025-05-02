@@ -218,7 +218,7 @@ class Document:
         if split_len is not None and overlap >= split_len:
             raise ValueError(
                 f"Overlap ({overlap}) must be less than split_len ({split_len}) when split_len is enabled.")
-        if split_len is None and overlap > 0:
+        if split_len is None and overlap is not None and overlap > 0:
             print(f"Warning: Overlap ({overlap}) is specified, but split_len is None. Overlap will be ignored.")
             overlap = 0  # Overlap is meaningless without length-based splitting
 

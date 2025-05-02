@@ -4,7 +4,6 @@ import traceback
 
 from azure.identity import DefaultAzureCredential
 from dotenv import load_dotenv
-from isapi.isapicon import HTTP_BAD_REQUEST
 from pydantic import FilePath, HttpUrl, ValidationError
 
 from app.services import AzureEmbeddingService
@@ -66,7 +65,7 @@ BackgroundMaterialProcessor(TEMP_FILES_DIR).start_task_scan_loop()
 
 logging.info("Starting FastAPI server...")
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes import auth, course, assignment, student_response, grading, course_material, rubric, user
@@ -86,7 +85,7 @@ async def catch_pydantic_validation_errs(request: Request, exc: ValidationError)
     tb_str = ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__))
     logging.warning("ValidationError occurred:\n%s", tb_str)
     return JSONResponse(
-        status_code=HTTP_BAD_REQUEST,
+        status_code=status.HTTP_400_BAD_REQUEST,
         content={"detail": exc.errors()},
     )
 
@@ -95,7 +94,7 @@ async def catch_value_errs(request: Request, exc: ValueError):
     tb_str = ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__))
     logging.warning("ValueError occurred:\n%s", tb_str)
     return JSONResponse(
-        status_code=HTTP_BAD_REQUEST,
+        status_code=status.HTTP_400_BAD_REQUEST,
         content={"detail": str(exc)},
     )
 

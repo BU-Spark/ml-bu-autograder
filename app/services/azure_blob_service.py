@@ -206,8 +206,7 @@ class AzureBlobService:
             raise
 
     def blob_metadata(self, blob_path: str) -> Dict[str, str]:
-        full_path = self._full_path(blob_path)
-        props = self.container_client.get_blob_client(full_path).get_blob_properties()
+        props = self.container_client.get_blob_client(blob_path).get_blob_properties()
         return props.metadata
 
     def get_file_bytes(self, blob_path: str) -> Optional[bytes]:

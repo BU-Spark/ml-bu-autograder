@@ -96,9 +96,10 @@ def process_grading(json_str: str):
               .add_message(PromptRole.SYSTEM, "You are a grader responsible for grading a student's response "
                                               "ensuring accuracy and fairness.")
               .add_message(PromptRole.USER, "Here is course material that might be relevant to this assignment."
-                                            "When justification the reason for your grades, in your grading responses, "
+                                            "When evaluating accuracy for your grades, in your grading responses, "
                                             "cite these relevant sources including with any in the following format: "
-                                            "[$sourceName ($additional_source_details)]"))
+                                            "[source_name - page_numbers if present]. Only use this citation for the"
+                                            " course material."))
 
     for file_name, document in course_material_documents:
         assert document.data_type.is_fundamental()
@@ -111,19 +112,22 @@ def process_grading(json_str: str):
         elif document.data_type.is_text():
             prompt.add_message(PromptRole.USER, document.get_as_string())
 
-    (prompt.add_message(PromptRole.USER, "The instructions for this assignment are as follows:")
+    (prompt.add_message(PromptRole.USER, "We have reached the end of the course material.")
+     .add_message(PromptRole.USER, "The instructions for this assignment are as follows. Use this information as"
+                                   "context to evaluate whether the student completed all that was asked in the "
+                                   "question alongside the Rubric:")
      .add_json_input(PromptRole.USER, assignment, excluded_fields={"questions"})
      .add_json_input(PromptRole.USER, assignment_question)
      .add_message(PromptRole.USER, "Grading for this assignment should be"
                                    "exclusively based on the following rubric. You are required to explicitly "
-                                   "reference the rubric explaining which parts of the rubric did the student fullfil "
+                                   "reference the rubric explaining which parts of the rubric did the student fulfill "
                                    "and which parts the student missed (if any).")
      .add_json_input(PromptRole.USER, rubric))
     for grading_flag in rubric.grading_flags:
         prompt.add_message(PromptRole.USER, f"Since the rubric is marked with the flag: {grading_flag.value},"
                                             f"it means you should: {grading_flag.get_description()}")
 
-    prompt.add_message(PromptRole.USER, "Here is the student's response:")
+    prompt.add_message(PromptRole.USER, "Here is the student's response which you are grading:")
     for chunk_id, resp_chunk in student_response_documents.contents.items():
         if resp_chunk.data_type.is_image():
             prompt.add_image_bytes(PromptRole.USER, resp_chunk.content, resp_chunk.data_type.mime_type)
