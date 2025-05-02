@@ -56,7 +56,7 @@ class AzureEmbeddingService:
     def embed_text(self, text: str, purpose: EmbeddingInputType) -> List[float]:
         return self.embed_texts([text], purpose)[0]
 
-    def embed_image(self, mime_type: Literal['image/png', 'image/jpeg'], base_64_image: str, text: Optional[str]) -> List[float]:
+    def embed_image(self, mime_type: Literal['image/png', 'image/jpeg'], base_64_image: str, text: Optional[str] = None) -> List[float]:
         """
         Generates an embedding for a single image, optionally including associated text.
 

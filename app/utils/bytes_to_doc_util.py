@@ -69,6 +69,11 @@ class DataType(Enum):
             for member in cls:
                 if member.extension == value.lower() or member.mime_type == value.lower():
                     return member
+        if isinstance(value, tuple) or isinstance(value, list):
+            if len(value) == 2:
+                for member in cls:
+                    if member.extension == value[0].lower():
+                        return member
         raise ValueError(f"'{value}' is not a valid DataType extension")
 
     def get_to_doc_func(self) -> "ToDocumentFunction":

@@ -5,8 +5,7 @@ and perform vector-based searches.
 """
 
 import logging
-from typing import Optional, List, Mapping, Any
-import time 
+from typing import Optional, List, Mapping
 import requests
 from azure.core.credentials import AzureKeyCredential
 from azure.search.documents import SearchClient
@@ -21,10 +20,13 @@ from azure.search.documents.indexes.models import (
     SearchFieldDataType
 )
 from pydantic import HttpUrl
+from deprecated import deprecated
 
 # Global variable to hold the AzureVectorService singleton instance.
 azure_instance: Optional["AzureVectorService"] = None
 
+# doesnt fully work
+@deprecated
 class AzureVectorService:
     """
     Service for managing vector operations with Azure Cognitive Search.
@@ -166,6 +168,7 @@ class AzureVectorService:
                 results_batch.append([])
 
         return results_batch
+
     def get_vector_ids_by_material_id(self, material_id: str) -> List[str]:
         """
         Retrieves vector document IDs associated with the given course material ID.
@@ -287,7 +290,7 @@ class AzureVectorService:
                 "Content-Type": "application/json",
                 "api-key": self.api_key
             }
-            
+
             # Construct the payload for a vector search.
             payload = {
                 "search": "",  # Must be provided even if not doing a keyword search.
@@ -299,11 +302,11 @@ class AzureVectorService:
                 }
             }
             payload = {k: v for k, v in payload.items() if v is not None}
-            
+
             # Execute the POST request.
             response = requests.post(search_url, headers=headers, json=payload)
             response.raise_for_status()
-            
+
             # Parse the response and extract only the vector and metadata.
             data = response.json().get("value", [])
             results = []

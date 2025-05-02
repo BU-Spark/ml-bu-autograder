@@ -8,6 +8,7 @@ from isapi.isapicon import HTTP_BAD_REQUEST
 from pydantic import FilePath, HttpUrl, ValidationError
 
 from app.services import AzureEmbeddingService
+from app.services.vector_db_service import ChromaDBService
 from app.utils import get_str_var, get_bool_var, setup_loggers, get_int_var
 from app.services.bg_material_processor import BackgroundMaterialProcessor
 from app.utils.jwt_service import JWTService
@@ -16,7 +17,6 @@ from app.utils.llm_service import LLMService
 load_dotenv()  # Load environment variables first
 
 from app.services.azure_blob_service import AzureBlobService
-from app.services.azure_vector_service import AzureVectorService
 
 if __name__ == "__main__":
     logging.critical("This application is not intended to be run directly. See README.md for instructions.")
@@ -63,6 +63,7 @@ AzureEmbeddingService.init_singleton(AZURE_EMBEDDING_DEPLOYMENT_URL, AZURE_EMBED
 #     index_name=AZURE_SEARCH_INDEX_NAME,
 #     embedding_dims=AZURE_SEARCH_EMBEDDING_DIMS
 # )
+ChromaDBService.init_singleton()
 BackgroundMaterialProcessor(TEMP_FILES_DIR).start_task_scan_loop()
 
 logging.info("Starting FastAPI server...")

@@ -327,7 +327,7 @@ class AzureBlobService:
             f"{student_response.question_index}/"
             f"student_response/"
             f"{student_response.student_id}/"
-            f"response.{student_response.data.data_type.value}"
+            f"response.{student_response.data.data_type.extension}"
         )
         self.upload_binary_data(
             student_response.data.content,
@@ -400,7 +400,7 @@ class AzureBlobService:
             f"{material.semester}/"
             f"{material.course_id}/"
             f"course_material/"
-            f"{material.material_id}.{material.data.data_type.value[0]}"
+            f"{material.material_id}/material.{material.data.data_type.value[0]}"
         )
         # TODO: problem for later
         # self.upload_binary_data(material.data.content, blob_path, None if material.additional_notes is None else {
@@ -523,7 +523,7 @@ class AzureBlobService:
         CourseMaterialReference]:
         """Retrieves course material if it exists."""
         # Construct the search pattern with a wildcard extension.
-        pattern = f"course/{semester_key}/{course_id}/course_material/{material_id}.*"
+        pattern = f"course/{semester_key}/{course_id}/course_material/{material_id}/material.*"
         full_pattern = self._full_path(pattern)
         logging.debug(f"Searching for course material with pattern: {full_pattern}")
 
@@ -674,6 +674,7 @@ class AzureBlobService:
             relative_path = file.split('/', 1)[1]
             student_id = relative_path.split('/')[7]
             data_type = relative_path.split(".")[-1]
+            question_index = int(relative_path.split("/")[5])
             if include_data:
                 student_response_data = self.get_student_response_data(
                     semester, course_id, assignment_id,
@@ -926,18 +927,20 @@ class AzureBlobService:
                                document: Document) -> Dict[int, str]:
         base_path = f"course/{semester_key}/{course_id}/course_material/{material_id}/chunks"
         full_base_path = self._full_path(base_path)
-        self.fs.rm(full_base_path, recursive=True)
+        try:
+            self.fs.rm(full_base_path, recursive=True)
+        except FileNotFoundError:
+            ...  # ignored
 
         def upload_one(chunk_id, document_chunk):
-            full_blob_path = f"{full_base_path}/{chunk_id}.{document_chunk.data_type.extension}"
             blob_path = f"{base_path}/{chunk_id}.{document_chunk.data_type.extension}"
-            self.upload_binary_data(document_chunk.content, full_blob_path, document_chunk.metadata)
+            self.upload_binary_data(document_chunk.content, blob_path, document_chunk.metadata)
             logging.info(f"Uploaded chunk {chunk_id} for {material_id}")
             return chunk_id, blob_path
 
         # This is a IO-bound task so using multiple threads speeds stuff up a lot
-        results = self.executor.map(lambda chunk_id, document_chunk:
-                                    upload_one(chunk_id, document_chunk),
+        results = self.executor.map(lambda args:
+                                    upload_one(*args),
                                     document.contents.items())
 
         mappings = dict(results)

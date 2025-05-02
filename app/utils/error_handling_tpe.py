@@ -32,7 +32,7 @@ class ErrorHandlingThreadPool:
     def _default_error_handler(self, fn: Callable[..., Any], exc_info: tuple):
         """Default: print traceback to stderr."""
         print(f"[ErrorHandlingThreadPool] Exception in {fn!r}:", file=sys.stderr)
-        traceback.print_exception(*exc_info)
+        traceback.print_exception(*exc_info, file=sys.stderr)
 
     def submit(self, fn: Callable[..., T], *args, **kwargs) -> Future:
         """
