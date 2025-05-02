@@ -45,7 +45,7 @@ AZURE_SEARCH_ENDPOINT = HttpUrl(get_str_var("AZURE_SEARCH_ENDPOINT"))
 AZURE_SEARCH_API_KEY = get_str_var("AZURE_SEARCH_API_KEY")
 AZURE_SEARCH_INDEX_NAME = get_str_var("AZURE_SEARCH_INDEX_NAME")
 AZURE_SEARCH_EMBEDDING_DIMS = get_int_var("AZURE_SEARCH_EMBEDDING_DIMS")
-
+DEPLOYMENT_URL = get_str_var("DEPLOYMENT_URL")
 COHERE_API_KEY = get_str_var("COHERE_EMBEDDING_KEY")
 
 # Setup logging level
@@ -68,6 +68,7 @@ logging.info("Starting FastAPI server...")
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from app.routes import auth, course, assignment, student_response, grading, course_material, rubric, user
 
 app = FastAPI(
@@ -98,6 +99,22 @@ async def catch_value_errs(request: Request, exc: ValueError):
         content={"detail": str(exc)},
     )
 
+# --- Add CORS Middleware ---
+# Define allowed origins (where your frontend is running)
+# IMPORTANT: Adjust this for production deployments!
+origins = [
+    "http://localhost:3000",  # Your Next.js frontend development server
+    DEPLOYMENT_URL
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,  # List of origins allowed to make requests
+    allow_credentials=True,  # Allow cookies/authorization headers
+    allow_methods=["*"],  # Allow all standard methods (GET, POST, PUT, DELETE, PATCH, etc.)
+    allow_headers=["*"],  # Allow all headers
+)
+# --- End of CORS Middleware ---
 
 # Include routers for modular endpoints with appropriate prefixes and tags.
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
