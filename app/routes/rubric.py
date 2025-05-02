@@ -1,3 +1,4 @@
+import logging
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, status, Query, Body, Depends
@@ -92,6 +93,7 @@ async def get_ai_rubric(
         assignment = blob_uploader.get_assignment_metadata(semester, course_id, assignment_id)
         if assignment is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found.")
+        assignment.questions = blob_uploader.list_questions(semester, course_id, assignment_id)
 
         # Use LLM to generate a rubric from scratch
         llm_service = LLMService.get_instance()
@@ -104,22 +106,25 @@ async def get_ai_rubric(
                 "The rubric should have clear criteria and point allocations that add up to the total points. "
                 "Use the assignment details to guide your rubric creation.")
             .add_message(PromptRole.USER, 
-                f"Create a comprehensive rubric for the following assignment:\n\n"
-                f"Course: {course_id.upper()}, Semester: {semester}\n"
-                f"Assignment ID: {assignment_id}\n"
-                #f"Assignment Details: {assignment.title} - {assignment.description}\n\n"
-                f"Number of questions: {len(assignment.questions)}")
+                f"Create a comprehensive rubric for the following assignment:\n")
+            .add_json_input(PromptRole.USER, assignment)
         )
 
-        # Add each question to the prompt
-        for i, question in enumerate(assignment.questions):
-            prompt.add_message(PromptRole.USER, 
-                f"Question {i+1}: {question.text}\n"
-                f"Points: {question.max_points}")
+        prompt.add_message(PromptRole.USER, "Factors to consider while creating this rubric:\n"
+            "1. Is the rubric specific and measurable?\n"
+            "2. Does point distribution aligns with question importance?\n"
+            "3. Are there clear, objective guidelines for what warrents a point deduction and by how much?\n"
+            "4. Are the criterias organized logically?\n"
+            "5. Add appropriate grading flags if needed.\n"
+            "6. Ensure all grading criteria for each question sum to the max points. You must run through the whole rubric step by step and make sure"
+            "that the sum of all points add to the max points allotment. If they do not add up to that allotment, then the rubric is invalid!")
 
         # Add any additional instructions if provided
         if instructions:
-            prompt.add_message(PromptRole.USER, f"Additional instructions: {instructions}")
+            prompt.add_message(PromptRole.USER, f"Additional instructions for rubric generation: {instructions}")
+
+        # Print the final prompt before sending
+        logging.debug(prompt.debug_string())
 
         # Build the final prompt
         prompt_list = prompt.build()
@@ -133,9 +138,6 @@ async def get_ai_rubric(
             rubric.course_id = course_id
             rubric.assignment_id = assignment_id
             
-            # Upload the generated rubric
-            blob_uploader.upload_rubric(semester, course_id, assignment_id, rubric)
-            
             return rubric
         except Exception as e:
             raise HTTPException(
@@ -147,6 +149,7 @@ async def get_ai_rubric(
         assignment = blob_uploader.get_assignment_metadata(semester, course_id, assignment_id)
         if assignment is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found.")
+        assignment.questions = blob_uploader.list_questions(semester, course_id, assignment_id)
 
         # Use LLM to enhance the existing rubric
         llm_service = LLMService.get_instance()
@@ -157,13 +160,9 @@ async def get_ai_rubric(
                 "You are an expert in educational assessment who specializes in improving rubrics. "
                 "Your task is to enhance an existing rubric to make it more organized, fair, and consistent. "
                 "Maintain the core structure and intent of the original rubric while improving clarity, "
-                "alignment with learning objectives, and point distribution fairness.")
-            .add_message(PromptRole.USER, 
-                f"Enhance the following rubric for this assignment:\n\n"
-                f"Course: {course_id.upper()}, Semester: {semester}\n"
-                f"Assignment ID: {assignment_id}\n"
-            )
-                #f"Assignment Details: {assignment.title} - {assignment.description}")
+                "alignment with learning objectives, and point distribution fairness. Provided below are the "
+                "assignment details, and the existing rubric.")
+            .add_json_input(PromptRole.USER, assignment)
         )
 
         # Add the existing rubric as JSON input
@@ -182,6 +181,8 @@ async def get_ai_rubric(
             "that the sum of all points add to the max points allotment. If they do not add up to that allotment, then the rubric is invalid!")
         if instructions:
             prompt.add_message(PromptRole.USER, f"Specific improvement instructions from instructor: {instructions}")
+
+        logging.debug(prompt.debug_string())
 
         # Build the final prompt
         prompt_list = prompt.build()

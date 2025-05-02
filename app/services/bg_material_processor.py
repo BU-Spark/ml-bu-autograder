@@ -74,7 +74,6 @@ def process_grading(json_str: str):
     embedding_service = CohereEmbeddingService.get_instance()
     student_response_embeddings: List[List[float]] = []
     for id, response_chunk in student_response_documents.contents.items():
-        # TODO: performance optimization: embed multiple chunks of text at a time
         if response_chunk.data_type.is_text():
             vector = embedding_service.embed_text(response_chunk.get_as_string(), EmbeddingInputType.SEARCH_QUERY)
         else:
@@ -82,6 +81,7 @@ def process_grading(json_str: str):
             vector = embedding_service.embed_image(response_chunk.data_type.mime_type, b64_img)
         student_response_embeddings.append(vector)
     vector_db = ChromaDBService.get_instance()
+    # todo: top k is pretty naive
     relevant_document_paths: List[List[str]] = vector_db.search(student_response.semester, student_response.course_id, student_response_embeddings, top_k=5)
     relevant_document_paths: List[str] = chain.from_iterable(relevant_document_paths)  # flatten list
 

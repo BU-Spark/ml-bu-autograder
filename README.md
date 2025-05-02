@@ -89,7 +89,7 @@ Developed as part of a **Boston University SPARK** project for **BU MET ETI**, t
 
 Below is a visual representation of our current workflow for the MET BU Autograder workflow:
 
-![proposed-workflow](proposed-workflow.png)
+![proposed-workflow](assets/proposed-workflow.png)
 
 ---
 

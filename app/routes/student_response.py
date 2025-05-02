@@ -197,6 +197,9 @@ async def get_responses(
     responses = blob_uploader.list_student_responses(semester, course_id, assignment_id,
                                                      student_id, question_index, True)
 
+    if len(responses) == 0:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No matching responses.")
+
     return responses
 
 

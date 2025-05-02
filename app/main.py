@@ -86,7 +86,7 @@ async def catch_pydantic_validation_errs(request: Request, exc: ValidationError)
     logging.warning("ValidationError occurred:\n%s", tb_str)
     return JSONResponse(
         status_code=status.HTTP_400_BAD_REQUEST,
-        content={"detail": exc.errors()},
+        content={"detail": str(exc)},
     )
 
 @app.exception_handler(ValueError)
