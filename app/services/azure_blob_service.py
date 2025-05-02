@@ -71,6 +71,7 @@ class AzureBlobService:
         self.account_name = self.abfs.account_name
         self.account_url = f"https://{self.account_name}.blob.core.windows.net"
         self.blob_service_client = BlobServiceClient(self.account_url, credential=self.abfs.credential)
+        self.container_client = self.blob_service_client.get_container_client(container_name)
 
         # init a thread pool executor since there is plenty of IO-bound tasks here...
         self.executor = ErrorHandlingThreadPool(max_workers=4)
@@ -124,21 +125,38 @@ class AzureBlobService:
             blob_path: Destination blob path.
             metadata: Optional blob metadata (key-value pairs).
         """
-        full_path = self._full_path(blob_path)
-        logging.debug(f"Starting upload of binary file to {full_path}")
+        assert type(file_data) is bytes
+        logging.debug(f"Starting upload of binary file to {blob_path}")
         try:
             content_type = self._guess_content_type(blob_path)
 
-            with self.abfs.open(full_path, 'wb',
-                                metadata=metadata,
-                                content_settings=ContentSettings(content_type=content_type)) as f:
-                f.write(file_data)
+            def list_to_str(l: list):
+                string = ""
+                for item in l:
+                    string += f"{item}, "
+                string = string[:-2]
+                return string
 
-            self.fs.invalidate_cache(full_path)
-            logging.debug(f"Uploaded {len(file_data)} bytes to {full_path}, invalidated cache.")
+            def sanitize_metadata(metadata: dict) -> dict:
+                if not metadata:
+                    return {}
+
+                return {
+                    str(k): list_to_str(v) if isinstance(v, list) else str(v)
+                    for k, v in metadata.items()
+                }
+
+            self.container_client.get_blob_client(blob_path).upload_blob(
+                data=file_data,
+                overwrite=True,
+                content_settings=ContentSettings(content_type=content_type),
+                metadata=sanitize_metadata(metadata)
+            )
+
+            logging.debug(f"Uploaded {len(file_data)} bytes to {blob_path}, invalidated cache.")
 
         except Exception as e:
-            logging.error(f"Upload failed for {full_path}: {e}", exc_info=True)
+            logging.error(f"Upload failed for {blob_path}: {e}", exc_info=True)
             raise
 
     def upload_json(self, data: BaseModel, blob_path: str, exclude: Set[str] = None, metadata: Dict[str, str] = None):
@@ -151,23 +169,23 @@ class AzureBlobService:
             exclude: Fields which should be excluded from serialization.
             metadata: Optional blob metadata.
         """
-        full_path = self._full_path(blob_path)
-        logging.debug(f"Uploading JSON to {full_path}")
+        logging.debug(f"Uploading JSON to {blob_path}")
         try:
             exclude_set = set(exclude) if exclude is not None else None
             json_string = data.model_dump_json(indent=4, exclude=exclude_set)
             json_bytes = json_string.encode('utf-8')
 
-            with self.abfs.open(full_path, 'wb',
-                                metadata=metadata,
-                                content_settings=ContentSettings(content_type="application/json")) as f:
-                f.write(json_bytes)
+            self.container_client.get_blob_client(blob_path).upload_blob(
+                data=json_bytes,
+                overwrite=True,
+                content_settings=ContentSettings(content_type="application/json")
+            )
 
-            self.fs.invalidate_cache(full_path)
+            self.fs.invalidate_cache(blob_path)
             logging.info(f"Uploaded JSON to {blob_path}, invalidated cache.")  # Use relative path
 
         except Exception as e:
-            logging.error(f"Upload JSON failed for {full_path}: {e}", exc_info=True)
+            logging.error(f"Upload JSON failed for {blob_path}: {e}", exc_info=True)
             raise
 
     def download_file(self, blob_path, local_file_path):
@@ -186,6 +204,11 @@ class AzureBlobService:
         except Exception as e:
             logging.error(f"Download failed for {full_path}: {e}", exc_info=True)
             raise
+
+    def retrieve_blob_with_metadata(self, blob_path: str) -> Dict[str, str]:
+        full_path = self._full_path(blob_path)
+        props = self.container_client.get_blob_client(full_path).get_blob_properties()
+        return props.metadata
 
     def get_file_bytes(self, blob_path: str) -> Optional[bytes]:
         full_path = self._full_path(blob_path)
@@ -330,7 +353,7 @@ class AzureBlobService:
             f"response.{student_response.data.data_type.extension}"
         )
         self.upload_binary_data(
-            student_response.data.content,
+            student_response.data.content_as_bytes(),
             blob_path,
         )
 
@@ -393,7 +416,7 @@ class AzureBlobService:
         data = self.download_json(blob_path)
         return Assignment(**data, questions=[]) if data else None
 
-    def upload_course_material(self, material: CourseMaterialData):
+    def upload_course_material(self, material: CourseMaterialData) -> CourseMaterialReference:
         """Uploads course material with automatic content type handling."""
         blob_path = (
             f"course/"
@@ -406,7 +429,15 @@ class AzureBlobService:
         # self.upload_binary_data(material.data.content, blob_path, None if material.additional_notes is None else {
         #     "additional_notes": material.additional_notes
         # })
-        self.upload_binary_data(material.data.content, blob_path)
+        self.upload_binary_data(material.data.content_as_bytes(), blob_path)
+        reference = CourseMaterialReference(
+            **material.model_dump(exclude={"data"}),
+            data=UploadedFileReference(
+                data_type=material.data.data_type,
+                uri=self.generate_sas_url(blob_path)
+            )
+        )
+        return reference
 
     def get_student_response_data(self, semester_key: str, course_id: str, assignment_id: str, question_index: int,
                                   student_id: str, data_type: str) \
