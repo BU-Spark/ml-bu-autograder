@@ -4,10 +4,11 @@ import traceback
 
 from azure.identity import DefaultAzureCredential
 from dotenv import load_dotenv
-from isapi.isapicon import HTTP_BAD_REQUEST
 from pydantic import FilePath, HttpUrl, ValidationError
 
 from app.services import AzureEmbeddingService
+from app.services.azure_embedding_service import CohereEmbeddingService
+from app.services.vector_db_service import ChromaDBService
 from app.utils import get_str_var, get_bool_var, setup_loggers, get_int_var
 from app.services.bg_material_processor import BackgroundMaterialProcessor
 from app.utils.jwt_service import JWTService
@@ -16,7 +17,6 @@ from app.utils.llm_service import LLMService
 load_dotenv()  # Load environment variables first
 
 from app.services.azure_blob_service import AzureBlobService
-from app.services.azure_vector_service import AzureVectorService
 
 if __name__ == "__main__":
     logging.critical("This application is not intended to be run directly. See README.md for instructions.")
@@ -44,6 +44,8 @@ AZURE_SEARCH_ENDPOINT = HttpUrl(get_str_var("AZURE_SEARCH_ENDPOINT"))
 AZURE_SEARCH_API_KEY = get_str_var("AZURE_SEARCH_API_KEY")
 AZURE_SEARCH_INDEX_NAME = get_str_var("AZURE_SEARCH_INDEX_NAME")
 AZURE_SEARCH_EMBEDDING_DIMS = get_int_var("AZURE_SEARCH_EMBEDDING_DIMS")
+DEPLOYMENT_URL = get_str_var("DEPLOYMENT_URL")
+COHERE_API_KEY = get_str_var("COHERE_EMBEDDING_KEY")
 
 # Setup logging level
 setup_loggers(production=PRODUCTION)
@@ -55,20 +57,17 @@ credential = DefaultAzureCredential()
 AzureBlobService.init_singleton(credential, AZURE_STORAGE_ACCOUNT_NAME, AZURE_CONTAINER_NAME, TEMP_FILES_DIR)
 JWTService.init_singleton(JWT_ENCRYPTION_SECRET_FILE, ENV_TEST_API_KEY)
 LLMService.init_singleton(AZURE_LLM_DEPLOYMENT_URL, AZURE_LLM_DEPLOYMENT_KEY)
-AzureEmbeddingService.init_singleton(AZURE_EMBEDDING_DEPLOYMENT_URL, AZURE_EMBEDDING_MODEL,
-                                     AZURE_EMBEDDING_DEPLOYMENT_KEY)
-# AzureVectorService.init_singleton(
-#     endpoint=AZURE_SEARCH_ENDPOINT,
-#     api_key=AZURE_SEARCH_API_KEY,
-#     index_name=AZURE_SEARCH_INDEX_NAME,
-#     embedding_dims=AZURE_SEARCH_EMBEDDING_DIMS
-# )
+# AzureEmbeddingService.init_singleton(AZURE_EMBEDDING_DEPLOYMENT_URL, AZURE_EMBEDDING_MODEL,
+#                                      AZURE_EMBEDDING_DEPLOYMENT_KEY)
+CohereEmbeddingService.init_singleton(COHERE_API_KEY)
+ChromaDBService.init_singleton()
 BackgroundMaterialProcessor(TEMP_FILES_DIR).start_task_scan_loop()
 
 logging.info("Starting FastAPI server...")
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from app.routes import auth, course, assignment, student_response, grading, course_material, rubric, user
 
 app = FastAPI(
@@ -86,7 +85,7 @@ async def catch_pydantic_validation_errs(request: Request, exc: ValidationError)
     tb_str = ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__))
     logging.warning("ValidationError occurred:\n%s", tb_str)
     return JSONResponse(
-        status_code=HTTP_BAD_REQUEST,
+        status_code=status.HTTP_400_BAD_REQUEST,
         content={"detail": exc.errors()},
     )
 
@@ -95,10 +94,26 @@ async def catch_value_errs(request: Request, exc: ValueError):
     tb_str = ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__))
     logging.warning("ValueError occurred:\n%s", tb_str)
     return JSONResponse(
-        status_code=HTTP_BAD_REQUEST,
+        status_code=status.HTTP_400_BAD_REQUEST,
         content={"detail": str(exc)},
     )
 
+# --- Add CORS Middleware ---
+# Define allowed origins (where your frontend is running)
+# IMPORTANT: Adjust this for production deployments!
+origins = [
+    "http://localhost:3000",  # Your Next.js frontend development server
+    DEPLOYMENT_URL
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,  # List of origins allowed to make requests
+    allow_credentials=True,  # Allow cookies/authorization headers
+    allow_methods=["*"],  # Allow all standard methods (GET, POST, PUT, DELETE, PATCH, etc.)
+    allow_headers=["*"],  # Allow all headers
+)
+# --- End of CORS Middleware ---
 
 # Include routers for modular endpoints with appropriate prefixes and tags.
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
