@@ -1,4 +1,6 @@
-from pydantic import BaseModel, Field, HttpUrl, FilePath
+import base64
+
+from pydantic import BaseModel, Field, HttpUrl, FilePath, validator, field_validator
 
 from app.utils.bytes_to_doc_util import DataType
 
@@ -14,7 +16,10 @@ class UploadedFileData(BaseModel):
     """
     data_type: DataType = Field(..., description="The data type which 'content' should be interpret as.")
     #metadata: Optional[Dict[str, str]] = Field(None, description="Optional metadata as key-value pairs.")
-    content: bytes = Field(..., description="Binary content of the file (must be uploaded as a base64-encoded string).")
+    content: str = Field(..., description="Binary content of the file (must be uploaded as a base64-encoded string).")
+
+    def content_as_bytes(self) -> bytes:
+        return base64.b64decode(self.content)
 
 
 class UploadedFileReference(BaseModel):

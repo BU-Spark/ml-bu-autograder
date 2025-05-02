@@ -126,7 +126,7 @@ async def upload_course_material(
         raise HTTPException(status_code=409, detail="Material with this ID already exists.")
 
     # Upload the material
-    blob_uploader.upload_course_material(material)
+    upload_reference = blob_uploader.upload_course_material(material)
 
     # Save object to file otherwise if too many requests
     # accumulate we will run out of ram very quick
@@ -138,7 +138,7 @@ async def upload_course_material(
     with open(save_path, 'w') as f:
         f.write(material.model_dump_json(indent=4))
 
-    return material
+    return upload_reference
 
 
 @router.delete(

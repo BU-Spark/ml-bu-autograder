@@ -8,6 +8,7 @@ from typing import Dict, List, Tuple, Any, Optional, Protocol, Callable, Literal
 
 import fitz  # PyMuPDF
 from pydantic import BaseModel, field_validator  # Use pydantic BaseModel for DocumentChunk
+from pymupdf import FileDataError
 
 
 class DataType(Enum):
@@ -229,7 +230,10 @@ class Document:
         doc = None
         try:
             binary_stream = BytesIO(file_bytes)
-            doc = fitz.open(stream=binary_stream, filetype="pdf")
+            try:
+                doc = fitz.open(stream=binary_stream, filetype="pdf")
+            except FileDataError as e:
+                logging.error("Failed to open pdf file. Is this even a PDF?")
 
             for page_num_zero_based, page in enumerate(doc):
                 page_num_one_based = page_num_zero_based + 1
@@ -607,32 +611,32 @@ class ToDocumentFunction(Protocol):
 
 # --- Helper Function to Print Document Chunks ---
 def print_document_summary(document: Document, title: str):
-    print(f"\n--- {title} ---")
-    print(f"Original File: {document.file_name}")
-    print(f"Total chunks: {len(document.contents)}")
+    logging.debug(f"\n--- {title} ---")
+    logging.debug(f"Original File: {document.file_name}")
+    logging.debug(f"Total chunks: {len(document.contents)}")
 
     for chunk_id, chunk in sorted(document.contents.items()):
-        print(f"\n--- Chunk ID: {chunk_id} ---")
-        print(f"  Type: {chunk.data_type.name}")
-        print(f"  Metadata: {chunk.metadata}")
+        logging.debug(f"\n--- Chunk ID: {chunk_id} ---")
+        logging.debug(f"  Type: {chunk.data_type.name}")
+        logging.debug(f"  Metadata: {chunk.metadata}")
 
         if chunk.data_type == DataType.TEXT:
             text_content = chunk.get_as_string()
             word_count = len(text_content.split())
-            print(f"  Word Count: {word_count}")
+            logging.debug(f"  Word Count: {word_count}")
             words = text_content.split()
             preview_start = " ".join(words[:15])
             preview_end = " ".join(words[-15:])
             if len(words) > 30:
-                print(f"  Content Preview: '{preview_start} ... {preview_end}'")
+                logging.debug(f"  Content Preview: '{preview_start} ... {preview_end}'")
             else:
-                print(f"  Content: '{text_content}'")
+                logging.debug(f"  Content: '{text_content}'")
 
         elif chunk.data_type.is_image():
             image_size = len(chunk.content)
-            print(f"  Image Content Size: {image_size} bytes")
+            logging.debug(f"  Image Content Size: {image_size} bytes")
             # Optionally print base64 preview if needed, but it's very long
-            # print(f"  Image Base64 Preview: {chunk.get_as_base64()[:50]}...")
+            # logging.debug(f"  Image Base64 Preview: {chunk.get_as_base64()[:50]}...")
 
 
 if __name__ == '__main__':
