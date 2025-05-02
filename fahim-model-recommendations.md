@@ -147,6 +147,68 @@ Summarize with GPT-4.1 mini (temp = 0.3–0.4)
 Final grading with GPT-4.1 (temp = 0.2)
 
 
+# Running the Recommended AI Models for Grading Pipeline
+
+This guide explains how to run each recommended AI model in the optimal grading architecture:
+
+✅ GPT-4.1 (Azure OpenAI) → final grading  
+✅ GPT-4.1 mini (Azure OpenAI) → summarizing course materials  
+✅ Cohere Embed v4 Multimodal → semantic embedding (optional)  
+✅ Azure AI Document Intelligence → OCR for scanned PDFs
+
+---
+
+# Running the Recommended AI Models for Grading Pipeline
+
+This guide explains how to run each recommended AI model in the optimal grading architecture:
+
+✅ GPT-4.1 (Azure OpenAI) → final grading  
+✅ GPT-4.1 mini (Azure OpenAI) → summarizing course materials  
+✅ Cohere Embed v4 Multimodal → semantic embedding (optional)  
+✅ Azure AI Document Intelligence → OCR for scanned PDFs
+
+---
+
+## 1️⃣ Running GPT-4.1 (Final Grading)
+
+**Prerequisites:**
+
+- Deployed **GPT-4.1** model in Azure OpenAI
+- Endpoint (e.g. `https://<your-resource>.openai.azure.com`)
+- API Key
+- Deployment name (e.g. `gpt-4` or `gpt-4.1`)
+
+👉 **Notebook cell:**
+
+```python
+import requests
+
+endpoint = "https://<your-resource>.openai.azure.com/openai/deployments/<deployment-name>/chat/completions?api-version=2024-03-01-preview"
+api_key = "<your-api-key>"
+
+headers = {
+    "Content-Type": "application/json",
+    "api-key": api_key
+}
+
+payload = {
+    "messages": [
+        {"role": "system", "content": "You are an AI grading assistant."},
+        {"role": "user", "content": "Grade this student essay: [insert text here]"}
+    ],
+    "temperature": 0.2,
+    "max_tokens": 1500
+}
+
+response = requests.post(endpoint, headers=headers, json=payload)
+response.raise_for_status()
+
+result = response.json()
+print(result["choices"][0]["message"]["content"])
+
+
+
+
 ## References
 
 - [Ajami, S., & Arab-Chadegani, R. (2013). Barriers to implement Electronic Health Records (EHRs). *Materia Socio-Medica*, 25(3), 213–215.](https://doi.org/10.5455/msm.2013.25.213-215)
