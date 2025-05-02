@@ -176,6 +176,7 @@ venv
 __pycache__/
 *.py[cod]
 /frontend/node_modules/
+/frontend/.next
 *.json
 .env
 .ipynb_checkpoints
