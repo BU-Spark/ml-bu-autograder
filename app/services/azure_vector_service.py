@@ -201,6 +201,7 @@ class AzureVectorService:
             logging.info(f"Deleted {len(ids)} documents from Azure Search.")
         except Exception as e:
             logging.error("Failed to delete documents by ID", exc_info=True)
+    
 
     def add_vectors(self, ids: List[str], vectors: List[List[float]], metadatas: List[Mapping] = None):
         """
@@ -322,5 +323,5 @@ class AzureVectorService:
                 # logging.info(f"Vector score: {result.get("content_vector")}")
             return results
         except Exception as e:
-            logging.error("❌ Error retrieving closest vectors: " + str(e), exc_info=True)
+            logging.error("Error retrieving closest vectors: " + str(e), exc_info=True)
             return []
