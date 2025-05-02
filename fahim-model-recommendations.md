@@ -205,7 +205,7 @@ response.raise_for_status()
 
 result = response.json()
 print(result["choices"][0]["message"]["content"])
-
+```
 
 
 
