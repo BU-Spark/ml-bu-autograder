@@ -10,6 +10,14 @@ import fitz  # PyMuPDF
 from pydantic import BaseModel, field_validator  # Use pydantic BaseModel for DocumentChunk
 from pymupdf import FileDataError
 
+# Additional libraries for various formats
+from docx import Document as DocxDocument
+from pptx import Presentation
+from openpyxl import load_workbook
+from bs4 import BeautifulSoup
+from pydub import AudioSegment
+from moviepy import VideoFileClip
+
 
 class DataType(Enum):
     """
@@ -571,7 +579,33 @@ class Document:
     @classmethod
     def from_xlsx(cls, file_name: str, file_bytes: bytes, do_splits=True, split_len: int = 5000,
                   overlap: int = 0) -> "Document":
-        raise NotImplementedError("from_xlsx is not implemented")
+        try:
+            wb = load_workbook(path, read_only=True)
+            texts: List[str] = []
+            for ws in wb.worksheets:
+                for row in ws.iter_rows(values_only=True):
+                    row_texts = [str(cell) for cell in row if cell is not None]
+                    if row_texts:
+                        texts.append(" ".join(row_texts))
+            full_text = "\n".join(texts)
+            words = full_text.split()
+            contents: Dict[int, DocumentChunk] = {}
+            chunk_id = 0
+            total = len(words)
+            idx = 0
+            while idx < total:
+                end = min(idx + split_len, total)
+                chunk_words = words[idx:end]
+                contents[chunk_id] = DocumentChunk(
+                    content_modality=ContentModality.TEXT,
+                    content=" ".join(chunk_words).encode(encoding="utf-8")
+                )
+                chunk_id += 1
+                idx = max(end - overlap, idx + 1)
+        except Exception as e:
+            logging.error(f"Error processing XLSX {path}: {e}")
+            return None
+        return cls(file_name=path.name, contents=contents)
 
     @classmethod
     def from_csv(cls, file_name: str, file_bytes: bytes, do_splits=True, split_len: int = 5000,
@@ -586,17 +620,88 @@ class Document:
     @classmethod
     def from_doc(cls, file_name: str, file_bytes: bytes, do_splits=True, split_len: int = 5000,
                  overlap: int = 0) -> "Document":
-        raise NotImplementedError("from_doc is not implemented")
+        path = cls._validate_path(file_path)
+        try:
+            doc = DocxDocument(path)
+            paragraphs = [p.text for p in doc.paragraphs if p.text]
+            text = "\n".join(paragraphs)
+            words = text.split()
+            contents: Dict[int, DocumentChunk] = {}
+            chunk_id = 0
+            total = len(words)
+            idx = 0
+            while idx < total:
+                end = min(idx + split_len, total)
+                chunk_words = words[idx:end]
+                contents[chunk_id] = DocumentChunk(
+                    content_modality=ContentModality.TEXT,
+                    content=" ".join(chunk_words).encode("utf-8")
+                )
+                chunk_id += 1
+                idx = max(end - overlap, idx + 1)
+        except Exception as e:
+            logging.error(f"Error processing DOCX {path}: {e}")
+            return None
+        return cls(file_name=path.name, contents=contents)
 
     @classmethod
     def from_pptx(cls, file_name: str, file_bytes: bytes, do_splits=True, split_len: int = 5000,
                   overlap: int = 0) -> "Document":
-        raise NotImplementedError("from_pptx is not implemented")
+        logging.warning("Processing PPTX Documents is untested!")
+        path = cls._validate_path(file_path)
+        try:
+            prs = Presentation(path)
+            texts: List[str] = []
+            for slide in prs.slides:
+                for shape in slide.shapes:
+                    if hasattr(shape, 'text') and shape.text:
+                        texts.append(shape.text)
+            full_text = "\n".join(texts)
+            words = full_text.split()
+            contents: Dict[int, DocumentChunk] = {}
+            chunk_id = 0
+            total = len(words)
+            idx = 0
+            while idx < total:
+                end = min(idx + split_len, total)
+                chunk_words = words[idx:end]
+                contents[chunk_id] = DocumentChunk(
+                    content_modality=ContentModality.TEXT,
+                    content=" ".join(chunk_words).encode("utf-8")
+                )
+                chunk_id += 1
+                idx = max(end - overlap, idx + 1)
+        except Exception as e:
+            logging.error(f"Error processing PPTX {path}: {e}")
+            return None
+        return cls(file_name=path.name, contents=contents)
 
     @classmethod
     def from_html(cls, file_name: str, file_bytes: bytes, do_splits=True, split_len: int = 5000,
                   overlap: int = 0) -> "Document":
-        raise NotImplementedError("from_html is not implemented")
+        logging.warning("Processing HTML Documents is untested!")
+        try:
+            text = Path(path).read_text(encoding="utf-8")
+            soup = BeautifulSoup(text, 'html.parser')
+            visible_text = soup.get_text(separator=' ')
+            words = visible_text.split()
+            contents: Dict[int, DocumentChunk] = {}
+            chunk_id = 0
+            total = len(words)
+            idx = 0
+            while idx < total:
+                end = min(idx + split_len, total)
+                chunk_words = words[idx:end]
+                contents[chunk_id] = DocumentChunk(
+                    content_modality=ContentModality.TEXT,
+                    content=" ".join(chunk_words).encode(encoding="utf-8")
+                )
+                chunk_id += 1
+                idx = max(end - overlap, idx + 1)
+        except Exception as e:
+            logging.error(f"Error processing HTML {path}: {e}")
+            return None
+        return cls(file_name=path.name, contents=contents)
 
 
 class ToDocumentFunction(Protocol):
