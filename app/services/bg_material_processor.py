@@ -1,20 +1,23 @@
 import asyncio
+import base64
 import logging
 import os
 import random
 from typing import Optional, TextIO, Callable, Dict, List
+from itertools import chain
 
 import portalocker
 import requests
-from azure.ai.inference.models import EmbeddingInputType
 from pydantic import FilePath
 
 from app.models import CourseMaterialData, Grade, GradedStudentResponseReference
 from app.services import AzureBlobService, AzureEmbeddingService
+from app.services.azure_embedding_service import CohereEmbeddingService, EmbeddingInputType
+from app.services.vector_db_service import ChromaDBService
 from app.utils.bytes_to_doc_util import Document, DataType
 from app.utils.error_handling_tpe import ErrorHandlingThreadPool
 from app.utils.llm_service import LLMService, PromptRole, PromptBuilder
-from app.services.azure_vector_service import AzureVectorService
+
 """
 Process material files in the background including processing the RAG pipeline for the course
 material and the grading pipeline for the assignment. When an API endpoint submits course material,
@@ -59,11 +62,29 @@ def process_grading(json_str: str):
         course_id=student_response.course_id,
         assignment_id=student_response.assignment_id,
     )
+    assignment.questions = blob_service.list_questions(student_response.semester,
+                                                       student_response.course_id,
+                                                       student_response.assignment_id)
     assignment_question = assignment.questions[student_response.question_index]
     #  Step 3: Query the vector database with the student's response grabbing all topn
     #          relevant documents.
-    # Josh you do this
-    relevant_document_paths: List[str] = ...
+
+    # Step 3a: Compile a list of relevant course materials using the student's response, the question,
+    # and the rubric.
+    embedding_service = CohereEmbeddingService.get_instance()
+    student_response_embeddings: List[List[float]] = []
+    for id, response_chunk in student_response_documents.contents.items():
+        # TODO: performance optimization: embed multiple chunks of text at a time
+        if response_chunk.data_type.is_text():
+            vector = embedding_service.embed_text(response_chunk.get_as_string(), EmbeddingInputType.SEARCH_QUERY)
+        else:
+            b64_img = base64.b64encode(response_chunk.get_as_bytes()).decode('utf-8')
+            vector = embedding_service.embed_image(response_chunk.data_type.mime_type, b64_img)
+        student_response_embeddings.append(vector)
+    vector_db = ChromaDBService.get_instance()
+    relevant_document_paths: List[List[str]] = vector_db.search(student_response.semester, student_response.course_id, student_response_embeddings, top_k=5)
+    relevant_document_paths: List[str] = chain.from_iterable(relevant_document_paths)  # flatten list
+
     #  Step 4: Go grab those documents (texts and images) from Azure blob storage. It might
     #          also be possible to simply get azure to generate a URL for these documents
     #          and then send that to the LLM.
@@ -72,16 +93,18 @@ def process_grading(json_str: str):
     #          assignment instructions, rubric, RAG-ed course material chunks, and student
     #          response to generate a prompt for auto-grading.
     prompt = (PromptBuilder.builder()
-              .add_message(PromptRole.SYSTEM, "You are a grader responsible for grading a student's response.")
+              .add_message(PromptRole.SYSTEM, "You are a grader responsible for grading a student's response "
+                                              "ensuring accuracy and fairness.")
               .add_message(PromptRole.USER, "Here is course material that might be relevant to this assignment."
-                                            "In your grading responses, when information is relevant, please cite these"
-                                            "sources including with any other relevant reference information."))
+                                            "When justification the reason for your grades, in your grading responses, "
+                                            "cite these relevant sources including with any in the following format: "
+                                            "[$sourceName ($additional_source_details)]"))
 
     for file_name, document in course_material_documents:
         assert document.data_type.is_fundamental()
         doc_ref_str = f"Document name: {file_name}"
         if 'page_num' in document.metadata:
-            doc_ref_str += f" (page {document.metadata['page_num']})"
+            doc_ref_str += f" (Page(s): {document.metadata['page_num']})"
         prompt.add_message(PromptRole.USER, doc_ref_str)
         if document.data_type.is_image():
             prompt.add_image_bytes(PromptRole.USER, document.content, document.data_type.mime_type)
@@ -92,10 +115,12 @@ def process_grading(json_str: str):
      .add_json_input(PromptRole.USER, assignment, excluded_fields={"questions"})
      .add_json_input(PromptRole.USER, assignment_question)
      .add_message(PromptRole.USER, "Grading for this assignment should be"
-                                   " exclusively based on the following rubric:")
+                                   "exclusively based on the following rubric. You are required to explicitly "
+                                   "reference the rubric explaining which parts of the rubric did the student fullfil "
+                                   "and which parts the student missed (if any).")
      .add_json_input(PromptRole.USER, rubric))
     for grading_flag in rubric.grading_flags:
-        prompt.add_message(PromptRole.USER, f"Since the rubric is marked with the flag: {grading_flag.flag_name},"
+        prompt.add_message(PromptRole.USER, f"Since the rubric is marked with the flag: {grading_flag.value},"
                                             f"it means you should: {grading_flag.get_description()}")
 
     prompt.add_message(PromptRole.USER, "Here is the student's response:")
@@ -104,6 +129,8 @@ def process_grading(json_str: str):
             prompt.add_image_bytes(PromptRole.USER, resp_chunk.content, resp_chunk.data_type.mime_type)
         elif resp_chunk.data_type.is_text():
             prompt.add_message(PromptRole.USER, resp_chunk.get_as_string())
+
+    logging.debug(f"Sending the following prompt to the LLM:\n{prompt.debug_string()}")
 
     #  Step 6: Grab the auto-graded response, upload it to Azure, and move on to the next assignment
     #          in the queue (if any).
@@ -135,7 +162,7 @@ def process_course_material(json_str: str):
     to_doc_func = course_material.data.data_type.get_to_doc_func()
     document: Document = to_doc_func(
         f"{course_material.material_id}.{course_material.data.data_type.extension}",
-        course_material.data.content,
+        course_material.data.content_as_bytes(),
         True
     )
     #  Step 3: Upload these chunks to azure and get the blob paths
@@ -147,7 +174,7 @@ def process_course_material(json_str: str):
         document
     )
     #  Step 4: Vectorize the chunks (text or images).
-    embedding_service = AzureEmbeddingService.get_instance()
+    embedding_service = CohereEmbeddingService.get_instance()
     vectorized_chunks: Dict[str, List[float]] = {}  # the key is blob_path, value is vector
     text_paths: List[str] = []
     texts: List[str] = []
@@ -158,28 +185,29 @@ def process_course_material(json_str: str):
         chunked_doc = document.get_chunk(chunk_id)
         if chunked_doc.data_type.is_image():
             vectorized_chunks[chunk_path] = embedding_service.embed_image(
-                chunked_doc.data_type.mime_type, chunked_doc.get_as_bytes()
+                chunked_doc.data_type.mime_type, chunked_doc.get_as_base64()
             )
         elif chunked_doc.data_type == DataType.TEXT:
             text_paths.append(chunk_path)
-            texts.append(chunked_doc.get_as_string())
+            texts.append(chunked_doc.get_as_string()[:100])
         else:
             # the data types should only be either image or text
             raise Exception(f"Unsupported data type: {course_material.data.data_type}")
-    vectors = embedding_service.embed_texts(texts, EmbeddingInputType.TEXT)
+    vectors = embedding_service.embed_texts(texts, EmbeddingInputType.DOCUMENT)
+
     for blob_path, vector in zip(text_paths, vectors):
         vectorized_chunks[blob_path] = vector
     #  Step 5: Take the pairs of the blob paths and vectorized chunks, and upload them
     #          to Azure's AI search. And thats it!
-    azure_vector_service = AzureVectorService.get_instance()
+    vector_service = ChromaDBService.get_instance()
     vector_ids = list(vectorized_chunks.keys())  # Using blob_paths as vector IDs
     vector_values = list(vectorized_chunks.values())
-    #metadata_list = [{"file_path": blob_path} for blob_path in vector_ids]
 
-    azure_vector_service.add_vectors(
-        ids=vector_ids,
-        vectors=vector_values,
-        #metadatas=metadata_list
+    vector_service.add_vectors(
+        course_material.semester,
+        course_material.course_id,
+        vector_ids,
+        vector_values
     )
 
 

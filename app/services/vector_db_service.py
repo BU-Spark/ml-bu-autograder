@@ -17,8 +17,7 @@ chroma_instance: Optional["ChromaDBService"] = None
 class VectorDBService:
 
     def add_vectors(self, course_semester: str, course_id: str,
-                    document_ids: List[str], vectors: List[List[float]],
-                    metadatas: List[Mapping] = None):
+                    document_ids: List[str], vectors: List[List[float]]):
         ...
 
     def add_vector(self, course_semester: str, course_id: str, id: str, vector: List[float]):
@@ -55,39 +54,42 @@ class ChromaDBService(VectorDBService):
         logging.debug(f"Initialized ChromaDBService with persistence directory {persist_directory}")
 
     def add_vectors(self, course_semester: str, course_id: str,
-                    document_ids: List[str], vectors: List[List[float]],
-                    metadatas: List[Mapping] = None):
+                    document_ids: List[str], vectors: List[List[float]]):
         """Adds vectors to a specified collection in batch for higher performance."""
         self.collection.add(
             embeddings=vectors,
             ids=document_ids,
-            metadatas={
+            metadatas=[{
                 "semester": course_semester,
                 "course_id": course_id,
-            }
+            } for _ in range(len(document_ids))],
         )
         logging.debug(f"Added {len(vectors)} vectors to collection with ids {document_ids}")
 
     def search(self, course_semester: str, course_id: str,
-               query_vectors: List[List[float]], top_k: int = 5) -> QueryResult:
+               query_vectors: List[List[float]], top_k: int = 5) -> List[List[str]]:
         """Queries the closest vectors from the collection."""
         results = self.collection.query(
             query_embeddings=query_vectors,
             n_results=top_k,
             where={
-                "semester": course_semester,
-                "course_id": course_id,
+                "$and": [
+                    {"semester": course_semester},
+                    {"course_id": course_id}
+                ]
             },
         )
         logging.debug(f"Queried {len(results)} vectors from collection")
         # Convert results into
-        return results
+        return results.get("ids")
 
     def delete_course(self, course_semester: str, course_id: str):
         self.collection.delete(
             where={
-                "course_id": course_semester,
-                "course_semester": course_id
+                "$and": [
+                    {"semester": course_semester},
+                    {"course_id": course_id}
+                ]
             }
         )
 

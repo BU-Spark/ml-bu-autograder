@@ -19,7 +19,10 @@ class UploadedFileData(BaseModel):
     content: str = Field(..., description="Binary content of the file (must be uploaded as a base64-encoded string).")
 
     def content_as_bytes(self) -> bytes:
-        return base64.b64decode(self.content)
+        if self.data_type.is_text():
+            return self.content.encode("utf-8")
+        else:
+            return base64.b64decode(self.content)
 
 
 class UploadedFileReference(BaseModel):

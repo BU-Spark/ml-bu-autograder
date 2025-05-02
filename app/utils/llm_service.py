@@ -204,6 +204,16 @@ class PromptBuilder:
     def build(self) -> list[ChatCompletionMessageParam]:
         return [p.to_message() for p in self._prompt]
 
+    def debug_string(self):
+        debug_string = ""
+        for message in self._prompt:
+            for m_content in message.prompt_data_list:
+                if m_content.file_type.is_text():
+                    debug_string += f"{m_content.file_type.value}: {m_content.file_data}\n"
+                else:
+                    debug_string += f"[Binary Content from {m_content.file_type.value}: {m_content.to_content()}]\n"
+        return debug_string
+
     @staticmethod
     def builder() -> "PromptBuilder":
         return PromptBuilder()

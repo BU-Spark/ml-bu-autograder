@@ -205,7 +205,7 @@ class AzureBlobService:
             logging.error(f"Download failed for {full_path}: {e}", exc_info=True)
             raise
 
-    def retrieve_blob_with_metadata(self, blob_path: str) -> Dict[str, str]:
+    def blob_metadata(self, blob_path: str) -> Dict[str, str]:
         full_path = self._full_path(blob_path)
         props = self.container_client.get_blob_client(full_path).get_blob_properties()
         return props.metadata
@@ -984,7 +984,7 @@ class AzureBlobService:
             file_name = blob_path.split('/')[4]
             absolute_path = self._full_path(blob_path)
             data = self.get_file_bytes(absolute_path)
-            metadata = self.fs.info(absolute_path).get("metadata", {})
+            metadata = self.blob_metadata(blob_path)
             if not data:
                 return None
             return (
