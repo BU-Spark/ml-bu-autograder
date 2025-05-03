@@ -33,14 +33,21 @@ async def update_user_preferences(
         user_meta: UserToken = Depends(user_from_auth),
 ):
     blob_uploader = AzureBlobService.get_instance()
-    user = AzureBlobService.get_instance().get_user(user_meta.user_email)
+    user = blob_uploader.get_user(user_meta.user_email)
+    updated = False
     if preferences.dark_mode is not None:
         user.dark_mode = preferences.dark_mode
+        updated = True
     if preferences.first_name is not None:
         user.first_name = preferences.first_name
+        updated = True
     if preferences.last_name is not None:
         user.last_name = preferences.last_name
-    blob_uploader.upload_user(user)
+        updated = True
+
+    if updated:
+        blob_uploader.upload_user(user)
+
     return user
 
 

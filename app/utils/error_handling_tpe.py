@@ -1,6 +1,7 @@
 """
 This class was AI generated: https://chatgpt.com/share/6801c20a-d18c-800f-ab5c-036e9dbf6e7c
 """
+import logging
 import sys
 import traceback
 from concurrent.futures import ThreadPoolExecutor, Future, as_completed
@@ -31,8 +32,8 @@ class ErrorHandlingThreadPool:
 
     def _default_error_handler(self, fn: Callable[..., Any], exc_info: tuple):
         """Default: print traceback to stderr."""
-        print(f"[ErrorHandlingThreadPool] Exception in {fn!r}:", file=sys.stderr)
-        traceback.print_exception(*exc_info)
+        logging.error(f"[ErrorHandlingThreadPool] Exception in {fn!r}:")
+        traceback.print_exception(*exc_info, file=sys.stderr)
 
     def submit(self, fn: Callable[..., T], *args, **kwargs) -> Future:
         """
