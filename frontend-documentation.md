@@ -85,5 +85,5 @@ All **query params, request bodies, and paths** should match the backend **OpenA
 
 ---
 
-📝 Please ensure that **all endpoints are verified** against the backend API documentation or OpenAPI schema before merging into `main`.
+📝 Please ensure that **all endpoints are verified** against the backend API documentation.
 
