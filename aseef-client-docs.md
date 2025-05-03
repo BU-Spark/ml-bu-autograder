@@ -1,19 +1,3 @@
-TODO: rn there are only 5 bullets but they can probably be split further
-
-1. (Josh) Technical recommendations for optimal tools for MET's use case. The implications of this as I understanding is you are looking for something that is primary within the Azure ecosystem and if outside the Azure ecosystem, it should be something that should be integrable easily.
-- tell them about Azure's offerings for pdf extract, ocr, etc
-- more stuff
-- cohere and how that can be integrated?
-
-2. (Fahim) Recommendations for the optimal model (or combination of) in that tool for MET's use case.
-- Maybe tell them they can use a mixture and best model depends on use case.
-- use gpt 4.1 nano for content thats directly written in the course material (no reasoning needed) - pure summarization.
-- gpt 4.1 mini for most general purpose tasks.
-- gpt 4.1 for anything involving formal reasoning BUT the problem is widely known/well understood.
-- for more complex formal math tasks a reasoning model (gemini 2.5 pro) is needed. expensive.
-
-3. (Zach) Recommendations on optimal configurations for that model (temperature, etc) and as well as how to specify these configs.
-
 ## Optimal Strategy for Course Material Storage on Azure
 
 When structuring your storage hierarchy in Azure Blob Storage, it's critical to understand performance implications:
@@ -162,8 +146,3 @@ In our original solution, we created such a middleware service to abstract away 
 If you're using **external LLM APIs** (e.g., OpenAI, Gemini, etc.), many of them can directly accept files or support advanced document processing features without requiring you to manually extract or chunk content. **Gemini**, in particular, offers relatively low-cost multimodal capabilities and supports direct file input.
 However, there is a trade-off: when using external models, especially for grading student submissions that reference course materials, the system must send the **entire relevant course material** along with the student submission. For large files, this can lead to high token usage and significant cost.
 This makes such solutions best suited for smaller documents or where document relevance can be pre-filtered and trimmed.
-
-
-
-5. (Zach) Prompt engineering methods and techniques applicable to your use case.
-- idk

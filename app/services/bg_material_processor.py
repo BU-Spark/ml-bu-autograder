@@ -139,6 +139,8 @@ def process_grading(json_str: str):
     #  Step 6: Grab the auto-graded response, upload it to Azure, and move on to the next assignment
     #          in the queue (if any).
     llm = LLMService.get_instance()
+    # TODO: there is a limited amount of images you can send to the AI (max 50). Image tokens are also expensive.
+    #  We need some way of detecting whether images are primarily text or if they have other visual data as well.
     student_grade = llm.generate_structured_response(
         prompt.build(),
         Grade
