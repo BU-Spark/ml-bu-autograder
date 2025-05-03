@@ -981,8 +981,7 @@ class AzureBlobService:
         # Helper to do the IO work for one path
         def _load_one(blob_path: str):
             file_name = blob_path.split('/')[4]
-            absolute_path = self._full_path(blob_path)
-            data = self.get_file_bytes(absolute_path)
+            data = self.get_file_bytes(blob_path)
             metadata = self.blob_metadata(blob_path)
             if not data:
                 return None

@@ -211,7 +211,7 @@ class PromptBuilder:
                 if m_content.file_type.is_text():
                     debug_string += f"{m_content.file_type.value}: {m_content.file_data}\n"
                 else:
-                    debug_string += f"[Binary Content from {m_content.file_type.value}: {m_content.to_content()}]\n"
+                    debug_string += f"[Binary Content from {m_content.file_type.value}: len={len(m_content.to_content())}]\n"
         return debug_string
 
     @staticmethod
