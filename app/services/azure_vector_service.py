@@ -166,6 +166,24 @@ class AzureVectorService:
                 results_batch.append([])
 
         return results_batch
+    def get_vector_ids_by_material_id(self, material_id: str) -> List[str]:
+        """
+        Retrieves vector document IDs associated with the given course material ID.
+        Args:
+            material_id (str): The course material ID prefix used in vector document IDs.
+        Returns:
+            List[str]: A list of document IDs matching the prefix.
+        """
+        try:
+            filter_query = f"startswith(id, '{material_id}-chunk-')"
+            results = self.client.search(search_text="", filter=filter_query, select=["id"], top=1000)
+            ids = [doc["id"] for doc in results]
+
+            logging.info(f"Retrieved vector IDs for material '{material_id}': {ids}")
+            return ids
+        except Exception as e:
+            logging.error(f"Error retrieving vector IDs for material '{material_id}': {str(e)}")
+            raise
 
     def delete_documents_by_ids(self, ids: List[str]):
         """
@@ -180,6 +198,7 @@ class AzureVectorService:
             logging.info(f"Deleted {len(ids)} documents from Azure Search.")
         except Exception as e:
             logging.error("Failed to delete documents by ID", exc_info=True)
+    
 
     def add_vectors(self, ids: List[str], vectors: List[List[float]], metadatas: List[Mapping] = None):
         """
@@ -230,7 +249,7 @@ class AzureVectorService:
         """
         global azure_instance
         if azure_instance is None:
-            azure_instance = AzureVectorService(endpoint.encoded_string(), api_key, index_name, embedding_dims)
+            azure_instance = AzureVectorService(endpoint, api_key, index_name, embedding_dims)
         else:
             logging.warning("AzureVectorService singleton already initialized.")
 
@@ -301,5 +320,5 @@ class AzureVectorService:
                 # logging.info(f"Vector score: {result.get("content_vector")}")
             return results
         except Exception as e:
-            logging.error("❌ Error retrieving closest vectors: " + str(e), exc_info=True)
+            logging.error("Error retrieving closest vectors: " + str(e), exc_info=True)
             return []

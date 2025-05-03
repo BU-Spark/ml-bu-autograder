@@ -5,7 +5,6 @@ from pydantic import BaseModel, Field, field_validator, FilePath
 
 from app.models.uploaded_file import UploadedFileData, UploadedFileReference
 
-
 class CourseMaterial(BaseModel):
     """
     Course material object.
