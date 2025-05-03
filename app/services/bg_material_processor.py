@@ -14,7 +14,7 @@ from app.services import AzureBlobService, AzureEmbeddingService, AzureVectorSer
 from app.utils.bytes_to_doc_util import Document, DataType, ChunkData
 from app.utils.error_handling_tpe import ErrorHandlingThreadPool
 from app.utils.llm_service import LLMService, PromptRole, PromptBuilder
-
+from app.services.azure_vector_service import AzureVectorService
 """
 Process material files in the background including processing the RAG pipeline for the course
 material and the grading pipeline for the assignment. When an API endpoint submits course material,
@@ -60,6 +60,7 @@ def process_grading(json_str: str):
 
     #  Step 2: Grab the rubric and assignment instructions.
     blob_service = AzureBlobService.get_instance()
+
     try:
         rubric = blob_service.get_rubric(
             student_response.semester, student_response.course_id,
@@ -147,6 +148,33 @@ def process_grading(json_str: str):
 
     #  Step 5: Build the prompt for the LLM.
     logging.info("Building prompt for LLM...")
+
+    rubric = blob_service.get_rubric(
+        student_response.semester, student_response.course_id,
+        student_response.assignment_id, False
+    )
+    rubric.sub_rubrics = [blob_service.get_sub_rubric(
+        student_response.semester, student_response.course_id,
+        student_response.assignment_id, student_response.question_index
+    )]
+    assignment = blob_service.get_assignment_metadata(
+        semester_key=student_response.semester,
+        course_id=student_response.course_id,
+        assignment_id=student_response.assignment_id,
+    )
+    assignment_question = assignment.questions[student_response.question_index]
+    #  Step 3: Query the vector database with the student's response grabbing all topn
+    #          relevant documents.
+    # Josh you do this
+    relevant_document_paths: List[str] = ...
+    #  Step 4: Go grab those documents (texts and images) from Azure blob storage. It might
+    #          also be possible to simply get azure to generate a URL for these documents
+    #          and then send that to the LLM.
+    course_material_documents = blob_service.get_chunks_from_blob_path(relevant_document_paths)
+    #  Step 5: Once we have the RAG-ed documents associated with the prompt, use the
+    #          assignment instructions, rubric, RAG-ed course material chunks, and student
+    #          response to generate a prompt for auto-grading.
+
     prompt = (PromptBuilder.builder()
               .add_message(PromptRole.SYSTEM, "You are a grader responsible for grading a student's response.")
               .add_message(PromptRole.USER, "Here is course material that might be relevant to this assignment."
@@ -283,7 +311,17 @@ def process_course_material(json_str: str):
     vector_service.add_vectors(ids=uploaded_chunks.keys, vectors=uploaded_chunks.values(), metadata=texts)
     #  Step 5: Take the pairs of the blob paths and vectorized chunks, and upload them
     #          to Azure's AI search. And thats it!
-    # TODO: josh you do this
+    azure_vector_service = AzureVectorService.get_instance()
+    vector_ids = list(vectorized_chunks.keys())  # Using blob_paths as vector IDs
+    vector_values = list(vectorized_chunks.values())
+    #metadata_list = [{"file_path": blob_path} for blob_path in vector_ids]
+
+    azure_vector_service.add_vectors(
+        ids=vector_ids,
+        vectors=vector_values,
+        #metadatas=metadata_list
+    )
+
 
 
 

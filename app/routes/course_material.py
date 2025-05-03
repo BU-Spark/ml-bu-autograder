@@ -171,6 +171,7 @@ async def delete_course_material(
     if not blob_uploader.course_material_exists(semester, course_id, material_id):
         raise HTTPException(status_code=404, detail="Course material does not exist.")
 
+
     # --- Vector Deletion Logic ---
     # Step 1: Find the IDs (chunk paths) of vectors associated with this material
     try:
@@ -210,6 +211,11 @@ async def delete_course_material(
          raise HTTPException(status_code=500, detail="Failed to delete material from storage after attempting vector cleanup.")
 
 
+    # Delete the material
+    blob_uploader.delete_course_material(semester, course_id, material_id)
+    
+
+
     return {"detail": "Course material deleted successfully."}
 
 
@@ -241,6 +247,7 @@ async def update_course_material(
     6. Save metadata to trigger a background process to vectorize the *new* content.
     """
     blob_uploader = AzureBlobService.get_instance()
+
     azure_vector_service = AzureVectorService.get_instance()
 
     # --- Step 1: Validate input and user permissions ---
@@ -310,6 +317,56 @@ async def update_course_material(
         raise HTTPException(status_code=500, detail="Failed to update material content in storage after cleaning up search index.")
 
     # --- Step 6: Save metadata to trigger background processing for *new* vectors ---
+
+    vector_service = AzureVectorService.get_instance()
+    # Check if the course exists
+    course_exists = blob_uploader.course_exists(material.semester, material.course_id)
+    if not course_exists:
+        raise HTTPException(status_code=404, detail="Course does not exist.")
+
+    # Check if user has perms on course
+    user = blob_uploader.get_user(user_meta.user_email)
+    if not user.authenticated_courses.__contains__((material.semester, material.course_id)):
+        raise HTTPException(status_code=403, detail="Authenticated but access is not allowed.")
+
+    # Check if material exists
+    existing_material = blob_uploader.course_material_exists(material.semester, material.course_id,
+                                                             material.material_id)
+    if not existing_material:
+        raise HTTPException(status_code=404, detail="Course material does not exist.")
+    
+    # TODO: josh delete vector associated with this course material first
+    ### Legacy code for NON CHUNKED FILES
+    # After successful update, delete associated vectors
+        # Retrieve the vector IDs associated with this material_id
+    # vector_ids_to_delete = vector_service.get_vector_ids_by_material_id(material.material_id)
+
+    # # Delete the retrieved vector IDs
+    # if vector_ids_to_delete:
+    #     vector_service.delete_documents_by_ids(vector_ids_to_delete)
+    #     print(f"Deleted vectors associated with material_id '{material.material_id}'.")
+    # else:
+    #     print(f"No vectors found for material_id '{material.material_id}' to delete.")
+
+    # # Update the material
+    # blob_uploader.upload_course_material(material)
+    # Step 1: Retrieve all chunk paths (these are the vector document IDs)
+    chunk_paths = blob_uploader.find_chunks_paths(
+        semester_key=material.semester,
+        course_id=material.course_id,
+        material_id=material.material_id
+    )
+
+    # Step 2: Delete those vectors by their IDs (i.e. chunk paths)
+    if chunk_paths:
+        vector_service.delete_documents_by_ids(chunk_paths)
+        print(f"✅ Deleted {len(chunk_paths)} vectors for material_id '{material.material_id}'.")
+    else:
+        print(f"ℹ️ No vectors found to delete for material_id '{material.material_id}'.")
+
+    # Save object to file otherwise if too many requests
+    # accumulate we will run out of ram very quick
+
     random_uuid = uuid.uuid4()
     # Using a unique filename prevents race conditions if multiple updates happen quickly
     save_path_str = f"{get_str_var('TEMP_FILES_DIR')}/{random_uuid}.{material.material_id}.update.json"
