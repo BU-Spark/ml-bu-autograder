@@ -1,8 +1,8 @@
-# 📄 BU MET Autograder - `fahim-iteration-two` Branch Documentation
+# 📄 BU MET Autograder - `backend-frontend` Branch Documentation
 
 ## ✅ Overview
 
-The `fahim-iteration-two` branch introduces a **centralized API service layer** for interacting with the BU MET Autograder backend. This implementation provides:
+The `backend-frontend` branch introduces a **centralized API service layer** for interacting with the BU MET Autograder backend. This implementation provides:
 
 - 🚀 Configured **Axios instance** with interceptors for authentication and error handling
 - 🔗 **API services** organized by domain (auth, course, assignment, material, response, rubric, user)
