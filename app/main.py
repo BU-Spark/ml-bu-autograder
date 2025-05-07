@@ -1,5 +1,7 @@
+import os
 import sys
 import logging
+import subprocess  # <-- ADD THIS to get git branch
 
 # <<< --- Add CORSMiddleware import --- >>>
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,6 +15,21 @@ from app.utils import get_str_var, get_bool_var, setup_loggers, JWTService
 load_dotenv()  # Load environment variables first
 
 from app.utils.azure_blob_service import AzureBlobService
+
+try:
+    branch = subprocess.check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD']).decode().strip()
+except Exception as e:
+    logging.warning(f"⚠️ Could not determine git branch: {e}")
+    branch = None
+
+if branch and os.path.exists(f'.env.{branch}'):
+    env_file = f'.env.{branch}'
+    print(f"✅ Loading environment variables from {env_file}")
+else:
+    env_file = '.env'
+    print(f"✅ Loading environment variables from {env_file}")
+
+load_dotenv(dotenv_path=env_file)
 
 if __name__ == "__main__":
     logging.critical("This application is not intended to be run directly. See README.md for instructions.")

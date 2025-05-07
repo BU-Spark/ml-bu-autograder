@@ -180,3 +180,10 @@ __pycache__/
 .env
 .ipynb_checkpoints
 app.log
+*.env
+.env.backend-frontend
+
+
+*.next
+
+.next/cache
