@@ -187,3 +187,5 @@ app.log
 *.next
 
 .next/cache
+
+frontend/.next
