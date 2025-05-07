@@ -59,7 +59,7 @@ async def grade_specific(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Grading rubric does not exist.")
 
     # Get all responses for the specified students
-    grades = []
+    any_grading = False
     for student_id in student_ids:
         # Grade all questions
         responses = blob_uploader.list_student_responses(
@@ -67,18 +67,19 @@ async def grade_specific(
         )
 
         for response in responses:
+            any_grading = True
             random_uuid = uuid.uuid4()
             save_path = FilePath(
-                f"{get_str_var('TEMP_FILES_DIR')}/{random_uuid}.json")
+                f"{get_str_var('TEMP_FILES_DIR')}/{random_uuid}.student_response.json")
             # A background process will pick this up and process it trust.
             # See app/utils/bg_material_processor.py.
             with open(save_path, 'w') as f:
                 f.write(response.model_dump_json(indent=4))
 
-    if not grades:
+    if not any_grading:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No matching responses found.")
 
-    return grades
+    return {"detail": "Request queued. Check back later on the student responses endpoint."}
 
 
 @router.post(
