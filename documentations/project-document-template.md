@@ -103,7 +103,7 @@ The problem at hand is improving the consistency, accuracy, and reliability of A
 
 Below is a visual representation of the MET BU Autograder workflow:
 
-![proposed-workflow](assets/proposed-workflow.png)
+![proposed-workflow](../assets/proposed-workflow.png)
 
 This diagram provides a (preliminary) step-by-step breakdown of how requests flow through the system, from initial submission to AI-assisted grading.
 

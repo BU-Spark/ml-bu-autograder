@@ -87,7 +87,7 @@ No.
 No.
 
 * Is the code that was used to preprocess/clean the data available? If so, please provide a link to it (e.g., EDA notebook/EDA script in the GitHub repository). 
-Yes, the code to process PDFs and other formats is in [bytes_to_doc_util.py](../app/utils/bytes_to_doc_util.py).
+Yes, the code to process PDFs and other formats is in [bytes_to_doc_util.py](../../app/utils/bytes_to_doc_util.py).
 
 *Uses* 
 

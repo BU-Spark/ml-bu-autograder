@@ -40,7 +40,7 @@ Given the universality and ease of converting various document formats (Word, Ex
 ### Automated Indexing via Azure Serverless Functions
 
 To enable real-time indexing of course materials into Azure AI Search, leverage **Azure Functions** to process files as they arrive in **Blob Storage**.
-You can do this by writing a custom function similar to the one we wrong in [bytes_to_doc_util.py](app/utils/bytes_to_doc_util.py) called *to_pdf*.
+You can do this by writing a custom function similar to the one we wrong in [bytes_to_doc_util.py](../../app/utils/bytes_to_doc_util.py) called *to_pdf*.
 Here is how this custom document processing pipeline might look like:
 
 #### 📥 End-to-End Pipeline Overview

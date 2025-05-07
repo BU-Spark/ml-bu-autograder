@@ -91,7 +91,7 @@ RAG combines LLMs with external knowledge retrieval for up-to-date and accurate 
 3. LLM generates output using the retrieved data.
 
 **Our Current (very) W.I.P. RAG Pipeline:**
-![RAG Pipeline](./assets/wip_rag_pipeline.png)
+![RAG Pipeline](../assets/wip_rag_pipeline.png)
 
 **Resources:**  
 - [AWS - RAG Explanation](https://aws.amazon.com/what-is/retrieval-augmented-generation/)  
@@ -102,8 +102,8 @@ RAG combines LLMs with external knowledge retrieval for up-to-date and accurate 
 
 ## 5. Model Comparisons
 
-![LLM Performance](./assets/llm_performance_graph.png)
-![LLM Price Ratio](./assets/llm_price_ratio.png)
+![LLM Performance](../assets/llm_performance_graph.png)
+![LLM Price Ratio](../assets/llm_price_ratio.png)
 
 Comprehensive site for crowdsourced human based ML model comparisons:
 * https://lmarena.ai/
