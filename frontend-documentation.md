@@ -1,8 +1,8 @@
-# 📄 BU MET Autograder - `backend-frontend` Branch Documentation
+# 📄 BU MET Autograder - Branch Documentation
 
 ## ✅ Overview
 
-The `backend-frontend` branch introduces a **centralized API service layer** for interacting with the BU MET Autograder backend. This implementation provides:
+The api.js introduces a **centralized API service layer** for interacting with the BU MET Autograder backend. This implementation provides:
 
 - 🚀 Configured **Axios instance** with interceptors for authentication and error handling
 - 🔗 **API services** organized by domain (auth, course, assignment, material, response, rubric, user)
@@ -69,7 +69,7 @@ All **query params, request bodies, and paths** should match the backend **OpenA
 
 ## 📌 Additional Notes
 
-- The current implementation uses a **placeholder token** (`const token = "123bob";`) in the Axios interceptor — this must be replaced with **dynamic token retrieval** (e.g., from `localStorage`, `next-auth`, or a secure context).
+- The current implementation uses a **placeholder token** (`const token ="i_testify_cats_are_better";`) in the Axios interceptor — this must be replaced with **dynamic token retrieval** (e.g., from `localStorage`, `next-auth`, or a secure context).
 - Some API methods return **Axios responses directly** — consider wrapping with helper functions if transformation is needed.
 - All interceptors and hooks are **frontend-compatible** and assume the code runs in a **Next.js environment**.
 
