@@ -1,0 +1,61 @@
+import re
+from typing import Union, Optional
+
+from pydantic import BaseModel, Field, field_validator
+
+from app.models import Grade
+from app.models.uploaded_file import UploadedFileData, UploadedFileReference
+
+
+class StudentResponseBase(BaseModel):
+    student_id: str = Field(
+        ..., description="Unique identifier for the student submitting the response."
+    )
+    semester: str = Field(
+        ..., description="The semester associated with the course."
+    )
+    course_id: str = Field(
+        ..., description="The course identifier."
+    )
+    assignment_id: str = Field(
+        ..., description="Identifier of the assignment the response belongs to."
+    )
+    question_index: int = Field(
+        ..., description="Index of the question being answered within the assignment."
+    )
+
+    @field_validator("student_id", "course_id", mode="before")
+    def normalize_lowercase(cls, value: str) -> str:
+        """Converts course_id and semester to lowercase and trims spaces."""
+        return value.strip().lower()
+
+    @field_validator("semester", mode='before')
+    def validate_semester(cls, value: str) -> str:
+        """Converts to lowercase and trims spaces."""
+        if re.fullmatch("[a-z]{1,12}[0-9]{4}", value) is None:
+            raise ValueError("Semester is in an invalid format. "
+                             "Correct format (case-sensitive) looks like: seasonYYYY. (e.g. spring2025)")
+        return value.strip().lower()
+
+
+class StudentResponseReference(StudentResponseBase):
+    """
+    Represents a student’s answer to a question.
+    """
+    data: UploadedFileReference = Field(
+        ..., description="Either the uploaded file content or a reference to a previously stored file."
+    )
+
+
+class StudentResponseData(StudentResponseBase):
+    """
+    Represents a student’s answer to a question.
+    """
+    data: UploadedFileData = Field(
+        ..., description="Either the uploaded file content or a reference to a previously stored file."
+    )
+
+
+class GradedStudentResponseReference(StudentResponseReference):
+    grade: Optional[Grade] = Field(..., description="The grade the LLM gave this student response. If this assignment "
+                                                    "is not yet graded, the grade object may not be present.")
