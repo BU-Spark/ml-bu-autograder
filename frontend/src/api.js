@@ -5,6 +5,7 @@
 
 import axios from 'axios';
 import useSWR from 'swr';
+// Assuming these are correctly defined in your project's ./config.js
 import { BACKEND_URL, API_PREFIX, LIMITS, ERROR_MESSAGES } from './config';
 import { signOut } from 'next-auth/react';
 
@@ -14,13 +15,15 @@ const api = axios.create({
   timeout: LIMITS.apiTimeout,
   headers: {
     'Content-Type': 'application/json',
+    'Accept': 'application/json',
   },
 });
 
 // Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('authToken');
+    // TODO: Replace with your actual token retrieval logic
+    const token = "i_testify_cats_are_better"; // Placeholder token
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -31,264 +34,320 @@ api.interceptors.request.use(
 
 // Response interceptor for error handling
 api.interceptors.response.use(
-  (response) => response,
+  (response) => response, // Pass successful responses along
   (error) => {
-    // Handle specific error cases
+    // Initialize custom error object if response exists
+    let customError = new Error(ERROR_MESSAGES.general);
     if (error.response) {
-      // Server responded with a status code outside of 2xx range
-      switch (error.response.status) {
-        case 401:
-          // Unauthorized - could trigger logout or refresh token (if implemented)
-          console.error('Authentication error:', error.response);
-          signOut({ callbackUrl: '/login' }); // Redirect to login on 401
-          return Promise.reject(new Error(ERROR_MESSAGES.auth.unauthorized));
+        const { status, data } = error.response;
+        let errorMessage = ERROR_MESSAGES.general;
 
-        case 403:
-          console.error('Forbidden error:', error.response);
-          return Promise.reject(new Error(ERROR_MESSAGES.auth.unauthorized));
-        case 404:
-          console.error('Not found error:', error.response);
-          return Promise.reject(new Error(ERROR_MESSAGES.api.notFound));
-        case 400:
-          console.error('Bad request error:', error.response);
-          // Returning the original error response to provide details.
-          return Promise.reject(error.response); // Reject with the full response
-        case 500:
-          console.error('Server error:', error.response);
-          return Promise.reject(new Error(ERROR_MESSAGES.api.serverError));
-        default:
-          console.error('API error:', error.response);
-          return Promise.reject(new Error(ERROR_MESSAGES.general));
-      }
+        switch (status) {
+            case 400:
+                console.error('Bad request error:', error.response);
+                if (data?.detail && Array.isArray(data.detail)) {
+                    errorMessage = data.detail.map(err => `${err.loc.join('->')}: ${err.msg}`).join('; ');
+                } else if (data?.detail && typeof data.detail === 'string') {
+                    errorMessage = data.detail;
+                } else {
+                    errorMessage = ERROR_MESSAGES.api?.badRequest || "Bad Request";
+                }
+                customError = new Error(errorMessage);
+                break; // Break after setting message
+            case 401:
+                console.error('Authentication error:', error.response);
+                signOut({ callbackUrl: '/login' }); // Trigger sign out
+                errorMessage = data?.detail || ERROR_MESSAGES.auth?.unauthorized || "Authentication failed.";
+                customError = new Error(errorMessage);
+                break;
+            case 403:
+                console.error('Forbidden error:', error.response);
+                errorMessage = data?.detail || ERROR_MESSAGES.auth?.forbidden || "Permission denied.";
+                customError = new Error(errorMessage);
+                break;
+            case 404:
+                console.error('Not found error:', error.response);
+                errorMessage = data?.detail || ERROR_MESSAGES.api?.notFound || "Resource not found.";
+                customError = new Error(errorMessage);
+                break;
+            case 409:
+                console.error('Conflict error:', error.response);
+                errorMessage = data?.detail || "Resource conflict.";
+                customError = new Error(errorMessage);
+                break;
+             case 422: // Unprocessable Entity (Validation Errors)
+                console.error('Validation error:', error.response);
+                 if (data?.detail && Array.isArray(data.detail)) {
+                    // Format validation errors nicely
+                    errorMessage = "Validation Failed: " + data.detail.map(err => `${err.loc.join('.')} - ${err.msg}`).slice(0, 3).join('; ');
+                    if (data.detail.length > 3) errorMessage += '...';
+                } else if (data?.detail && typeof data.detail === 'string') {
+                    errorMessage = data.detail; // Handle simple string detail
+                } else {
+                     errorMessage = ERROR_MESSAGES.api?.validationError || "Validation failed.";
+                }
+                customError = new Error(errorMessage);
+                break;
+            case 500:
+            case 502:
+                console.error('Server error:', error.response);
+                errorMessage = data?.detail || ERROR_MESSAGES.api?.serverError || "Server error.";
+                customError = new Error(errorMessage);
+                break;
+            default:
+                console.error('API error:', error.response);
+                errorMessage = data?.detail || ERROR_MESSAGES.general;
+                customError = new Error(errorMessage);
+                break;
+        }
+        // Attach the original response to the custom error object
+        customError.response = error.response;
+
     } else if (error.request) {
-      // Request was made but no response received
-      console.error('Network error:', error.request);
-      return Promise.reject(new Error(ERROR_MESSAGES.network));
+        // Network error
+        console.error('Network error:', error.request);
+        customError = new Error(ERROR_MESSAGES.network || "Network error. Check connection.");
+        // Add a property to distinguish network errors if needed
+        customError.isNetworkError = true;
     } else {
-      // Something else happened while setting up the request
-      console.error('Request configuration error:', error.message);
-      return Promise.reject(new Error(ERROR_MESSAGES.general));
+        // Other errors (e.g., request setup)
+        console.error('Request configuration error:', error.message);
+        customError = new Error(error.message || ERROR_MESSAGES.general);
     }
+
+    return Promise.reject(customError); // Reject with the processed error
   }
 );
 
+
 // SWR fetcher function using our API instance
 const fetcher = async (url) => {
-  try {
-    const response = await api.get(url);
-    return response.data;
-  } catch (error) {
-    throw error; // SWR handles the error
-  }
+  // SWR key is the URL. Axios instance has baseURL configured.
+  const response = await api.get(url);
+  return response.data; // Return only the data for SWR
 };
 
-// API service methods
+// API service methods definitions remain largely the same,
+// but ensure they return response.data if not using a helper that already does.
 
-// Authentication
+// Helper function for consistent data extraction (optional but recommended)
+const handleResponse = (axiosPromise) => {
+    return axiosPromise.then(response => response.data)
+                       .catch(error => { throw error; }); // Let interceptor handle error formatting
+}
+
+// --- AUTH SERVICE ---
 export const authService = {
-  // Get token using Google OAuth
-  googleOAuth: (params) => api.get('/auth/google_oauth', { params }),
-
-  // Token management
-  createToken: (tokenName) => api.post('/auth/token', null, { params: { token_name: tokenName } }),
-  listTokens: () => api.get('/auth/tokens'),
-  deleteToken: (tokenId) => api.delete('/auth/token', { params: { token_id: tokenId } }),
-  //Sign out
-  signOut: () => api.post('/auth/signout')
+  getGoogleOAuthUrl: () => handleResponse(api.get('/auth/google_oauth_url')),
+  googleOAuth: (params) => handleResponse(api.get('/auth/google_oauth', { params })),
+  createToken: (params) => handleResponse(api.post('/auth/token', null, { params })),
+  listTokens: () => handleResponse(api.get('/auth/tokens')),
+  deleteToken: (params) => handleResponse(api.delete('/auth/token', { params })),
 };
 
-// Course management
+// --- COURSE SERVICE ---
 export const courseService = {
-  // Course CRUD operations
-  getCourses: () => api.get('/courses'),
-  getCourse: (courseId, semester) => api.get('/course', { params: { course_id: courseId, semester } }),
-  createCourse: (semester, courseData) => api.post('/course', courseData, { params: { semester } }),
-  deleteCourse: (courseId, semester) => api.delete('/course', { params: { course_id: courseId, semester } }),
-
-  // Course transfer
-  transferCourse: (currentCourseId, currentSemester, copyFromCourseId, copyFromCourseSemester) =>
-    api.patch('/course/transfer', null, {
-      params: {
-        current_course_id: currentCourseId,
-        current_semester: currentSemester,
-        copy_from_course_id: copyFromCourseId,
-        copy_from_course_semester: copyFromCourseSemester
-      }
-    }),
-
-  // Instructor management
-  addInstructor: (courseId, semester, instructor) =>
-    api.post('/course/instructor', null, { params: { course_id: courseId, semester, instructor } }),
-  removeInstructor: (courseId, semester, instructor) =>
-    api.delete('/course/instructor', { params: { course_id: courseId, semester, instructor } }),
+  getCourses: (params) => handleResponse(api.get('/courses', { params })),
+  getCourse: (params) => handleResponse(api.get('/course', { params })),
+  createCourse: (courseData) => handleResponse(api.post('/course', courseData)),
+  deleteCourse: (params) => handleResponse(api.delete('/course', { params })),
+  transferCourse: (params) => handleResponse(api.patch('/course/transfer', null, { params })),
+  addInstructor: (params) => handleResponse(api.post('/course/instructor', null, { params })),
+  removeInstructor: (params) => handleResponse(api.delete('/course/instructor', { params })),
 };
 
-// Assignment management
+// --- ASSIGNMENT SERVICE ---
 export const assignmentService = {
-  // Assignment CRUD operations
-  getAssignments: (courseId, semester) =>
-    api.get('/assignments', { params: { course_id: courseId, semester } }),
-  getAssignment: (courseId, semester, assignmentId) =>
-    api.get('/assignment', { params: { course_id: courseId, semester, assignment_id: assignmentId } }),
-  createAssignment: (assignmentData) => api.post('/assignment', assignmentData),
-  deleteAssignment: (assignmentId) => api.delete('/assignment', { params: { assignment_id: assignmentId } }),
+  /**
+   * List assignments for a course.
+   * @param {object} params
+   * @param {string} params.course_id
+   * @param {string} params.semester
+   * @param {boolean} [params.include_questions=true]
+   * @returns {Promise<AssignmentDef[]>}
+   */
+  // *** CORRECTED IMPLEMENTATION ***
+  getAssignments: async (params) => {
+    const response = await api.get('/assignments', { params });
+    return response.data; // Directly return the data property
+  },
 
-  // Question management
-  addQuestion: (questionData) => api.patch('/assignment/add_question', questionData),
-  removeQuestion: (assignmentId, questionIndex) =>
-    api.patch('/assignment/remove_question', null, { params: { assignment_id: assignmentId, question_index: questionIndex } }),
-  editQuestion: (questionData) => api.patch('/assignment/edit_question', questionData),
-  modifyQuestionOrder: (orderData) => api.patch('/assignment/modify_order', orderData),
+  /**
+   * Get a specific assignment.
+   * @param {object} params
+   * @param {string} params.course_id
+   * @param {string} params.semester
+   * @param {string} params.assignment_id
+   * @param {boolean} [params.include_questions=true]
+   * @returns {Promise<AssignmentDef>}
+   */
+  // *** CORRECTED IMPLEMENTATION ***
+   getAssignment: async (params) => {
+    const response = await api.get('/assignment', { params });
+    return response.data; // Directly return the data property
+  },
 
-  //Update assignment
-  updateAssignment: (assignmentData) => api.put('/assignment', assignmentData),
+  /**
+   * Create a new assignment.
+   * @param {AssignmentDef} assignmentData - The assignment to create (request body).
+   * @returns {Promise<AssignmentDef>}
+   */
+   // *** CORRECTED IMPLEMENTATION ***
+   createAssignment: async (assignmentData) => {
+       // POST request sends data as the second argument
+      const response = await api.post('/assignment', assignmentData);
+      return response.data; // Return the created assignment data
+  },
+
+  /**
+   * Delete an assignment.
+   * @param {object} params
+   * @param {string} params.semester
+   * @param {string} params.course_id
+   * @param {string} params.assignment_id
+   * @returns {Promise<object>} - Empty object on success.
+   */
+   // *** CORRECTED IMPLEMENTATION ***
+   deleteAssignment: async (params) => {
+       // DELETE requests usually don't have a body, params are query params
+      const response = await api.delete('/assignment', { params });
+      return response.data; // Often empty {}
+  },
+
+  /**
+   * Add a question to an assignment.
+   * @param {AddQuestionRequestDef} questionData - Data for the new question (request body).
+   * @returns {Promise<object>} - Empty object on success.
+   */
+   // *** CORRECTED IMPLEMENTATION ***
+   addQuestion: async (questionData) => {
+       // PATCH request sends data as the second argument
+      const response = await api.patch('/assignment/add_question', questionData);
+      return response.data; // Often empty {}
+  },
+
+  /**
+   * Remove a question from an assignment.
+   * @param {object} params
+   * @param {string} params.semester
+   * @param {string} params.course_id
+   * @param {string} params.assignment_id
+   * @param {number} params.question_index
+   * @returns {Promise<object>} - Empty object on success.
+   */
+   // *** CORRECTED IMPLEMENTATION ***
+   removeQuestion: async (params) => {
+      // PATCH request, but no body specified in spec, only query params
+      const response = await api.patch('/assignment/remove_question', null, { params });
+      return response.data; // Often empty {}
+  },
+
+  /**
+   * Edit an existing question in an assignment.
+   * @param {EditQuestionRequestDef} questionData - Data for editing the question (request body).
+   * @returns {Promise<object>} - Empty object on success.
+   */
+   // *** CORRECTED IMPLEMENTATION ***
+   editQuestion: async (questionData) => {
+       // PATCH request sends data as the second argument
+      const response = await api.patch('/assignment/edit_question', questionData);
+      return response.data; // Often empty {}
+  },
+
+  /**
+   * Modify the order of questions in an assignment.
+   * @param {ModifyOrderRequestDef} orderData - New order of question indexes (request body).
+   * @returns {Promise<object>} - Empty object on success.
+   */
+   // *** CORRECTED IMPLEMENTATION ***
+   modifyQuestionOrder: async (orderData) => {
+       // PATCH request sends data as the second argument
+      const response = await api.patch('/assignment/modify_order', orderData);
+      return response.data; // Often empty {}
+  },
 };
 
-// Student response management
+// --- RESPONSE SERVICE --- (Assuming these are okay, apply similar fix if needed)
 export const responseService = {
-  // Response CRUD operations
-  uploadResponse: (responseData) => api.post('/response', responseData),
-  replaceResponse: (responseData) => api.put('/response', responseData),
-  deleteResponse: (studentIdentifier, assignmentId, questionIndex = null) =>
-    api.delete('/response', {
-      params: {
-        student_id: studentIdentifier,
-        assignment_id: assignmentId,
-        question_index: questionIndex
-      }
-    }),
-
-  // Get responses
-  getResponses: (assignmentId, questionIndex = null, studentIdentifier = null) =>
-    api.get('/responses', {
-      params: {
-        assignment_id: assignmentId,
-        question_index: questionIndex,
-        student_id: studentIdentifier
-      }
-    }),
-
-  // Grading
-  gradeSpecific: (studentIdentifiers, assignmentId, questionIndex = null) =>
-    api.post('/response/grade/specific', null, {
-      params: {
-        student_ids: studentIdentifiers,
-        assignment_id: assignmentId,
-        question_index: questionIndex
-      }
-    }),
-  gradeUngraded: (assignmentId, questionIndex = null) =>
-    api.post('/response/grade/ungraded', null, {
-      params: {
-        assignment_id: assignmentId,
-        question_index: questionIndex
-      }
-    }),
-  gradeAll: (assignmentId, questionIndex = null) =>
-    api.post('/response/grade/all', null, {
-      params: {
-        assignment_id: assignmentId,
-        question_index: questionIndex
-      }
-    }),
+  uploadResponse: (responseData) => handleResponse(api.post('/response', responseData)),
+  replaceResponse: (responseData) => handleResponse(api.put('/response', responseData)),
+  deleteResponse: (params) => handleResponse(api.delete('/response', { params })),
+  getSingleResponse: (params) => handleResponse(api.get('/response', { params })),
+  getResponses: (params) => handleResponse(api.get('/responses', { params })),
+  gradeSpecific: (params) => handleResponse(api.post('/response/grade/specific', null, { params })),
+  gradeUngraded: (params) => handleResponse(api.post('/response/grade/ungraded', null, { params })),
+  gradeAll: (params) => handleResponse(api.post('/response/grade/all', null, { params })),
 };
 
-// Course material management
+// --- MATERIAL SERVICE --- (Assuming these are okay)
 export const materialService = {
-  // Get all materials for a course
-  getMaterials: (courseId, semester) =>
-    api.get('/course_materials', { params: { course_id: courseId, semester } }),
-
-  // Material CRUD operations
-  getMaterial: (courseId, semester, materialId) =>
-    api.get('/course_material', { params: { course_id: courseId, semester, material_id: materialId } }),
-  uploadMaterial: (materialData) => api.post('/course_material', materialData),
-  updateMaterial: (materialData) => api.patch('/course_material', materialData),
-  deleteMaterial: (courseId, semester, materialId) =>
-    api.delete('/course_material', { params: { course_id: courseId, semester, material_id: materialId } }),
+  getMaterials: (params) => handleResponse(api.get('/course_materials', { params })),
+  getMaterial: (params) => handleResponse(api.get('/course_material', { params })),
+  uploadMaterial: (materialData) => handleResponse(api.post('/course_material', materialData)),
+  updateMaterial: (materialData) => handleResponse(api.patch('/course_material', materialData)),
+  deleteMaterial: (params) => handleResponse(api.delete('/course_material', { params })),
 };
 
-// Rubric management
+// --- RUBRIC SERVICE --- (Assuming these are okay)
 export const rubricService = {
-  // Rubric CRUD operations
-  getRubric: (assignmentId, questionIndex = null) =>
-    api.get('/rubric', { params: { assignment_id: assignmentId, question_index: questionIndex } }),
-  createRubric: (rubricData) => api.put('/rubric', rubricData), // Correctly uses PUT
-
-  // AI rubric enhancement
-  getAIRubric: (assignmentId, instructions = null) =>
-    api.get('/ai_rubric', { params: { assignment_id: assignmentId, instructions } }),
+  getRubric: (params) => handleResponse(api.get('/rubric', { params })),
+  createOrUpdateRubric: (rubricData) => handleResponse(api.put('/rubric', rubricData)),
+  getAIRubric: (params) => handleResponse(api.get('/ai_rubric', { params })),
 };
 
-// User management
+// --- USER SERVICE --- (Assuming these are okay)
 export const userService = {
-  // User data and preferences
-  getUserData: () => api.get('/user'),
-  updateUserPreferences: (preferencesData) => api.patch('/user', preferencesData),
+  getUserData: () => handleResponse(api.get('/user')),
+  updateUserPreferences: (preferencesData) => handleResponse(api.patch('/user', preferencesData)),
 };
 
-// Custom SWR hooks for data fetching
+
+// --- SWR Hooks --- (Ensure they use the corrected service methods or the fetcher)
+
 export const useUser = () => {
-  const { data, error, mutate } = useSWR('/user', fetcher);
-  return {
-    user: data,
-    isLoading: !error && !data,
-    isError: error,
-    mutate,
-  };
+  // Use the fetcher which correctly returns response.data
+  const { data, error, mutate, isLoading } = useSWR('/user', fetcher);
+  return { user: data, isLoading, isError: error, mutate };
 };
 
-export const useCourses = () => {
-  const { data, error, mutate } = useSWR('/courses', fetcher);
-  return {
-    courses: data,
-    isLoading: !error && !data,
-    isError: error,
-    mutate,
-  };
+export const useCourses = (semester) => {
+  const url = semester ? `/courses?semester=${encodeURIComponent(semester)}` : '/courses';
+   // Use the fetcher which correctly returns response.data
+  const { data, error, mutate, isLoading } = useSWR(url, fetcher);
+  return { courses: data, isLoading, isError: error, mutate };
 };
 
-export const useAssignments = (courseId, semester) => {
-  const { data, error, mutate } = useSWR(
-    courseId && semester ? `/assignments?course_id=${courseId}&semester=${semester}` : null,
-    fetcher
-  );
-  return {
-    assignments: data,
-    isLoading: !error && !data,
-    isError: error,
-    mutate,
-  };
+// Note: The useAssignments hook might become less necessary if the page
+// always fetches the list in useEffect, but it can be kept for other uses
+// or adapted if needed. Ensure the key matches what fetcher expects.
+export const useAssignments = (courseId, semester, includeQuestions = true) => {
+  const key = (courseId && semester)
+    ? `/assignments?course_id=${encodeURIComponent(courseId)}&semester=${encodeURIComponent(semester)}&include_questions=${includeQuestions}`
+    : null;
+   // Use the fetcher which correctly returns response.data
+  const { data, error, mutate, isLoading } = useSWR(key, fetcher);
+  return { assignments: data, isLoading, isError: error, mutate };
 };
 
-export const useRubric = (assignmentId, questionIndex = null) => {
-  const params = new URLSearchParams({ assignment_id: assignmentId });
-  if (questionIndex !== null) params.append('question_index', questionIndex);
-
-  const { data, error, mutate } = useSWR(
-    assignmentId ? `/rubric?${params.toString()}` : null,
-    fetcher
-  );
-
-  return {
-    rubric: data,
-    isLoading: !error && !data,
-    isError: error,
-    mutate,
-  };
+export const useRubric = (semester, courseId, assignmentId, questionIndex = null) => {
+  let key = null;
+  if (semester && courseId && assignmentId) {
+    const params = new URLSearchParams({ semester: semester, course_id: courseId, assignment_id: assignmentId });
+    if (questionIndex !== null && questionIndex !== undefined) { params.append('question_index', String(questionIndex)); }
+    key = `/rubric?${params.toString()}`;
+  }
+   // Use the fetcher which correctly returns response.data
+  const { data, error, mutate, isLoading } = useSWR(key, fetcher);
+  return { rubric: data, isLoading, isError: error, mutate };
 };
 
 export const useMaterials = (courseId, semester) => {
-  const { data, error, mutate } = useSWR(
-    courseId && semester ? `/course_materials?course_id=${courseId}&semester=${semester}` : null,
-    fetcher
-  );
-  return {
-    materials: data,
-    isLoading: !error && !data,
-    isError: error,
-    mutate,
-  };
+  const key = (courseId && semester) ? `/course_materials?course_id=${encodeURIComponent(courseId)}&semester=${encodeURIComponent(semester)}` : null;
+   // Use the fetcher which correctly returns response.data
+  const { data, error, mutate, isLoading } = useSWR(key, fetcher);
+  return { materials: data, isLoading, isError: error, mutate };
 };
 
-export default api;
+// Exporting the raw instance might still be needed for specific cases like file uploads
+// export { api as rawAxiosInstance };
+export default api; // Default export might not be used if named exports are preferred

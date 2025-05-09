@@ -1,824 +1,416 @@
 /**
  * Grading Dashboard for BU MET Autograder
  * Displays student submissions for grading and review
+ * Located at: pages/course/[id]/grading.js
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react'; // Added useCallback
 import { useRouter } from 'next/router';
 import {
-  Alert,
-  Badge,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  CircularProgress,
-  Divider,
-  FormControl,
-  Grid,
-  IconButton,
-  InputLabel,
-  MenuItem,
-  Paper,
-  Select,
-  Snackbar,
-  Tab,
-  Tabs,
-  TextField,
-  Tooltip,
-  Typography,
+  Alert, Badge, Box, Button, Card, CardContent, Chip, CircularProgress, Divider,
+  FormControl, Grid, IconButton, InputLabel, MenuItem, Paper, Select, Snackbar,
+  Tab, Tabs, TextField, Tooltip, Typography, useTheme, InputAdornment// Added useTheme and missing imports
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import {
-  ArrowBack as ArrowBackIcon,
-  Assignment as AssignmentIcon,
-  AssignmentTurnedIn as GradedIcon,
-  Assessment as GradeIcon,
-  Refresh as RefreshIcon,
-  Search as SearchIcon,
-  FilterList as FilterIcon,
-  PersonSearch as StudentSearchIcon,
-  QuestionAnswer as QuestionIcon,
+  ArrowBack as ArrowBackIcon, Assignment as AssignmentIcon, AssignmentTurnedIn as GradedIcon,
+  Assessment as GradeIcon, Refresh as RefreshIcon, Search as SearchIcon, FilterList as FilterIcon,
+  PersonSearch as StudentSearchIcon, QuestionAnswer as QuestionIcon,
 } from '@mui/icons-material';
-import { assignmentService, responseService } from '../../../api';
-import CardSkeleton from '../../../components/CardSkeleton';
-import GradingModeSelect from '../../../components/GradingModeSelect';
-import SelectableList from '../../../components/SelectableList';
-import ConfirmationDialog from '../../../components/ConfirmationDialog';
+// Import Checkbox for SelectableList
+import Checkbox from '@mui/material/Checkbox';
+import { assignmentService, responseService } from '../../../api'; // Ensure correct path
+import CardSkeleton from '../../../components/CardSkeleton'; // Assuming path
+import GradingModeSelect from '../../../components/GradingModeSelect'; // Assuming path
+import SelectableList from '../../../components/SelectableList'; // Assuming path
+import ConfirmationDialog from '../../../components/ConfirmationDialog'; // Assuming path
 
 // Styled components
-const StyledCard = styled(Card)(({ theme }) => ({
-  height: '100%',
-  display: 'flex',
-  flexDirection: 'column',
+const StyledCard = styled(Card)(({ theme }) => ({ height: '100%', display: 'flex', flexDirection: 'column', }));
+const GradingActionCard = styled(Paper)(({ theme }) => ({ padding: theme.spacing(3), marginBottom: theme.spacing(3), }));
+const ResponseDetailCard = styled(Paper)(({ theme }) => ({ padding: theme.spacing(3), marginBottom: theme.spacing(3) })); // Renamed for clarity
+const GradeCard = styled(Paper)(({ theme, gradePercent = 0 }) => ({
+    padding: theme.spacing(2), marginBottom: theme.spacing(2), borderLeftWidth: '4px', borderLeftStyle: 'solid',
+    // Using theme palette directly for colors
+    borderLeftColor: gradePercent >= 90 ? theme.palette.success.main :
+                     gradePercent >= 80 ? theme.palette.info.main :
+                     gradePercent >= 70 ? theme.palette.warning.main :
+                     gradePercent >= 60 ? theme.palette.error.dark : // Adjusted D grade color slightly
+                     theme.palette.error.main, // F grade color
+    backgroundColor: theme.palette.background.default,
 }));
 
-const GradingActionCard = styled(Paper)(({ theme }) => ({
-  padding: theme.spacing(3),
-  marginBottom: theme.spacing(3),
-}));
-
-const ResponseCard = styled(Paper)(({ theme }) => ({
-  padding: theme.spacing(3),
-  marginBottom: theme.spacing(3),
-  borderLeft: `4px solid ${theme.palette.primary.main}`,
-}));
-
-const GradeCard = styled(Paper)(({ theme, gradePercent }) => ({
-  padding: theme.spacing(3),
-  marginBottom: theme.spacing(3),
-  borderLeft: `4px solid ${
-    gradePercent >= 90
-      ? theme.palette.custom.gradeA
-      : gradePercent >= 80
-      ? theme.palette.custom.gradeB
-      : gradePercent >= 70
-      ? theme.palette.custom.gradeC
-      : gradePercent >= 60
-      ? theme.palette.custom.gradeD
-      : theme.palette.custom.gradeF
-  }`,
-}));
-
-const TabPanel = (props) => {
-  const { children, value, index, ...other } = props;
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`grading-tabpanel-${index}`}
-      aria-labelledby={`grading-tab-${index}`}
-      {...other}
-    >
-      {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
-    </div>
-  );
-};
+const TabPanel = (props) => { const { children, value, index, ...other } = props; return ( <div role="tabpanel" hidden={value !== index} id={`grading-tabpanel-${index}`} aria-labelledby={`grading-tab-${index}`} {...other}> {value === index && <Box sx={{ pt: 3 }}>{children}</Box>} </div> ); };
 
 // Main component
-export default function GradingDashboard() {
+export default function GradingDashboardPage() { // Renamed component
   const router = useRouter();
-  const { id: courseId, semester } = router.query;
+  const theme = useTheme();
+  const { id: courseIdParam, semester: semesterParam } = router.query;
+  const courseId = typeof courseIdParam === 'string' ? courseIdParam : null;
+  const semester = typeof semesterParam === 'string' ? semesterParam : null;
 
-  // State for assignments and submissions
+  // State
   const [assignments, setAssignments] = useState([]);
   const [selectedAssignment, setSelectedAssignment] = useState(null);
   const [responses, setResponses] = useState([]);
   const [filteredResponses, setFilteredResponses] = useState([]);
   const [selectedResponse, setSelectedResponse] = useState(null);
 
-  // State for loading and error
-  const [loading, setLoading] = useState(true);
+  // Loading/Error States
+  const [loadingAssignments, setLoadingAssignments] = useState(true);
   const [loadingResponses, setLoadingResponses] = useState(false);
-  const [grading, setGrading] = useState(false);
+  const [isGrading, setIsGrading] = useState(false);
   const [error, setError] = useState(null);
 
-  // State for filters and search
+  // Filters/Search State
   const [questionFilter, setQuestionFilter] = useState('all');
   const [gradingStatusFilter, setGradingStatusFilter] = useState('all');
   const [studentSearch, setStudentSearch] = useState('');
 
-  // State for grading
+  // Grading Action State
   const [gradingMode, setGradingMode] = useState('ungraded');
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [confirmGradingOpen, setConfirmGradingOpen] = useState(false);
 
-  // State for tabs
+  // UI State
   const [tabValue, setTabValue] = useState(0);
 
-  // State for alerts
+  // Alert State
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
   const [alertSeverity, setAlertSeverity] = useState('success');
 
-  // Fetch assignments
-  useEffect(() => {
-    const fetchAssignments = async () => {
-      if (!courseId || !semester) return;
+  // --- UTILITY FUNCTIONS ---
+  const showAlert = useCallback((message, severity = 'success') => { setAlertMessage(message); setAlertSeverity(severity); setAlertOpen(true); }, []);
+  const formatApiError = useCallback((err, defaultMessage) => { let displayError = defaultMessage; if(err.response){const detail = err.response.data?.detail; if(detail){if(Array.isArray(detail)){displayError = detail.map(d => `${d.loc?.join('.') || 'error'}: ${d.msg}`).join('; ');} else if(typeof detail === 'string'){displayError = detail;}}else if(err.response.statusText){displayError = `Error: ${err.response.status} ${err.response.statusText}`;}} else if(err.request){displayError="Network Error";} else if(err.message){displayError = err.message;} return displayError||defaultMessage; }, []);
+  const calculateGradePercentage = (points, maxPoints) => (maxPoints ? (points / maxPoints) * 100 : 0);
+  const getLetterGrade = (percentage) => { if (percentage >= 90) return 'A'; if (percentage >= 80) return 'B'; if (percentage >= 70) return 'C'; if (percentage >= 60) return 'D'; return 'F'; };
+  const countUngradedResponses = useCallback(() => responses.filter(r => !r.grade).length, [responses]);
+  const countUngradedResponsesForQuestion = useCallback((qIndex) => responses.filter(r => r.question_index === qIndex && !r.grade).length, [responses]);
 
-      setLoading(true);
-      try {
-        const assignmentsData = await assignmentService.getAssignments(courseId, semester);
-        setAssignments(assignmentsData || []);
 
-        // If there are assignments, select the first one by default
-        if (assignmentsData && assignmentsData.length > 0) {
-          setSelectedAssignment(assignmentsData[0]);
-          await fetchResponses(assignmentsData[0].assignment_id);
-        }
-
-        setError(null);
-      } catch (err) {
-        console.error('Error fetching assignments:', err);
-        setError(err.message || 'Failed to load assignments');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAssignments();
-  }, [courseId, semester]);
+  // --- DATA FETCHING ---
 
   // Fetch responses for selected assignment
-  const fetchResponses = async (assignmentId, questionIndex = null) => {
-    setLoadingResponses(true);
+  const fetchResponses = useCallback(async (assignmentId, questionIndex = null) => {
+    if (!courseId || !semester || !assignmentId) { console.warn("Cannot fetch responses: Missing context."); setResponses([]); setFilteredResponses([]); return; }
+    setLoadingResponses(true); setError(null); // Use general error state for simplicity here too, or add dedicated responseError state
     try {
-      const responsesData = await responseService.getResponses(assignmentId, questionIndex);
-      setResponses(responsesData || []);
-      setFilteredResponses(responsesData || []);
-      setSelectedResponse(null);
-      setSelectedStudents([]);
-      return responsesData;
+      console.log(`FETCHING responses for ${courseId}/${semester}/${assignmentId}, Q-Index: ${questionIndex ?? 'all'}`);
+      // *** CORRECTED API CALL: Pass params object ***
+      const responseData = await responseService.getResponses({
+          semester: semester,
+          course_id: courseId,
+          assignment_id: assignmentId,
+          question_index: questionIndex === 'all' ? null : questionIndex, // Pass null if 'all'
+          student_id: null
+      });
+
+      if (Array.isArray(responseData)) {
+           console.log("RECEIVED responses:", responseData);
+           // Ensure each response has necessary fields
+           const validResponses = responseData.filter(r => r && r.student_id && typeof r.question_index === 'number');
+           setResponses(validResponses);
+           setFilteredResponses(validResponses); // Apply filters in separate effect
+           setSelectedResponse(null); setSelectedStudents([]); // Reset selections
+      } else { throw new Error("Invalid data format received for responses."); }
     } catch (err) {
       console.error('Error fetching responses:', err);
-      setAlertMessage(err.message || 'Failed to load responses');
-      setAlertSeverity('error');
-      setAlertOpen(true);
-      return [];
-    } finally {
-      setLoadingResponses(false);
-    }
-  };
+      const errorMsg = formatApiError(err, 'Failed to load responses.');
+      setError(errorMsg); // Set general error state
+      showAlert(errorMsg, 'error');
+      setResponses([]); setFilteredResponses([]);
+    } finally { setLoadingResponses(false); }
+  }, [courseId, semester, formatApiError, showAlert]); // Dependencies
 
-  // Handle selecting an assignment
-  const handleSelectAssignment = async (assignment) => {
-    setSelectedAssignment(assignment);
-    setQuestionFilter('all');
-    setGradingStatusFilter('all');
-    setStudentSearch('');
-    await fetchResponses(assignment.assignment_id);
-  };
-
-  // Handle selecting a response
-  const handleSelectResponse = (response) => {
-    setSelectedResponse(response);
-    setTabValue(0); // Switch to the response tab
-  };
-
-  // Apply filters to responses
+  // Fetch assignments initially
   useEffect(() => {
-    if (!responses) return;
+    if (!router.isReady || !courseId || !semester) return;
+    let isMounted = true;
+    const fetchAssignmentsList = async () => {
+      setLoadingAssignments(true); setError(null); setAssignments([]); setSelectedAssignment(null); setResponses([]); setFilteredResponses([]);
+      try {
+        console.log(`FETCHING assignments list for ${courseId}/${semester}`);
+        // Fetch assignments WITH questions
+        const assignmentsData = await assignmentService.getAssignments({ course_id: courseId, semester: semester, include_questions: true });
 
+        if (isMounted) {
+            if (Array.isArray(assignmentsData)) {
+               const validAssignments = (assignmentsData || []).filter(a => a && typeof a.assignment_id !== 'undefined').map(a => ({...a, questions: Array.isArray(a?.questions) ? a.questions.sort((qa,qb) => qa.question_index - qb.question_index) : [] }));
+               validAssignments.sort((a,b) => String(a.assignment_id).localeCompare(String(b.assignment_id)));
+               setAssignments(validAssignments);
+               if (validAssignments.length > 0) {
+                    const firstAssignment = validAssignments[0];
+                    setSelectedAssignment(firstAssignment); // Select first by default
+                    await fetchResponses(firstAssignment.assignment_id); // Fetch its responses
+               } else { setLoadingResponses(false); } // No assignments, no responses to load
+            } else { throw new Error("Invalid assignment data format."); }
+        }
+      } catch (err) { console.error("Error fetching assignments list:", err); if (isMounted) { setError(formatApiError(err, 'Failed to load assignments list.')); setAssignments([]); setLoadingResponses(false); } }
+      finally { if (isMounted) { setLoadingAssignments(false); } }
+    };
+    fetchAssignmentsList();
+    return () => { isMounted = false; };
+  }, [router.isReady, courseId, semester, fetchResponses, formatApiError]); // Added fetchResponses
+
+
+  // --- UI HANDLERS ---
+
+  const handleSelectAssignment = useCallback(async (assignment) => {
+    if (!assignment || assignment.assignment_id === selectedAssignment?.assignment_id) return;
+    setSelectedAssignment(assignment);
+    setQuestionFilter('all'); setGradingStatusFilter('all'); setStudentSearch('');
+    setSelectedResponse(null); setSelectedStudents([]);
+    await fetchResponses(assignment.assignment_id); // Fetch responses for the newly selected assignment
+  }, [fetchResponses, selectedAssignment?.assignment_id]);
+
+  const handleSelectResponse = useCallback((response) => {
+    setSelectedResponse(response);
+    setTabValue(0); // Switch to response tab
+  }, []);
+
+  // Apply filters client-side
+  useEffect(() => {
+    if (!Array.isArray(responses)) return;
     let filtered = [...responses];
-
-    // Filter by question
-    if (questionFilter !== 'all') {
-      filtered = filtered.filter(
-        (response) => response.question_index === parseInt(questionFilter)
-      );
-    }
-
-    // Filter by grading status
-    if (gradingStatusFilter === 'graded') {
-      filtered = filtered.filter((response) => response.grade);
-    } else if (gradingStatusFilter === 'ungraded') {
-      filtered = filtered.filter((response) => !response.grade);
-    }
-
-    // Filter by student search
-    if (studentSearch) {
-      filtered = filtered.filter((response) =>
-        response.student_id.toLowerCase().includes(studentSearch.toLowerCase())
-      );
-    }
-
+    if (questionFilter !== 'all') { filtered = filtered.filter(r => r.question_index === parseInt(questionFilter)); }
+    if (gradingStatusFilter === 'graded') { filtered = filtered.filter(r => !!r.grade); }
+    else if (gradingStatusFilter === 'ungraded') { filtered = filtered.filter(r => !r.grade); }
+    if (studentSearch) { const searchLower = studentSearch.toLowerCase(); filtered = filtered.filter(r => r.student_id?.toLowerCase().includes(searchLower)); }
     setFilteredResponses(filtered);
-  }, [responses, questionFilter, gradingStatusFilter, studentSearch]);
+    if (selectedResponse && !filtered.some(r => r.student_id === selectedResponse.student_id && r.question_index === selectedResponse.question_index)) {
+        setSelectedResponse(null);
+    }
+  }, [responses, questionFilter, gradingStatusFilter, studentSearch, selectedResponse]);
 
-  // Handle starting the grading process
-  const handleStartGrading = () => {
-    setConfirmGradingOpen(true);
-  };
 
-  // Handle the actual grading process
+  // --- GRADING ACTIONS ---
+
+  const handleStartGrading = () => { setConfirmGradingOpen(true); };
+
   const handleGradeSubmissions = async () => {
     setConfirmGradingOpen(false);
-    setGrading(true);
+    if (!selectedAssignment || !courseId || !semester) return showAlert("Cannot grade: Course/Assignment context missing.", "error");
+
+    setIsGrading(true); setError(null);
+
+    const assignmentId = selectedAssignment.assignment_id;
+    const questionIndexToGrade = questionFilter === 'all' ? null : parseInt(questionFilter);
+    let gradeActionPromise;
+    let resultCount = 0; // Track how many were processed
 
     try {
-      let gradedResponses;
-      const questionIndexToGrade = questionFilter === 'all' ? null : parseInt(questionFilter);
+      // *** CORRECTED API CALLS: Pass params object including semester & courseId ***
+      const baseParams = { semester, course_id: courseId, assignment_id: assignmentId, question_index: questionIndexToGrade };
 
       switch (gradingMode) {
         case 'specific':
-          // Grade specific students
-          if (selectedStudents.length === 0) {
-            throw new Error('No students selected for grading');
-          }
-
-          gradedResponses = await responseService.gradeSpecific(
-            selectedStudents,
-            selectedAssignment.assignment_id,
-            questionIndexToGrade
-          );
+          if (selectedStudents.length === 0) throw new Error('No students selected.');
+          console.log(`GRADING specific students (${selectedStudents.length}) for A:${assignmentId} Q:${questionIndexToGrade ?? 'all'}`);
+          // gradeSpecific expects { ...baseParams, student_ids: string[] }
+          gradeActionPromise = responseService.gradeSpecific({ ...baseParams, student_ids: selectedStudents });
+          resultCount = selectedStudents.length; // Assume API processes all requested
           break;
-
         case 'ungraded':
-          // Grade all ungraded responses
-          gradedResponses = await responseService.gradeUngraded(
-            selectedAssignment.assignment_id,
-            questionIndexToGrade
-          );
+          console.log(`GRADING ungraded for A:${assignmentId} Q:${questionIndexToGrade ?? 'all'}`);
+          // gradeUngraded expects baseParams
+          gradeActionPromise = responseService.gradeUngraded(baseParams);
+           // Count ungraded responses matching the filter
+          resultCount = filteredResponses.filter(r => !r.grade).length;
           break;
-
         case 'all':
-          // Grade/regrade all responses
-          gradedResponses = await responseService.gradeAll(
-            selectedAssignment.assignment_id,
-            questionIndexToGrade
-          );
+           console.log(`GRADING/REGRADING ALL for A:${assignmentId} Q:${questionIndexToGrade ?? 'all'}`);
+          // gradeAll expects baseParams
+          gradeActionPromise = responseService.gradeAll(baseParams);
+           // Count all responses matching the filter
+          resultCount = filteredResponses.length;
           break;
-
-        default:
-          throw new Error('Invalid grading mode');
+        default: throw new Error('Invalid grading mode selected.');
       }
 
-      // Refresh responses after grading
-      await fetchResponses(selectedAssignment.assignment_id, questionIndexToGrade);
+      const result = await gradeActionPromise; // Await the API call
+      console.log("Grading API response:", result);
 
-      // Show success message
-      setAlertMessage(
-        `Successfully graded ${gradedResponses.length} ${
-          gradedResponses.length === 1 ? 'response' : 'responses'
-        }`
-      );
-      setAlertSeverity('success');
-      setAlertOpen(true);
+      // Refresh responses after grading completes successfully
+      showAlert(`Grading initiated for ${resultCount} response(s). Refreshing list...`, 'success');
+      await fetchResponses(assignmentId, questionIndexToGrade === null ? 'all' : questionIndexToGrade); // Pass 'all' or specific index
+
     } catch (err) {
-      console.error('Error grading submissions:', err);
-      setAlertMessage(err.message || 'Failed to grade submissions');
-      setAlertSeverity('error');
-      setAlertOpen(true);
-    } finally {
-      setGrading(false);
-    }
+      console.error('Error during grading submissions:', err);
+      showAlert(formatApiError(err, 'Grading failed.'), 'error');
+    } finally { setIsGrading(false); }
   };
 
-  // Handle refreshing responses
-  const handleRefreshResponses = async () => {
+  // Handle refreshing responses list
+  const handleRefreshResponses = useCallback(async () => {
     if (!selectedAssignment) return;
-
     const questionIndexToFetch = questionFilter === 'all' ? null : parseInt(questionFilter);
+    showAlert('Refreshing responses...', 'info');
     await fetchResponses(selectedAssignment.assignment_id, questionIndexToFetch);
-
-    setAlertMessage('Responses refreshed');
-    setAlertSeverity('success');
-    setAlertOpen(true);
-  };
+  }, [selectedAssignment, questionFilter, fetchResponses, showAlert]);
 
   // Handle tab change
-  const handleTabChange = (event, newValue) => {
-    setTabValue(newValue);
-  };
+  const handleTabChange = (event, newValue) => { setTabValue(newValue); };
 
-  // Calculate grade percentage
-  const calculateGradePercentage = (points, maxPoints) => {
-    if (!points || !maxPoints) return 0;
-    return (points / maxPoints) * 100;
-  };
+  // Get question text helper
+  const getQuestionText = useCallback((qIndex) => { if (!selectedAssignment || !Array.isArray(selectedAssignment.questions) || typeof qIndex !== 'number') return 'N/A'; const question = selectedAssignment.questions.find(q => q.question_index === qIndex); return question ? question.question_text : `Question text (Index ${qIndex}) not found`; }, [selectedAssignment]);
 
-  // Get letter grade based on percentage
-  const getLetterGrade = (percentage) => {
-    if (percentage >= 90) return 'A';
-    if (percentage >= 80) return 'B';
-    if (percentage >= 70) return 'C';
-    if (percentage >= 60) return 'D';
-    return 'F';
-  };
 
-  // Count ungraded responses
-  const countUngradedResponses = () => {
-    return responses.filter((response) => !response.grade).length;
-  };
+  // --- RENDER FUNCTIONS ---
 
-  // Count responses for a specific question
-  const countResponsesForQuestion = (questionIndex) => {
-    return responses.filter((response) => response.question_index === questionIndex).length;
-  };
-
-  // Count ungraded responses for a specific question
-  const countUngradedResponsesForQuestion = (questionIndex) => {
-    return responses.filter(
-      (response) => response.question_index === questionIndex && !response.grade
-    ).length;
-  };
-
-  // Render assignment selection section
   const renderAssignmentSelection = () => {
-    if (loading) {
-      return <CardSkeleton height={100} />;
-    }
-
-    if (assignments.length === 0) {
-      return (
-        <Alert severity="info" sx={{ mb: 3 }}>
-          No assignments found. Create an assignment first to grade submissions.
-        </Alert>
-      );
-    }
+    if (loadingAssignments) return <CardSkeleton height={80} sx={{mb: 3}} />; // Use skeleton for loading
+    if (error && assignments.length === 0) return <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>; // Show error if list failed AND is empty
+    if (!loadingAssignments && assignments.length === 0) return <Alert severity="info" sx={{ mb: 3 }}>No assignments found for this course.</Alert>;
 
     return (
       <FormControl fullWidth variant="outlined" sx={{ mb: 3 }}>
-        <InputLabel id="assignment-select-label">Assignment</InputLabel>
-        <Select
-          labelId="assignment-select-label"
-          value={selectedAssignment?.assignment_id || ''}
-          onChange={(e) => {
-            const assignment = assignments.find((a) => a.assignment_id === e.target.value);
-            if (assignment) {
-              handleSelectAssignment(assignment);
-            }
-          }}
-          label="Assignment"
-        >
-          {assignments.map((assignment) => (
-            <MenuItem key={assignment.assignment_id} value={assignment.assignment_id}>
-              {assignment.assignment_title || 'Untitled Assignment'}
-            </MenuItem>
-          ))}
+        <InputLabel id="assignment-select-label">Select Assignment</InputLabel>
+        <Select labelId="assignment-select-label" value={selectedAssignment?.assignment_id ?? ''} onChange={(e) => { const assignment = assignments.find((a) => a.assignment_id === e.target.value); if (assignment) handleSelectAssignment(assignment); }} label="Select Assignment" disabled={isGrading || loadingResponses}>
+          {assignments.map((assignment) => ( <MenuItem key={assignment.assignment_id} value={assignment.assignment_id}> {assignment.assignment_id} ({assignment.questions?.length ?? 0} Qs) </MenuItem> ))}
         </Select>
       </FormControl>
     );
   };
 
-  // Render grading actions section
   const renderGradingActions = () => {
-    if (!selectedAssignment) return null;
+    if (!selectedAssignment || !Array.isArray(selectedAssignment.questions)) return null; // Ensure assignment and questions exist
+
+    const ungradedTotal = countUngradedResponses();
+    const questionsExist = selectedAssignment.questions.length > 0;
 
     return (
-      <GradingActionCard>
-        <Typography variant="h6" gutterBottom>
-          Grading Actions
-        </Typography>
-
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={4}>
-            <GradingModeSelect
-              value={gradingMode}
-              onChange={setGradingMode}
-              disabled={grading}
-            />
+      <GradingActionCard variant="outlined">
+        <Typography variant="h6" gutterBottom>Grading Actions</Typography>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} sm={6} md={4}> <GradingModeSelect value={gradingMode} onChange={setGradingMode} disabled={isGrading}/> </Grid>
+          <Grid item xs={12} sm={6} md={4}>
+             <FormControl fullWidth variant="outlined" size="small" disabled={isGrading || !questionsExist}>
+               <InputLabel id="question-filter-label">Filter/Grade Question</InputLabel>
+               <Select labelId="question-filter-label" value={questionFilter} onChange={(e) => setQuestionFilter(e.target.value)} label="Filter/Grade Question">
+                 <MenuItem value="all">All Questions</MenuItem>
+                 {selectedAssignment.questions.map((question) => (
+                    <MenuItem key={question.question_index} value={question.question_index}>
+                       <Box component="span" sx={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between' }}>
+                           {`Q ${question.question_index + 1}`}
+                           <Tooltip title="Ungraded responses for this question">
+                              <Badge badgeContent={countUngradedResponsesForQuestion(question.question_index)} color="warning" sx={{ ml: 1 }} />
+                           </Tooltip>
+                       </Box>
+                   </MenuItem>
+                 ))}
+               </Select>
+             </FormControl>
           </Grid>
-
-          <Grid item xs={12} md={4}>
-            <FormControl fullWidth variant="outlined">
-              <InputLabel id="question-filter-label">Question</InputLabel>
-              <Select
-                labelId="question-filter-label"
-                value={questionFilter}
-                onChange={(e) => setQuestionFilter(e.target.value)}
-                label="Question"
-                disabled={grading}
-              >
-                <MenuItem value="all">All Questions</MenuItem>
-                {selectedAssignment.questions.map((question) => (
-                  <MenuItem key={question.question_index} value={question.question_index}>
-                    Question {question.question_index + 1}{' '}
-                    <Badge
-                      badgeContent={countUngradedResponsesForQuestion(question.question_index)}
-                      color="error"
-                      sx={{ ml: 1 }}
-                    />
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-
-          <Grid item xs={12} md={4}>
+          <Grid item xs={12} sm={12} md={4}>
             <Box sx={{ display: 'flex', gap: 1 }}>
-              <Button
-                variant="contained"
-                color="primary"
-                fullWidth
-                onClick={handleStartGrading}
-                disabled={
-                  grading ||
-                  responses.length === 0 ||
-                  (gradingMode === 'ungraded' && countUngradedResponses() === 0) ||
-                  (gradingMode === 'specific' && selectedStudents.length === 0)
-                }
-                startIcon={<GradeIcon />}
-              >
-                {grading ? 'Grading...' : 'Start Grading'}
-              </Button>
-
-              <Tooltip title="Refresh Responses">
-                <IconButton
-                  color="primary"
-                  onClick={handleRefreshResponses}
-                  disabled={grading || loadingResponses}
-                >
-                  <RefreshIcon />
-                </IconButton>
-              </Tooltip>
+              <Button variant="contained" color="primary" fullWidth onClick={handleStartGrading} disabled={ isGrading || loadingResponses || !responses.length || (gradingMode === 'ungraded' && ungradedTotal === 0) || (gradingMode === 'specific' && selectedStudents.length === 0) } startIcon={isGrading ? <CircularProgress size={20} color="inherit" /> : <GradeIcon />}> {isGrading ? 'Grading...' : 'Start Grading'} </Button>
+              <Tooltip title="Refresh Responses List"><IconButton color="primary" onClick={handleRefreshResponses} disabled={isGrading || loadingResponses}><RefreshIcon /></IconButton></Tooltip>
             </Box>
           </Grid>
-
-          <Grid item xs={12}>
-            <Divider sx={{ my: 1 }} />
-
-            <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <FilterIcon sx={{ mr: 1, color: 'action.active' }} />
-                <FormControl variant="outlined" size="small" sx={{ minWidth: 150 }}>
-                  <InputLabel id="status-filter-label">Status</InputLabel>
-                  <Select
-                    labelId="status-filter-label"
-                    value={gradingStatusFilter}
-                    onChange={(e) => setGradingStatusFilter(e.target.value)}
-                    label="Status"
-                    disabled={grading}
-                  >
-                    <MenuItem value="all">All Responses</MenuItem>
-                    <MenuItem value="graded">Graded Only</MenuItem>
-                    <MenuItem value="ungraded">Ungraded Only</MenuItem>
-                  </Select>
-                </FormControl>
-              </Box>
-
-              <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
-                <StudentSearchIcon sx={{ mr: 1, color: 'action.active' }} />
-                <TextField
-                  label="Search Student"
-                  variant="outlined"
-                  size="small"
-                  fullWidth
-                  value={studentSearch}
-                  onChange={(e) => setStudentSearch(e.target.value)}
-                  disabled={grading}
-                  InputProps={{
-                    endAdornment: studentSearch ? (
-                      <IconButton
-                        size="small"
-                        onClick={() => setStudentSearch('')}
-                        edge="end"
-                      >
-                        <SearchIcon />
-                      </IconButton>
-                    ) : null,
-                  }}
-                />
-              </Box>
-
-              <Typography variant="body2" color="text.secondary">
-                {filteredResponses.length} {filteredResponses.length === 1 ? 'response' : 'responses'} •{' '}
-                {countUngradedResponses()} ungraded
-              </Typography>
-            </Box>
+          <Grid item xs={12}><Divider sx={{ my: 1 }} /></Grid>
+          <Grid item xs={12} sm={6} md={4}>
+             <FormControl variant="outlined" size="small" fullWidth disabled={isGrading || loadingResponses}>
+               <InputLabel id="status-filter-label">Filter Status</InputLabel>
+               <Select labelId="status-filter-label" value={gradingStatusFilter} onChange={(e) => setGradingStatusFilter(e.target.value)} label="Filter Status"> <MenuItem value="all">All Responses</MenuItem> <MenuItem value="graded">Graded Only</MenuItem> <MenuItem value="ungraded">Ungraded Only</MenuItem> </Select>
+             </FormControl>
+          </Grid>
+          <Grid item xs={12} sm={6} md={5}>
+             <TextField label="Search Student ID" variant="outlined" size="small" fullWidth value={studentSearch} onChange={(e) => setStudentSearch(e.target.value)} disabled={isGrading || loadingResponses} InputProps={{ startAdornment: (<InputAdornment position="start"><StudentSearchIcon color="action"/></InputAdornment>), endAdornment: studentSearch ? (<IconButton size="small" onClick={() => setStudentSearch('')} edge="end"><DeleteIcon fontSize='small'/></IconButton>) : null }} />
+          </Grid>
+          <Grid item xs={12} md={3} sx={{ textAlign: { xs: 'left', md: 'right' }, alignSelf: 'center' }}>
+            <Typography variant="body2" color="text.secondary"> {filteredResponses.length} shown ({ungradedTotal} ungraded total) </Typography>
           </Grid>
         </Grid>
       </GradingActionCard>
     );
   };
 
-  // Render responses list and details
   const renderResponsesContent = () => {
-    if (loadingResponses) {
-      return (
-        <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
-          <CircularProgress />
-        </Box>
-      );
+    if (loadingResponses) return <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}><CircularProgress /></Box>;
+    // Let main error Alert handle list loading errors
+    // if (error && responses.length === 0) return null;
+    if (!loadingAssignments && !loadingResponses && !error && filteredResponses.length === 0) {
+      return <Alert severity="info" sx={{ mt: 3 }}>No responses found matching the current filters for assignment '{selectedAssignment?.assignment_id}'.</Alert>;
     }
-
-    if (filteredResponses.length === 0) {
-      return (
-        <Alert severity="info" sx={{ mt: 3 }}>
-          No responses found matching the current filters.
-        </Alert>
-      );
-    }
+    // Don't render if list is loading or empty
+    if (loadingAssignments || loadingResponses || !Array.isArray(filteredResponses)) return null;
 
     return (
       <Grid container spacing={3}>
-        <Grid item xs={12} md={4}>
-          <Typography variant="h6" gutterBottom>
-            Student Responses
-          </Typography>
-
+        {/* Response List */}
+        <Grid item xs={12} md={5} lg={4}>
+          <Typography variant="h6" gutterBottom> Student Responses </Typography>
           <SelectableList
-            items={filteredResponses}
+            items={filteredResponses} // Use filtered list
             keyField="student_id"
-            secondaryKeyField="question_index"
-            selectedItems={selectedStudents}
+            secondaryKeyField="question_index" // Needed for unique key within list
+            selectedItems={selectedStudents} // Array of student_ids
             onSelectionChange={setSelectedStudents}
             onItemClick={handleSelectResponse}
             highlightedItem={selectedResponse}
-            selectionMode={gradingMode === 'specific' ? 'multiple' : 'none'}
+            selectionMode={gradingMode === 'specific' ? 'multiple' : 'single'} // Allow single selection even if not grading specific
             renderItem={(response) => (
-              <Box>
-                <Typography variant="subtitle1" noWrap>
-                  {response.student_id}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Question {response.question_index + 1}
-                </Typography>
-                <Box sx={{ mt: 1, display: 'flex', alignItems: 'center' }}>
-                  {response.grade ? (
-                    <>
-                      <GradedIcon
-                        fontSize="small"
-                        color="success"
-                        sx={{ mr: 0.5 }}
-                      />
-                      <Typography variant="body2" color="success.main">
-                        Graded: {response.grade.points}/{response.grade.max_points} points
-                      </Typography>
-                    </>
-                  ) : (
-                    <Chip
-                      label="Ungraded"
-                      size="small"
-                      color="warning"
-                      variant="outlined"
-                    />
-                  )}
-                </Box>
+              <Box sx={{ width: '100%' }}>
+                <Typography variant="body1" component="div" noWrap sx={{ fontWeight: 500 }}>{response.student_id}</Typography>
+                <Typography variant="body2" color="text.secondary" component="div" sx={{ mb: 0.5 }}>Q {response.question_index + 1}</Typography>
+                <Box> {response.grade ? ( <Chip icon={<GradedIcon fontSize="small"/>} label={`${response.grade.points}/${response.grade.max_points}`} size="small" color="success" variant="outlined" /> ) : ( <Chip label="Ungraded" size="small" color="warning" variant="outlined"/> )} </Box>
               </Box>
             )}
+            sx={{ maxHeight: '70vh', overflowY: 'auto' }} // Make list scrollable
           />
+           {gradingMode === 'specific' && ( <Typography variant="caption" display="block" sx={{mt:1}}> Selected: {selectedStudents.length} student(s) </Typography> )}
         </Grid>
 
-        <Grid item xs={12} md={8}>
-          {selectedResponse ? (
-            <>
-              <Paper sx={{ mb: 3 }}>
-                <Tabs
-                  value={tabValue}
-                  onChange={handleTabChange}
-                  variant="fullWidth"
-                  aria-label="response tabs"
-                >
-                  <Tab label="Response" icon={<QuestionIcon />} iconPosition="start" />
-                  <Tab
-                    label="Grade"
-                    icon={<GradedIcon />}
-                    iconPosition="start"
-                    disabled={!selectedResponse.grade}
-                  />
-                </Tabs>
-              </Paper>
-
-              <TabPanel value={tabValue} index={0}>
-                <ResponseCard>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                    <Typography variant="h6">
-                      {selectedResponse.student_id}
-                    </Typography>
-
-                    <Chip
-                      label={selectedResponse.grade ? 'Graded' : 'Ungraded'}
-                      color={selectedResponse.grade ? 'success' : 'warning'}
-                      variant="outlined"
-                    />
-                  </Box>
-
-                  <Typography variant="subtitle1" gutterBottom>
-                    Question {selectedResponse.question_index + 1}:
-                  </Typography>
-
-                  <Typography variant="body2" paragraph sx={{ mb: 3 }}>
-                    {getQuestionText(selectedResponse.question_index)}
-                  </Typography>
-
-                  <Divider sx={{ mb: 3 }} />
-
-                  <Typography variant="subtitle1" gutterBottom>
-                    Student Response:
-                  </Typography>
-
-                  <Paper
-                    elevation={0}
-                    sx={{
-                      p: 2,
-                      bgcolor: 'background.default',
-                      borderRadius: 1,
-                      whiteSpace: 'pre-wrap',
-                    }}
-                  >
-                    {/*
-                      In a real implementation, this would render the response data
-                      based on its type (text, file, etc.)
-                    */}
-                    {selectedResponse.data.content || 'No response content available'}
-                  </Paper>
-                </ResponseCard>
-              </TabPanel>
-
-              <TabPanel value={tabValue} index={1}>
-                {selectedResponse.grade ? (
-                  <GradeCard
-                    gradePercent={calculateGradePercentage(
-                      selectedResponse.grade.points,
-                      selectedResponse.grade.max_points
-                    )}
-                  >
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'flex-start',
-                        mb: 2,
-                      }}
-                    >
-                      <Typography variant="h6">
-                        Grade for {selectedResponse.student_id}
-                      </Typography>
-
-                      <Box sx={{ textAlign: 'right' }}>
-                        <Typography variant="h4" color="primary">
-                          {selectedResponse.grade.points}/{selectedResponse.grade.max_points}
-                        </Typography>
-                        <Typography variant="subtitle1" color="text.secondary">
-                          {calculateGradePercentage(
-                            selectedResponse.grade.points,
-                            selectedResponse.grade.max_points
-                          ).toFixed(1)}
-                          % ({getLetterGrade(
-                            calculateGradePercentage(
-                              selectedResponse.grade.points,
-                              selectedResponse.grade.max_points
-                            )
-                          )})
-                        </Typography>
-                      </Box>
-                    </Box>
-
-                    <Divider sx={{ mb: 3 }} />
-
-                    <Typography variant="subtitle1" gutterBottom>
-                      Grading Explanation:
-                    </Typography>
-
-                    <Paper
-                      elevation={0}
-                      sx={{
-                        p: 2,
-                        bgcolor: 'background.default',
-                        borderRadius: 1,
-                        whiteSpace: 'pre-wrap',
-                      }}
-                    >
-                      {selectedResponse.grade.explanation || 'No explanation provided'}
-                    </Paper>
-                  </GradeCard>
-                ) : (
-                  <Alert severity="info">
-                    This response has not been graded yet.
-                  </Alert>
-                )}
-              </TabPanel>
-            </>
+        {/* Response Details / Grade */}
+        <Grid item xs={12} md={7} lg={8}>
+          <Typography variant="h6" gutterBottom> Response Details </Typography>
+          {!selectedResponse ? (
+              <Paper variant="outlined" sx={{ p: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 300, borderStyle: 'dashed' }}> <AssignmentIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} /> <Typography variant="h6" gutterBottom>No Response Selected</Typography> <Typography variant="body2" color="text.secondary" align="center">Select a student response from the list.</Typography> </Paper>
           ) : (
-            <Paper
-              sx={{
-                p: 3,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                height: 300,
-              }}
-            >
-              <AssignmentIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-              <Typography variant="h6" gutterBottom>
-                No Response Selected
-              </Typography>
-              <Typography variant="body2" color="text.secondary" align="center">
-                Select a student response from the list to view details and grading information.
-              </Typography>
-            </Paper>
+            <>
+              <ResponseDetailCard variant="outlined">
+                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}> <Typography variant="h6">{selectedResponse.student_id}</Typography> <Chip label={selectedResponse.grade ? 'Graded' : 'Ungraded'} color={selectedResponse.grade ? 'success' : 'warning'} variant="outlined" /> </Box>
+                 <Typography variant="subtitle1" gutterBottom>Question {selectedResponse.question_index + 1}:</Typography>
+                 <Paper variant="outlined" sx={{ p: 1.5, mb: 2, bgcolor: 'action.hover', maxHeight: '150px', overflowY: 'auto' }}><Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{getQuestionText(selectedResponse.question_index)}</Typography></Paper>
+                 <Divider sx={{ my: 2 }} />
+                 <Typography variant="subtitle1" gutterBottom>Student Response:</Typography>
+                 {/* Basic rendering - enhance based on actual data_type */}
+                 <Paper variant="outlined" sx={{ p: 2, bgcolor: 'background.default', maxHeight: '300px', overflowY: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}> {selectedResponse.data?.content || <Typography component="em" sx={{color: 'text.disabled'}}>(No response content available)</Typography>} </Paper>
+              </ResponseDetailCard>
+
+              {selectedResponse.grade ? (
+                  <GradeCard variant="outlined" gradePercent={calculateGradePercentage(selectedResponse.grade.points, selectedResponse.grade.max_points)}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}> <Typography variant="h6">Grade</Typography> <Box sx={{ textAlign: 'right' }}> <Typography variant="h4" color="primary">{selectedResponse.grade.points}/{selectedResponse.grade.max_points}</Typography> <Typography variant="subtitle1" color="text.secondary"> {calculateGradePercentage(selectedResponse.grade.points, selectedResponse.grade.max_points).toFixed(1)}% ({getLetterGrade(calculateGradePercentage(selectedResponse.grade.points, selectedResponse.grade.max_points))}) </Typography> </Box> </Box>
+                      <Divider sx={{ mb: 2 }} />
+                      <Typography variant="subtitle1" gutterBottom>Explanation:</Typography>
+                      <Paper elevation={0} sx={{ p: 1.5, bgcolor: 'background.paper', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedResponse.grade.explanation || <Typography component="em" sx={{color: 'text.disabled'}}>(No explanation provided)</Typography>}</Paper>
+                  </GradeCard>
+              ) : ( <Alert severity="info">This response is currently ungraded.</Alert> )}
+            </>
           )}
         </Grid>
       </Grid>
     );
   };
 
-  // Helper function to get question text
-  const getQuestionText = (questionIndex) => {
-    if (!selectedAssignment) return '';
 
-    const question = selectedAssignment.questions.find(
-      (q) => q.question_index === questionIndex
-    );
-
-    return question ? question.question_text : '';
-  };
-
+  // --- MAIN RETURN JSX ---
   return (
-    <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-        <IconButton
-          edge="start"
-          aria-label="back to course"
-          onClick={() => router.push(`/course/${courseId}?semester=${semester}`)}
-          sx={{ mr: 1 }}
-        >
-          <ArrowBackIcon />
-        </IconButton>
-
-        <Typography variant="h4" component="h1">
-          Grading Dashboard
-        </Typography>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 1 }}>
+        <IconButton title="Back to Course Overview" aria-label="back" onClick={() => (courseId && semester) && router.push(`/course/${courseId}?semester=${semester}`)} disabled={!courseId || !semester || isGrading} sx={{ mr: 1 }}> <ArrowBackIcon /> </IconButton>
+        <Typography variant="h4" component="h1" sx={{ flexGrow: 1, mr: 1 }}>Grading Dashboard</Typography>
       </Box>
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-      )}
-
+      {error && !loadingAssignments && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
       {renderAssignmentSelection()}
-
       {selectedAssignment && renderGradingActions()}
-
+      <Divider sx={{ my: 4 }} />
       {selectedAssignment && renderResponsesContent()}
 
-      {/* Grading Confirmation Dialog */}
-      <ConfirmationDialog
-        open={confirmGradingOpen}
-        title="Confirm Grading Action"
-        message={
-          gradingMode === 'specific'
-            ? `You are about to grade ${selectedStudents.length} selected student ${
-                selectedStudents.length === 1 ? 'response' : 'responses'
-              }. This process may take some time. Do you want to continue?`
-            : gradingMode === 'ungraded'
-            ? `You are about to grade all ungraded responses${
-                questionFilter !== 'all'
-                  ? ` for Question ${parseInt(questionFilter) + 1}`
-                  : ''
-              }. This process may take some time. Do you want to continue?`
-            : `You are about to grade/regrade ALL responses${
-                questionFilter !== 'all'
-                  ? ` for Question ${parseInt(questionFilter) + 1}`
-                  : ''
-              }. This will overwrite any existing grades. This process may take some time. Do you want to continue?`
-        }
-        confirmText="Start Grading"
-        cancelText="Cancel"
-        onConfirm={handleGradeSubmissions}
-        onCancel={() => setConfirmGradingOpen(false)}
-      />
-
-      {/* Alert Snackbar */}
-      <Snackbar
-        open={alertOpen}
-        autoHideDuration={6000}
-        onClose={() => setAlertOpen(false)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert
-          onClose={() => setAlertOpen(false)}
-          severity={alertSeverity}
-          variant="filled"
-          sx={{ width: '100%' }}
-        >
-          {alertMessage}
-        </Alert>
-      </Snackbar>
+      <ConfirmationDialog open={confirmGradingOpen} onClose={() => !isGrading && setConfirmGradingOpen(false)} onConfirm={handleGradeSubmissions} title="Confirm Grading Action" description={ gradingMode === 'specific' ? `Grade ${selectedStudents.length} selected response(s)?` : gradingMode === 'ungraded' ? `Grade all ungraded responses${questionFilter !== 'all' ? ` for Q${parseInt(questionFilter) + 1}` : ''}?` : `Grade/Regrade ALL responses${questionFilter !== 'all' ? ` for Q${parseInt(questionFilter) + 1}` : ''}? This may overwrite existing grades.` } confirmText={isGrading ? "Grading..." : "Start Grading"} cancelText="Cancel" loading={isGrading}/>
+      <Snackbar open={alertOpen} autoHideDuration={6000} onClose={() => setAlertOpen(false)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}><Alert onClose={() => setAlertOpen(false)} severity={alertSeverity} variant="filled" sx={{ width: '100%' }}> {alertMessage} </Alert></Snackbar>
     </Box>
   );
 }

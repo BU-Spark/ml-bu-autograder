@@ -134,7 +134,7 @@ async def add_question(
                                                    add_question_request.assignment_id)
     question = Question(
         question_text=add_question_request.question.question_text,
-        question_graphics_figures=add_question_request.question.question_graphics_figures
+        #question_graphics_figures=add_question_request.question.question_graphics_figures
     )
     # Upload question
     blob_uploader.upload_question_metadata(

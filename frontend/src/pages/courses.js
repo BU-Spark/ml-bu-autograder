@@ -35,7 +35,8 @@ import {
   School as SchoolIcon,
   Person as PersonIcon,
 } from '@mui/icons-material';
-import { useCourses, courseService } from '../api';
+// Assuming api.js is in src/api/index.js or similar and exports courseService and useCourses
+import { useCourses, courseService } from '../api'; // Adjust path if necessary
 import CardSkeleton from '../components/CardSkeleton';
 import ConfirmationDialog from '../components/ConfirmationDialog';
 
@@ -87,13 +88,16 @@ const NoCoursesBox = styled(Box)(({ theme }) => ({
 // Course list page component
 export default function Courses() {
   const router = useRouter();
+  // useCourses hook now might take an optional semester argument if you want to filter initially
+  // For listing all courses, no argument is needed if your useCourses hook defaults to that.
   const { courses, isLoading, isError, mutate } = useCourses();
 
   // State for create course dialog
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [courseData, setCourseData] = useState({
+  const [newCourseData, setNewCourseData] = useState({ // Renamed for clarity
     course_id: '',
     semester: '',
+    // instructors: [], // Instructors are usually added by the backend or in a separate step
   });
 
   // State for delete course dialog
@@ -105,7 +109,7 @@ export default function Courses() {
   const [alertMessage, setAlertMessage] = useState('');
   const [alertSeverity, setAlertSeverity] = useState('success');
 
-  // Generate semester options (current semester + 2 future semesters)
+  // Generate semester options
   const getSemesterOptions = () => {
     const now = new Date();
     const year = now.getFullYear();
@@ -113,21 +117,19 @@ export default function Courses() {
 
     let semesters = [];
     let currentYear = year;
-    let seasons = ['Spring', 'Summer', 'Fall'];
+    const seasons = ['Spring', 'Summer', 'Fall'];
 
-    // Determine current season
     let currentSeasonIndex;
-    if (month < 4) currentSeasonIndex = 0; // Spring
-    else if (month < 8) currentSeasonIndex = 1; // Summer
-    else currentSeasonIndex = 2; // Fall
+    if (month >= 0 && month <= 4) currentSeasonIndex = 0; // Spring (Jan-May)
+    else if (month >= 5 && month <= 7) currentSeasonIndex = 1; // Summer (Jun-Aug)
+    else currentSeasonIndex = 2; // Fall (Sep-Dec)
 
-    // Add current semester and next 4 semesters
-    for (let i = 0; i < 5; i++) {
+
+    for (let i = 0; i < 5; i++) { // Current + next 4 semesters
       const seasonIndex = (currentSeasonIndex + i) % 3;
       const yearOffset = Math.floor((currentSeasonIndex + i) / 3);
       semesters.push(`${seasons[seasonIndex]} ${currentYear + yearOffset}`);
     }
-
     return semesters;
   };
 
@@ -135,24 +137,25 @@ export default function Courses() {
 
   // Handle creating a new course
   const handleCreateCourse = async () => {
+    // The `courseService.createCourse` now expects a single object argument
+    // matching the `Course` type defined in your OpenAPI spec and JSDoc.
+    const coursePayload = {
+      course_id: newCourseData.course_id,
+      semester: newCourseData.semester,
+      // instructors: [], // OpenAPI spec for Course allows instructors.
+                         // Backend usually adds the currently authenticated user as an instructor.
+                         // If you need to explicitly pass it, ensure your user object is available.
+                         // For simplicity, if the backend handles it, this can be omitted or empty.
+    };
+
     try {
-      await courseService.createCourse(courseData.semester, {
-        course_id: courseData.course_id,
-        semester: courseData.semester,
-        instructors: [], // Will be populated with current user
-      });
+      await courseService.createCourse(coursePayload);
 
-      // Refresh course list
-      mutate();
+      mutate(); // Refresh course list
 
-      // Reset form and close dialog
-      setCourseData({
-        course_id: '',
-        semester: '',
-      });
+      setNewCourseData({ course_id: '', semester: '' });
       setCreateDialogOpen(false);
 
-      // Show success alert
       setAlertMessage('Course created successfully');
       setAlertSeverity('success');
       setAlertOpen(true);
@@ -168,17 +171,20 @@ export default function Courses() {
   const handleDeleteCourse = async () => {
     if (!courseToDelete) return;
 
+    // `courseService.deleteCourse` now expects a single object with course_id and semester
+    const deleteParams = {
+      course_id: courseToDelete.course_id,
+      semester: courseToDelete.semester,
+    };
+
     try {
-      await courseService.deleteCourse(courseToDelete.course_id, courseToDelete.semester);
+      await courseService.deleteCourse(deleteParams);
 
-      // Refresh course list
-      mutate();
+      mutate(); // Refresh course list
 
-      // Close dialog
       setDeleteDialogOpen(false);
       setCourseToDelete(null);
 
-      // Show success alert
       setAlertMessage('Course deleted successfully');
       setAlertSeverity('success');
       setAlertOpen(true);
@@ -192,21 +198,29 @@ export default function Courses() {
 
   // Open delete confirmation dialog
   const openDeleteDialog = (course, event) => {
-    event.stopPropagation();
+    event.stopPropagation(); // Prevent card click
     setCourseToDelete(course);
     setDeleteDialogOpen(true);
   };
 
   // Navigate to course detail page
   const navigateToCourse = (course) => {
-    router.push(`/course/${course.course_id}?semester=${course.semester}`);
+    // Ensure course object has course_id and semester
+    if (course && course.course_id && course.semester) {
+      router.push(`/course/${course.course_id}?semester=${course.semester}`);
+    } else {
+      console.error("Invalid course data for navigation:", course);
+      setAlertMessage("Cannot navigate: Invalid course data.");
+      setAlertSeverity("error");
+      setAlertOpen(true);
+    }
   };
 
-  // Handle form input changes
+  // Handle form input changes for the create course dialog
   const handleInputChange = (event) => {
     const { name, value } = event.target;
-    setCourseData({
-      ...courseData,
+    setNewCourseData({
+      ...newCourseData,
       [name]: value,
     });
   };
@@ -230,7 +244,7 @@ export default function Courses() {
 
       {isError && (
         <Alert severity="error" sx={{ mb: 3 }}>
-          Failed to load courses. Please try again.
+          {isError.message || 'Failed to load courses. Please try again.'}
         </Alert>
       )}
 
@@ -250,14 +264,14 @@ export default function Courses() {
                 <CardActionArea onClick={() => navigateToCourse(course)}>
                   <CourseCardContent>
                     <CourseCardHeader>
-                      <Typography variant="h6" component="h2" noWrap>
+                      <Typography variant="h6" component="h2" noWrap sx={{ flexGrow: 1, mr: 1 }}>
                         {course.course_id}
                       </Typography>
                       <IconButton
                         size="small"
                         color="error"
                         aria-label="delete course"
-                        onClick={(e) => openDeleteDialog(course, e)}
+                        onClick={(e) => openDeleteDialog(course, e)} // Pass event to stop propagation
                       >
                         <DeleteIcon fontSize="small" />
                       </IconButton>
@@ -268,13 +282,15 @@ export default function Courses() {
                     </Typography>
 
                     <Divider sx={{ my: 1.5 }} />
-
-                    <InstructorsList>
-                      <PersonIcon />
-                      <Typography variant="body2" color="text.secondary">
-                        {course.instructors.length} {course.instructors.length === 1 ? 'Instructor' : 'Instructors'}
-                      </Typography>
-                    </InstructorsList>
+                    {/* Ensure course.instructors is an array before accessing length */}
+                    {Array.isArray(course.instructors) && (
+                        <InstructorsList>
+                        <PersonIcon />
+                        <Typography variant="body2" color="text.secondary">
+                            {course.instructors.length} {course.instructors.length === 1 ? 'Instructor' : 'Instructors'}
+                        </Typography>
+                        </InstructorsList>
+                    )}
                   </CourseCardContent>
                 </CardActionArea>
               </CourseCard>
@@ -318,25 +334,25 @@ export default function Courses() {
             <Grid item xs={12}>
               <TextField
                 autoFocus
-                name="course_id"
+                name="course_id" // This should match the key in newCourseData state
                 label="Course ID"
                 placeholder="e.g., CS601"
                 fullWidth
-                value={courseData.course_id}
+                value={newCourseData.course_id}
                 onChange={handleInputChange}
-                margin="normal"
+                margin="dense" // Changed from normal for tighter spacing in dialog
                 required
-                helperText="Enter the course ID or name"
+                helperText="Unique identifier for the course (e.g., CS101, Intro to Programming)"
               />
             </Grid>
 
             <Grid item xs={12}>
-              <FormControl fullWidth margin="normal" required>
+              <FormControl fullWidth margin="dense" required> {/* Changed from normal */}
                 <InputLabel id="semester-select-label">Semester</InputLabel>
                 <Select
                   labelId="semester-select-label"
-                  name="semester"
-                  value={courseData.semester}
+                  name="semester" // This should match the key in newCourseData state
+                  value={newCourseData.semester}
                   onChange={handleInputChange}
                   label="Semester"
                 >
@@ -357,7 +373,7 @@ export default function Courses() {
             onClick={handleCreateCourse}
             variant="contained"
             color="primary"
-            disabled={!courseData.course_id || !courseData.semester}
+            disabled={!newCourseData.course_id || !newCourseData.semester}
           >
             Create
           </Button>
