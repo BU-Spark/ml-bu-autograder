@@ -68,7 +68,7 @@ logging.info("Starting FastAPI server...")
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import auth, course, assignment, student_response, grading, course_material, rubric, user
+from app.routes import auth, course, assignment, student_response, grading, course_material, rubric, user, rubric_review
 
 app = FastAPI(
     title="BU MET Autograder API",
@@ -124,3 +124,4 @@ app.include_router(grading.router, prefix="/api/v1/response", tags=["Grading"])
 app.include_router(course_material.router, prefix="/api/v1", tags=["Course Material"])
 app.include_router(rubric.router, prefix="/api/v1", tags=["Rubric"])
 app.include_router(user.router, prefix="/api/v1", tags=["User"])
+app.include_router(rubric_review.router, prefix="/api/v1", tags=["Rubric Review"]) 
