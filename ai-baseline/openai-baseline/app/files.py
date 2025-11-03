@@ -1,3 +1,7 @@
+"""
+TODO:
+Merge with __variables.py to have LLM-related prompts together.
+"""
 import os
 from dotenv import load_dotenv
 from openai import AzureOpenAI
@@ -16,7 +20,6 @@ client = AzureOpenAI(
 Extract text from a PDF file and return it as a single string.
 """
 def extractTextFromPdf(pdfPath):
-    
     with open(pdfPath, 'rb') as file:
         pdfReader = PyPDF2.PdfReader(file)
         text = ""
@@ -33,7 +36,6 @@ then sends the combined content and the question to the Azure OpenAI chat
 completions endpoint. Returns the assistant's content string.
 """
 def queryFolderPdfs(folderPath, question):
-
     folder = Path(folderPath)
     pdfFiles = list(folder.glob("*.pdf"))
     
