@@ -21,7 +21,7 @@ then sends the combined content and the question to the Azure OpenAI chat
 completions endpoint. Returns the assistant's content string.
 """
 def __queryFolderPdfs():
-    folderPath = r"C:\Users\level\OneDrive\Desktop\ml-bu-autograder\ai-baseline\openai-baseline\app\static\materials"
+    folderPath = Path(__file__).parent / "materials"
     folder = Path(folderPath)
     pdfFiles = list(folder.glob("*.pdf"))
     
