@@ -79,7 +79,8 @@ def querySinglePdf(pdfPath, question):
         model=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
         messages=[
             {"role": "system", "content": "You are a helpful assistant that answers questions based on the provided document."},
-            {"role": "user", "content": f"Document content:\n\n{pdfContent}\n\nQuestion: {question}"}
+            {"role": "assistant", "content": f"Document content:\n\n{pdfContent}"},
+			{"role": "user", "content": f"{question}"}
         ],
         temperature=0.7,
         max_tokens=2000
@@ -89,7 +90,7 @@ def querySinglePdf(pdfPath, question):
 
 if __name__ == "__main__":
     folderPath = r"C:\Users\level\OneDrive\Desktop\ml-bu-autograder\ai-baseline\openai-baseline\app\static\materials"
-    question = "What topics are covered in these documents?"
+    question = "What applications are needed for population health? What module can you find this in?"
     
     answer = queryFolderPdfs(folderPath, question)
     print(f"\nQuestion: {question}")
