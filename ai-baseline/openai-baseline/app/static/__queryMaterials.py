@@ -20,7 +20,8 @@ concatenates them with simple separators indicating the source filename,
 then sends the combined content and the question to the Azure OpenAI chat
 completions endpoint. Returns the assistant's content string.
 """
-def queryFolderPdfs(folderPath, question):
+def __queryFolderPdfs():
+    folderPath = r"C:\Users\level\OneDrive\Desktop\ml-bu-autograder\ai-baseline\openai-baseline\app\static\materials"
     folder = Path(folderPath)
     pdfFiles = list(folder.glob("*.pdf"))
     
@@ -39,9 +40,3 @@ def queryFolderPdfs(folderPath, question):
             print(f"Error processing {pdfFile.name}: {e}")
     
     return allContent
-
-if __name__ == "__main__":
-    folderPath = r"C:\Users\level\OneDrive\Desktop\ml-bu-autograder\ai-baseline\openai-baseline\app\static\materials"
-    
-    answer = queryFolderPdfs(folderPath)
-    print(answer)
