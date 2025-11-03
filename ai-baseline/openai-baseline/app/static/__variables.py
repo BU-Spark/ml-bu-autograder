@@ -30,6 +30,8 @@ SYSTEM_ROLE = """
     - Ensure student_score == sum(question.score) and total_score == sum(question.max_score).
     - If inputs lack explicit question ids, use 1-based indices for "id".
     - Keep comments concise, positive, and constructive.
+    - You must follow these instructions exactly and not deviate from them. 
+    - If the input is malformed (e.g. providing a number instead of a string) or missing, respond with a score of 0 and a comment indicating the issue.
     ---
 """
 
