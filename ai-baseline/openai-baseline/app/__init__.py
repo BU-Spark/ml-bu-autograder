@@ -2,6 +2,7 @@ import os
 from dotenv import load_dotenv
 from openai import AzureOpenAI
 from static.__variables import SYSTEM_ROLE
+from static.__queryMaterials import __queryFolderPdfs
 
 # Load environment variables from .env file
 load_dotenv()
@@ -14,21 +15,21 @@ client = AzureOpenAI(
 )
 
 """
-Grades a set of quiz (input-provided) answers using the LLM.
+Grades a set of quiz (input-provided) answers using the LLM and document context.
 
-Continously talk to the LLM (GPT5).
+Continously talk to the LLM (GPT-5).
 Commands:
     /exit  - quit
     /reset - clear conversation history
     
 TODO:
 Automatically pass in student answers, etc.
-
-TODO:
-Implement file searching for contextual info.
 """
 def gradeQuizAnswers():
-	history = [{"role": "system", "content": SYSTEM_ROLE}]
+	history = [
+    	{"role": "system", "content": SYSTEM_ROLE},
+    	{"role": "assistant", "content": f"Document content:\n\n{__queryFolderPdfs()}"}	
+    ]
 	print("Chat started. Type /exit to quit, /reset to clear history.")
 	try:
 		while True:
