@@ -23,6 +23,9 @@ Commands:
     
 TODO:
 Automatically pass in student answers, etc.
+
+TODO:
+Implement file searching for contextual info.
 """
 def gradeQuizAnswers():
 	history = [{"role": "system", "content": SYSTEM_ROLE}]
@@ -39,7 +42,6 @@ def gradeQuizAnswers():
 				history = [{"role": "system", "content": SYSTEM_ROLE}]
 				print("Conversation history cleared.")
 				continue
-
 			# append user message and send request
 			history.append({"role": "user", "content": user_input})
 			try:
