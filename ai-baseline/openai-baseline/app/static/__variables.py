@@ -23,8 +23,8 @@ SYSTEM_ROLE = """
 
     Feedback Guidelines:
     Each response must include specific, constructive feedback.
-    Highlight what the student did correctly. Mention briefly what to improve.
-    Keep feedback supportive and concise (2–4 sentences).
+    Highlight what the student did correctly. Mention briefy what to improve.
+    Keep feedback supportive and concise (2–4 sentences).l
 
     Output Format:
     After reasoning internally, output one valid JSON object only:
