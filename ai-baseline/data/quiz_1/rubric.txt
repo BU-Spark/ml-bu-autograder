@@ -1,5 +1,5 @@
 Question
-Why do we need to do Business Process Re-engineering as a part of implementing an EHR?
+Why do we need to do Business Process Re-engineering as a part of implementing an EHR?
 Note: Your answer should be at minimum 4 to 5 sentences and must be in your own words.
 
 Grading Rubric
@@ -14,12 +14,12 @@ a. Reduce redundancy
 b. Reuse existing information and software components 
 c. Leverage new technology solutions in an EHR system effectively 
 d. Align closely with an organization's mission and goals and the goals of key stakeholders, both internal and external to the enterprise. 
-- Combine the technology, systems, business and market options to fulfill the enterprise mission, taking into consideration the: 
+- Combine the technology, systems, business and market options to fulfill the enterprise mission, taking into consideration the: 
 a. External environment—Like regulations or CMS payment requirements 
 b. Mission of the healthcare organization—A large, metropolitan teaching hospital has different needs from a small private practice in the suburbs. 
 c. Business strategy (such as emphasis on particular populations or diseases) 
 d. Business models (e.g., transformation to shared financial risk business models like accountable care organizations) 
-e. Technology (including existing and new technologies like an EHR)   
+e. Technology (including existing and new technologies like an EHR   
 - Help enable a more efficient IT Operation: 
 a. Lower software development, support, and maintenance costs 
 b. Increased portability of applications 
