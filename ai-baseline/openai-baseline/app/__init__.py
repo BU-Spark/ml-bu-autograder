@@ -1,16 +1,16 @@
 import os
 from dotenv import load_dotenv
 from openai import AzureOpenAI
-from static.__variables import SYSTEM_ROLE
-from static.__queryMaterials import __queryFolderPdfs
+from .static.__variables import SYSTEM_ROLE
+from .static.__queryMaterials import __queryFolderPdfs
 
 # Load environment variables from .env file
 load_dotenv()
 
 # Initialize Azure OpenAI client
 client = AzureOpenAI(
-    api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+    api_key=os.getenv("AZURE_LLM_DEPLOYMENT_KEY"),
+    azure_endpoint=os.getenv("AZURE_LLM_DEPLOYMENT_URL"),
     api_version=os.getenv("AZURE_OPENAI_API_VERSION")
 )
 
@@ -21,9 +21,6 @@ Continously talk to the LLM (GPT-5).
 Commands:
     /exit  - quit
     /reset - clear conversation history
-    
-TODO:
-Automatically pass in student answers, etc.
 """
 def gradeQuizAnswers():
 	history = [
@@ -49,7 +46,6 @@ def gradeQuizAnswers():
 				response = client.chat.completions.create(
 					model=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
 					messages=history,
-					temperature=0.7, # controls reproducibility
 					# max_tokens=1000 # controls length
 				)
 				assistant_msg = response.choices[0].message.content
