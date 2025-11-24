@@ -1,4 +1,4 @@
-# MET BU Autograder 🚀
+# MET BU Autograder 
 
 **A Boston University SPARK Project**  
 **For Boston University’s Metropolitan College Office of Education Technology and Innovation (MET ETI)**
@@ -8,20 +8,20 @@
 ## 📖 Table of Contents  
 1. [Overview](#-overview)  
 2. [✨ Key Features](#-key-features)  
-3. [🎯 Goals](#-goals)  
-4. [🛠️ Tech Stack](#-tech-stack)
+3. [ Goals](#-goals)  
+4. [ Tech Stack](#-tech-stack)
 5. [📌 Development Roadmap](#-development-roadmap)  
-6. [🚀 Setup Instructions](#-setup-instructions)  
+6. [ Setup Instructions](#-setup-instructions)  
    - [📦 Prerequisites](#-prerequisites)  
    - [📥 Clone the Repository](#-clone-the-repository)  
    - [🐍 Create a Virtual Environment](#-create-a-virtual-environment)  
    - [📜 Install Dependencies](#-install-dependencies)  
-   - [⚙️ Setup Environment Variables](#-setup-environment-variables)  
-   - [🖥️ Start the Application](#-start-the-application)  
+   - [ Setup Environment Variables](#-setup-environment-variables)  
+   - [ Start the Application](#-start-the-application)  
    - [📑 API Documentation](#-api-documentation)  
 7. [📊 Workflow Diagram](#-workflow-diagram)  
 8. [📂 Project Structure](#-project-structure)  
-9. [☁️ Azure Storage Format](#-azure-storage-format)
+9. [ Azure Storage Format](#-azure-storage-format)
 10. [👥 Team](#-team)  
 11. [📜 License](#-license)  
 
@@ -37,31 +37,31 @@ Developed as part of a **Boston University SPARK** project for **BU MET ETI**, t
 
 ## ✨ Key Features
 
-✔️ **Context Management Strategies** - Ensures the AI retains necessary context across requests over otherwise stateless APIs.
+ **Context Management Strategies** - Ensures the AI retains necessary context across requests over otherwise stateless APIs.
 
-✔️ **Retrieval-Augmented Generation** - Uses a vector database to store supplemental data like documents, videos, images, and graphs.
+ **Retrieval-Augmented Generation** - Uses a vector database to store supplemental data like documents, videos, images, and graphs.
 
-✔️ **Web Crawling** - Gathers assignment-relevant information with optional automatic update checking.
+ **Web Crawling** - Gathers assignment-relevant information with optional automatic update checking.
 
-✔️ **Prompt Engineering** - Uses zero-shot, few-shot, self-consistency prompting, and instruction tuning.
+ **Prompt Engineering** - Uses zero-shot, few-shot, self-consistency prompting, and instruction tuning.
 
-✔️ **File Conversion & Extraction** - Supports multiple formats (CSV, PDF, diagrams, PowerPoints) to feed into LLM APIs.
-
----
-
-## 🎯 Goals
-
-🎯 **Future-Proof Design**: Integrate with multiple text-based or vision-based LLM backends.  
-🎯 **Consistent Grading**: Standardized grading approach for improved fairness and reliability.  
-🎯 **Well-Documented API**: Clear and accessible documentation for clients and contributors.  
-🎯 **Efficiency**: Minimize unnecessary external API calls to reduce costs while maintaining high accuracy.
+ **File Conversion & Extraction** - Supports multiple formats (CSV, PDF, diagrams, PowerPoints) to feed into LLM APIs.
 
 ---
 
-## 🛠️ Tech Stack
+##  Goals
+
+ **Future-Proof Design**: Integrate with multiple text-based or vision-based LLM backends.  
+ **Consistent Grading**: Standardized grading approach for improved fairness and reliability.  
+ **Well-Documented API**: Clear and accessible documentation for clients and contributors.  
+ **Efficiency**: Minimize unnecessary external API calls to reduce costs while maintaining high accuracy.
+
+---
+
+##  Tech Stack
 
 🟡 **Language**: Python 🐍  
-🟢 **Framework**: FastAPI ⚡  
+ **Framework**: FastAPI   
 🔵 **Others**:  
    - LLM integration (multiple providers)  
    - Vector databases (for retrieval-augmented generation)  
@@ -71,17 +71,17 @@ Developed as part of a **Boston University SPARK** project for **BU MET ETI**, t
 
 ## 📌 Development Roadmap
 
-🚀 **Phase 0:** Project Vision & Goals ✅
+ **Phase 0:** Project Vision & Goals ✅
 
-🚀 **Phase 1:** Project Setup & Initial API Development ✅
+ **Phase 1:** Project Setup & Initial API Development ✅
 
-🚀 **Phase 2:** LLM Integration & Context Management ⏳
+ **Phase 2:** LLM Integration & Context Management ⏳
 
-🚀 **Phase 3:** Web Crawling & Vector Database Implementation ⏳  
+ **Phase 3:** Web Crawling & Vector Database Implementation ⏳  
 
-🚀 **Phase 4:** Performance Optimization & API Documentation ⏳  
+ **Phase 4:** Performance Optimization & API Documentation ⏳  
 
-🚀 **Phase 5:** Deployment & User Testing ⏳  
+ **Phase 5:** Deployment & User Testing ⏳  
 
 ---
 
@@ -93,7 +93,7 @@ Below is a visual representation of our current workflow for the MET BU Autograd
 
 ---
 
-## 🚀 Setup Instructions
+##  Setup Instructions
 
 ### 📦 Prerequisites
 - Python 3.11 or higher installed on your system.
@@ -139,7 +139,7 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-### ⚙️ Setup Environment Variables
+###  Setup Environment Variables
 
 Copy the sample `.env-example` file to `.env`. Then provide or modify all environment variables as needed.
 
@@ -151,7 +151,7 @@ python generate_jwt_secret.py
 
 Then, set the `JWT_ENCRYPTION_SECRET_FILE` environment variable to the path of the generated secret file (output by the script).
 
-### 🖥️ Start the Application
+###  Start the Application
 
 Start the FastAPI application using Uvicorn with the auto-reload option for development:
 
@@ -177,7 +177,7 @@ Once the application is running, you can view the interactive API documentation 
 
 ## 📂 Project Structure
 
-### 🖥️ Backend
+###  Backend
 ```
 app
 ├── README.md
@@ -269,7 +269,7 @@ frontend
 
 ```
 
-### ☁️ Azure Storage Format
+###  Azure Storage Format
 This document outlines the directory and file structure used within the Azure Blob Storage container.
 
 ```
@@ -305,7 +305,7 @@ This document outlines the directory and file structure used within the Azure Bl
 
 ## 👥 Team
 
-| 👤 **First Name**  | **Last Name**  | ✉️ **Email Address**  | 🖥️ **GitHub Username**  |
+| 👤 **First Name**  | **Last Name**  | ✉️ **Email Address**  |  **GitHub Username**  |
 |:------------------|:--------------|:----------------------|:-----------------------|
 | Fahim            | Uddin         | fahuddin@bu.edu      | [fahimuddin/fahimuddin1](https://github.com/fahimuddin/fahimuddin1) |
 | Zach             | Gentile       | zgentile@bu.edu      | [zgentile](https://github.com/zgentile) |

@@ -22,3 +22,4 @@ pymupdf==1.25.5
 azure-ai-inference==1.0.0b9
 cohere==5.15.0
 pydub==0.25.1
+sendgrid==6.11.0

@@ -9,6 +9,7 @@ from pydantic import FilePath, HttpUrl, ValidationError
 from app.services import AzureEmbeddingService
 from app.services.azure_embedding_service import CohereEmbeddingService
 from app.services.vector_db_service import ChromaDBService
+from app.services.email_service import EmailService
 from app.utils import get_str_var, get_bool_var, setup_loggers, get_int_var
 from app.services.bg_material_processor import BackgroundMaterialProcessor
 from app.utils.jwt_service import JWTService
@@ -61,6 +62,7 @@ LLMService.init_singleton(AZURE_LLM_DEPLOYMENT_URL, AZURE_LLM_DEPLOYMENT_KEY)
 #                                      AZURE_EMBEDDING_DEPLOYMENT_KEY)
 CohereEmbeddingService.init_singleton(COHERE_API_KEY)
 ChromaDBService.init_singleton()
+EmailService.init_singleton()  # Initialize email service
 BackgroundMaterialProcessor(TEMP_FILES_DIR).start_task_scan_loop()
 
 logging.info("Starting FastAPI server...")
