@@ -8,14 +8,14 @@ import sys
 try:
     from .config import (
         DEFAULT_MAX_ITERATIONS,
-        DEFAULT_RUBRIC_FILE,
-        DEFAULT_TARGET_SCORE
+        DEFAULT_TARGET_SCORE,
+        get_rubric_file_path
     )
 except ImportError:
     from config import (
         DEFAULT_MAX_ITERATIONS,
-        DEFAULT_RUBRIC_FILE,
-        DEFAULT_TARGET_SCORE
+        DEFAULT_TARGET_SCORE,
+        get_rubric_file_path
     )
 
 logger = logging.getLogger(__name__)
@@ -27,10 +27,16 @@ def parse_arguments():
         description="Test rubric review functionality locally"
     )
     parser.add_argument(
+        "--quiz-id",
+        type=str,
+        required=True,
+        help="Quiz identifier (e.g., 'quiz_1', 'quiz_2')"
+    )
+    parser.add_argument(
         "--rubric-file",
         type=str,
-        default=DEFAULT_RUBRIC_FILE,
-        help=f"Path to rubric file (default: {DEFAULT_RUBRIC_FILE})"
+        default=None,
+        help="Path to rubric file (default: data/{quiz_id}/rubric.txt). If not provided, will be derived from --quiz-id."
     )
     parser.add_argument(
         "--no-iterative",

@@ -6,14 +6,7 @@ Orchestrates the complete grading pipeline:
 3. Grades all student answers from CSV
 4. Saves results to CSV
 """
-
-"""
-For now, this code is partially complete.
-It has been tested on with hardcoded values for the quiz_id, not yet scalable to other quizzes unless the quiz_id is passed as an argument.
-
-TODO;
-- [ ] Scale to other quizzes by passing the quiz_id as an argument.
-"""
+import argparse
 import csv
 import json
 import logging
@@ -46,33 +39,53 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 
-def _get_rubric_paths(quiz_id: str = "quiz_1") -> tuple[Path, Path]:
-    """Get paths for refined and original rubric files."""
+def _get_rubric_paths(quiz_id: str) -> tuple[Path, Path]:
+    """Get paths for refined and original rubric files.
+    
+    Args:
+        quiz_id: The quiz identifier (e.g., "quiz_1", "quiz_2")
+        
+    Returns:
+        Tuple of (refined_rubric_path, original_rubric_path)
+    """
     return (
         PROJECT_ROOT / "data" / "rubric-refined" / quiz_id / "rubric_refined.txt",
         PROJECT_ROOT / "data" / quiz_id / "rubric.txt"
     )
 
 
-def refine_rubric() -> bool:
-    """Run the rubric refinement process."""
+def refine_rubric(quiz_id: str, target_score: int, max_iterations: int) -> bool:
+    """Run the rubric refinement process.
+    
+    Args:
+        quiz_id: The quiz identifier
+        target_score: Target critique score for refinement
+        max_iterations: Maximum number of refinement iterations
+        
+    Returns:
+        True if refinement completed successfully, False otherwise
+    """
     logger.info("Step 1: Refining rubric...")
     
-    refined_path, _ = _get_rubric_paths()
+    refined_path, original_path = _get_rubric_paths(quiz_id)
     if refined_path.exists():
         logger.info(f"Refined rubric already exists at {refined_path}. Skipping refinement.")
         return True
     
+    if not original_path.exists():
+        logger.warning(f"Original rubric not found at {original_path}. Skipping refinement.")
+        return False
+    
     try:
         from core.runner import RubricTestRunner
         from services.initialization import initialize_llm_service
-        from config import DEFAULT_RUBRIC_FILE, DEFAULT_TARGET_SCORE, DEFAULT_MAX_ITERATIONS
         
         if not initialize_llm_service():
             logger.warning("Failed to initialize LLM service. Skipping refinement.")
             return False
         
-        runner = RubricTestRunner(DEFAULT_RUBRIC_FILE)
+        rubric_file_path = str(original_path.relative_to(PROJECT_ROOT))
+        runner = RubricTestRunner(rubric_file_path)
         if not runner.initialize_service():
             logger.warning("Failed to initialize rubric refinement service. Skipping refinement.")
             return False
@@ -80,8 +93,8 @@ def refine_rubric() -> bool:
         assignment, rubric = runner.load_rubric()
         response = runner.iterative_refinement(
             assignment, rubric,
-            target_score=DEFAULT_TARGET_SCORE,
-            max_iterations=DEFAULT_MAX_ITERATIONS
+            target_score=target_score,
+            max_iterations=max_iterations
         )
         
         if response:
@@ -94,11 +107,21 @@ def refine_rubric() -> bool:
         return False
 
 
-def load_refined_rubric() -> str:
-    """Load the refined rubric text."""
+def load_refined_rubric(quiz_id: str) -> str:
+    """Load the refined rubric text.
+    
+    Args:
+        quiz_id: The quiz identifier
+        
+    Returns:
+        The rubric text as a string
+        
+    Raises:
+        FileNotFoundError: If neither refined nor original rubric file exists
+    """
     logger.info("Step 2: Loading refined rubric...")
     
-    refined_path, original_path = _get_rubric_paths()
+    refined_path, original_path = _get_rubric_paths(quiz_id)
     rubric_path = refined_path if refined_path.exists() else original_path
     
     if not rubric_path.exists():
@@ -271,8 +294,18 @@ def grade_student_answer(client: AzureOpenAI, system_prompt: str,
         return None
 
 
-def load_student_answers(quiz_id: str = "quiz_1") -> tuple[list[dict], list[str]]:
-    """Load student answers from CSV file."""
+def load_student_answers(quiz_id: str) -> tuple[list[dict], list[str]]:
+    """Load student answers from CSV file.
+    
+    Args:
+        quiz_id: The quiz identifier
+        
+    Returns:
+        Tuple of (list of student records, list of original column names)
+        
+    Raises:
+        FileNotFoundError: If the CSV file does not exist
+    """
     logger.info("Step 3: Loading student answers from CSV...")
     
     csv_path = PROJECT_ROOT / "data" / quiz_id / f"{quiz_id}_results.csv"
@@ -280,19 +313,64 @@ def load_student_answers(quiz_id: str = "quiz_1") -> tuple[list[dict], list[str]
         raise FileNotFoundError(f"Student answers CSV not found: {csv_path}")
     
     students = []
+    skipped_count = 0
     with open(csv_path, 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
         original_columns = list(reader.fieldnames) if reader.fieldnames else []
         
-        for row in reader:
-            student_number = row.get('Student Number', '').strip()
-            student_answer = row.get('student answer', '').strip()
+        # Try to find student identifier column (flexible naming)
+        student_id_col = None
+        for col_name in ['Student Number', 'Student username', 'Student Username', 'student_number', 'student_username']:
+            if col_name in original_columns:
+                student_id_col = col_name
+                break
+        
+        if not student_id_col:
+            logger.warning(f"Could not find student identifier column. Available columns: {original_columns}")
+            # Try to use first column as fallback
+            if original_columns:
+                student_id_col = original_columns[0]
+                logger.info(f"Using '{student_id_col}' as student identifier column")
+        
+        answer_col = None
+        for col_name in ['student answer', 'Student Answer', 'student_answer', 'answer']:
+            if col_name in original_columns:
+                answer_col = col_name
+                break
+        
+        if not answer_col:
+            raise ValueError(f"Could not find student answer column. Available columns: {original_columns}")
+        
+        logger.info(f"Using columns: identifier='{student_id_col}', answer='{answer_col}'")
+        
+        for row_num, row in enumerate(reader, start=2):  # start=2 because row 1 is header
+            student_id = row.get(student_id_col, '').strip() if student_id_col else ''
+            student_answer = row.get(answer_col, '').strip()
             
-            # Skip rows with missing data or non-numeric student numbers (stat rows)
-            if not (student_answer and student_number and student_number.isdigit()):
+            # Skip rows with missing answer
+            if not student_answer:
+                skipped_count += 1
+                if skipped_count <= 5:  # Log first few skipped rows
+                    logger.debug(f"Skipping row {row_num}: missing answer (student_id: '{student_id}')")
                 continue
             
+            # Skip rows with empty student identifier (but allow non-numeric IDs)
+            if not student_id:
+                skipped_count += 1
+                if skipped_count <= 5:
+                    logger.debug(f"Skipping row {row_num}: missing student identifier")
+                continue
+            
+            # Normalize student_id column name to 'Student Number' for consistency
+            if student_id_col != 'Student Number':
+                row['Student Number'] = student_id
+            
             students.append(dict(row))
+    
+    if skipped_count > 5:
+        logger.info(f"Skipped {skipped_count} rows (missing data)")
+    elif skipped_count > 0:
+        logger.debug(f"Skipped {skipped_count} rows (missing data)")
     
     logger.info(f"Loaded {len(students)} student answers")
     return students, original_columns
@@ -325,21 +403,57 @@ def save_grades_to_csv(graded_students: list, original_columns: list, output_pat
     logger.info(f"Saved {len(graded_students)} grades to {output_path}")
 
 
+def parse_arguments():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(
+        description="Complete grading pipeline: refines rubric and grades student answers"
+    )
+    parser.add_argument(
+        "--quiz-id",
+        type=str,
+        required=True,
+        help="Quiz identifier (e.g., 'quiz_1', 'quiz_2')"
+    )
+    parser.add_argument(
+        "--target-score",
+        type=int,
+        default=95,
+        help="Target critique score for rubric refinement (default: 95)"
+    )
+    parser.add_argument(
+        "--max-iterations",
+        type=int,
+        default=5,
+        help="Maximum iterations for rubric refinement (default: 5)"
+    )
+    parser.add_argument(
+        "--skip-refinement",
+        action="store_true",
+        help="Skip rubric refinement step (use existing refined rubric if available)"
+    )
+    return parser.parse_args()
+
+
 def main():
     """Main grading pipeline."""
+    args = parse_arguments()
+    quiz_id = args.quiz_id
+    
     print("=" * 80)
     print("COMPLETE GRADING PIPELINE")
+    print(f"Quiz ID: {quiz_id}")
     print("=" * 80)
     print()
     
     try:
-        quiz_id = "quiz_1"
-        
-        # Step 1: Refine rubric
-        refine_rubric()  # Logs warnings on failure, continues anyway
+        # Step 1: Refine rubric (unless skipped)
+        if not args.skip_refinement:
+            refine_rubric(quiz_id, args.target_score, args.max_iterations)
+        else:
+            logger.info("Skipping rubric refinement (--skip-refinement flag set)")
         
         # Step 2: Load rubric and build prompt
-        rubric_text = load_refined_rubric()
+        rubric_text = load_refined_rubric(quiz_id)
         system_prompt = get_grading_system_prompt(rubric_text)
         
         # Step 3: Initialize client

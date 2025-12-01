@@ -1,0 +1,25 @@
+Question
+Short answer of two to four sentences in your own words for each question. Cite any sources you use, including GenAI.
+
+Grading Rubric
+Up to 5 Points for Points: 5 — Observable indicators and micro‑rules for awarding points:
+- Full (5 pts): Names a specific RCM function and briefly indicates how it connects to revenue processes (examples: automated eligibility verification, claims scrubbing, denial management, charge capture, coding assistance, patient payment estimation). Example: 'Claims scrubbing that auto-detects coding errors before submission.'
+- Good (4 pts): Names a relevant function but gives only a brief or slightly vague connection to revenue (award 4 when function is named but description lacks clarity).
+- Adequate (2–3 pts): Gives a general function label ('better billing system') with only weak linkage; award 3 if linkage is implied, 2 if vague.
+- Poor/None (0–1 pts): Off-topic, incorrect, or no relevant function identified. Award 1 only for a remote attempt without revenue linkage.
+Up to 7 Points for Points: 7 — Explanation of mechanism and micro‑rules:
+- Full (7 pts): Provides a correct, specific causal mechanism showing how the named function increases revenue (reduces denials, captures previously missed charges, speeds payment, improves patient collections, or recovers underpayments) and gives at least one concrete effect or numeric/example implication (e.g., 'reduces denials by X mechanism, leading to more paid claims and faster cash flow'). Reasoning must be accurate and specific.
+- Good (5–6 pts): Explains a plausible mechanism but omits a concrete effect or uses slightly imprecise framing. Award 6 when mechanism clear but example missing; 5 when mechanism mostly clear but minor factual gaps.
+- Adequate (3–4 pts): States a general revenue benefit (e.g., 'increases collections') without explaining how; award 4 when there is partial mechanism, 3 when only a claim.
+- Minimal/None (0–2 pts): Incorrect or absent reasoning. Award 2 for a very weak attempt, 0–1 when absent or wrong.
+Up to 3 Points for Points: 3 — Citation and academic-integrity observable rules (same policy as Q0):
+- Full (3 pts): Explicit citation for any external/GenAI content or a clear statement of original student synthesis ('No external sources used'). No evidence of unattributed verbatim copying.
+- Partial (1–2 pts): Incomplete or ambiguous citation; award 2 when source is identifiable from context, 1 when barely so.
+- None (0 pts): Verbatim/substantial external or GenAI content used without attribution — award 0 for this criterion and follow integrity procedure (search/originality check; contact student; escalate if necessary).
+Maximum of 15 Points
+
+Describe one revenue-cycle-management (RCM) system function and explain with a clear causal mechanism how that function increases a provider's revenue (link to denials reduction, faster reimbursement, improved collections, contract compliance, or measurable financial benefit). Do NOT use sentence count as a scoring element. Cite any external sources used (including GenAI).
+
+Focus grading on conceptual accuracy and causal reasoning. Do NOT penalize students for adhering to the 2–4 sentence formatting instruction; sentence count is a formatting guidance only and must NOT be used as a scoring element. High-level understanding and correct causal mechanism are primary scoring factors: when in doubt, prioritize awarding points for accurate conceptual understanding and mechanism over stylistic or length issues. Students may use GenAI or other sources only if they explicitly cite them. Acceptable phrasing for 'no external sources' is, for example, 'No external sources used.' Academic-integrity handling procedure: (1) Signals of likely unattributed verbatim reuse — unusually polished generic paragraphs, abrupt style mismatch, or text matching common web phrases. (2) If signals present, perform a quick search (search a short unique snippet) or use an originality tool before escalation. (3) If verbatim external/GenAI content is confirmed and unattributed, award 0 for the citation/integrity criterion and follow institutional procedures (instructor contacts student; escalate to integrity office if warranted). Graders should document reason for escalation. Provide credit on substance where conceptual understanding is original and accurate; citation failures only affect the citation criterion unless plagiarism is severe and requires further action.
+
+Grading Flags: ORIGINALITY, IGNORE_SPELLINGS, IGNORE_GRAMMAR

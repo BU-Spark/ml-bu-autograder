@@ -14,10 +14,12 @@ sys.path.insert(0, str(_script_file.parent))
 # Import from local modules
 try:
     from .cli import handle_errors, parse_arguments
+    from .config import get_rubric_file_path
     from .core.runner import RubricTestRunner
     from .utils.storage import RubricStorage
 except (ImportError, ValueError):
     from cli import handle_errors, parse_arguments
+    from config import get_rubric_file_path
     from core.runner import RubricTestRunner
     from utils.storage import RubricStorage
 
@@ -34,11 +36,17 @@ def main():
     """Main test function."""
     args = parse_arguments()
     
+    # Get rubric file path from quiz_id if not provided
+    rubric_file = args.rubric_file
+    if rubric_file is None:
+        rubric_file = get_rubric_file_path(args.quiz_id)
+    
     print("="*80)
     print("RUBRIC REVIEW LOCAL TEST SCRIPT")
+    print(f"Quiz ID: {args.quiz_id}")
     print("="*80)
     
-    runner = RubricTestRunner(args.rubric_file)
+    runner = RubricTestRunner(rubric_file)
     
     if not runner.initialize_service():
         print("\nFailed to initialize LLM service. Exiting.")

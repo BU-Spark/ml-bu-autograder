@@ -11,7 +11,7 @@ from app.utils.llm_service import LLMService, PromptBuilder, PromptRole
 
 # Handle both relative and absolute imports
 try:
-    from ..config import DEFAULT_ASSIGNMENT_ID, DEFAULT_COURSE_ID, DEFAULT_SEMESTER
+    from ..config import DEFAULT_SEMESTER
     from .models import ExtractedRubricData
 except ImportError:
     # Fallback for when run as script directly
@@ -20,18 +20,28 @@ except ImportError:
     parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if parent_dir not in sys.path:
         sys.path.insert(0, parent_dir)
-    from config import DEFAULT_ASSIGNMENT_ID, DEFAULT_COURSE_ID, DEFAULT_SEMESTER
+    from config import DEFAULT_SEMESTER
     from core.models import ExtractedRubricData
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_quiz_id_from_path(file_path: str) -> Optional[str]:
+    """Extract quiz_id from file path (e.g., 'data/quiz_1/rubric.txt' -> 'quiz_1')."""
+    parts = file_path.replace('\\', '/').split('/')
+    if 'data' in parts:
+        idx = parts.index('data')
+        if idx + 1 < len(parts):
+            return parts[idx + 1]
+    return None
 
 
 @dataclass
 class RubricParserConfig:
     """Configuration for rubric parsing."""
     semester: str = DEFAULT_SEMESTER
-    course_id: str = DEFAULT_COURSE_ID
-    assignment_id: str = DEFAULT_ASSIGNMENT_ID
+    course_id: Optional[str] = None
+    assignment_id: Optional[str] = None
 
 
 class RubricFileParser:
@@ -61,12 +71,21 @@ class RubricFileParser:
             from ..utils.path_utils import resolve_path
         except ImportError:
             from utils.path_utils import resolve_path
-        file_path = resolve_path(file_path)
+        resolved_path = resolve_path(file_path)
         
-        if not os.path.exists(file_path):
-            raise FileNotFoundError(f"Rubric file not found: {file_path}")
+        if not os.path.exists(resolved_path):
+            raise FileNotFoundError(f"Rubric file not found: {resolved_path}")
         
-        with open(file_path, 'r', encoding='utf-8') as f:
+        # Extract quiz_id from path if course_id/assignment_id not set
+        if self.config.course_id is None or self.config.assignment_id is None:
+            quiz_id = _extract_quiz_id_from_path(file_path)
+            if quiz_id:
+                if self.config.course_id is None:
+                    self.config.course_id = quiz_id
+                if self.config.assignment_id is None:
+                    self.config.assignment_id = quiz_id
+        
+        with open(resolved_path, 'r', encoding='utf-8') as f:
             content = f.read()
         
         # Use LLM to extract structured data

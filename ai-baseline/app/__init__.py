@@ -2,12 +2,10 @@
 
 from .cli import parse_arguments
 from .config import (
-    DEFAULT_ASSIGNMENT_ID,
-    DEFAULT_COURSE_ID,
     DEFAULT_MAX_ITERATIONS,
-    DEFAULT_RUBRIC_FILE,
     DEFAULT_SEMESTER,
-    DEFAULT_TARGET_SCORE
+    DEFAULT_TARGET_SCORE,
+    get_rubric_file_path
 )
 from .core import (
     ExtractedGradingCriteria,
@@ -32,10 +30,8 @@ __all__ = [
     "parse_arguments",
     "initialize_llm_service",
     "create_rubric_refinement_service",
-    "DEFAULT_RUBRIC_FILE",
+    "get_rubric_file_path",
     "DEFAULT_SEMESTER",
-    "DEFAULT_COURSE_ID",
-    "DEFAULT_ASSIGNMENT_ID",
     "DEFAULT_TARGET_SCORE",
     "DEFAULT_MAX_ITERATIONS",
 ]
