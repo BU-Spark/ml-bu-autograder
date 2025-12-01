@@ -147,10 +147,16 @@ def test_specific_queries():
     test_queries = [
         "What lecture materials do you have access to? List all document names.",
         "List all slide numbers or page numbers you can see in the documents.",
-        # "What is Business Process Re-engineering? Show me which slide or module this comes from.",
-        # "What topics are covered in Module 1?",
-        # "What topics are covered in Module 2?",
-        # "What topics are covered in Module 3?",
+        "What is Business Process Re-engineering? Show me which slide or module this comes from.",
+        "What topics are covered in Module 1?",
+        "What topics are covered in Module 2?",
+        "What topics are covered in Module 3?",
+        "Describe what the diagram shows on page 4 of Module 1 Lecture Materials pdf.",
+        "What are the exact section headings on page 6 of Module 1 Lecture Materials pdf?",
+        "What is shown in Figure 12.8 of Module 2 Lecture Materials pdf?",
+        "What does the image on page 5 of Module 2 Lecture Materials pdf show?",
+        "What do the slides titled Population Health Critical Success Factors cover? Give me the exact content from the slides.",
+        "What Functions are in an Ambulatory EHR? Give me the exact content from the slides.",
     ]
     
     for i, query in enumerate(test_queries, 1):
