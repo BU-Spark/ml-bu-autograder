@@ -36,7 +36,8 @@ SYSTEM_ROLE = """
     {
     "score": number,
     "max_score": number,
-    "comment": string
+    "comment": string,
+    "citations": [array of slide references if applicable]
     }
     You must not include any other text or formatting outside the JSON.
     Your Step-by-Step Process (Internal Reasoning Guide)
