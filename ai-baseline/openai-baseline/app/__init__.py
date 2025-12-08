@@ -13,8 +13,8 @@ load_dotenv()
 
 # Initialize Azure OpenAI client
 client = AzureOpenAI(
-    api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+    api_key=os.getenv("AZURE_LLM_DEPLOYMENT_KEY"),
+    azure_endpoint=os.getenv("AZURE_LLM_DEPLOYMENT_URL"),
     api_version=os.getenv("AZURE_OPENAI_API_VERSION")
 )
 

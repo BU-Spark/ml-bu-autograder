@@ -1,0 +1,27 @@
+
+Question (15 points)
+
+Describe how one function of revenue cycle management system functionality increases a provider’s revenue.
+Short answer of two to four sentences in your own words. Cite any sources you use including GenAI.
+
+Grading Rubric:
+• Up to 4 points for identifying a reasonable function
+• Up to 11 points for explaining how it increases revenue
+• Maximum: 15 points
+
+Possible functions (others are acceptable):
+
+Automated Eligibility Verification: Confirms insurance coverage before services, reducing denials and increasing successful reimbursement.
+Claims Scrubbing: Detects errors before submission to reduce denials and rework and speed reimbursement.
+Denial Management: Analyzes denial patterns and assists with appeals to recover lost revenue.
+Charge Capture Automation: Ensures all services are recorded and billed accurately.
+Contract Management: Compares payments to payer contracts to identify underpayments.
+Prior Authorization Tools: Automates authorizations to prevent delays and denials.
+Patient Payment Estimation: Provides cost estimates to improve patient collections.
+Automated Coding Assistance: Helps assign accurate codes to reduce billing errors and maximize reimbursement.
+Automated Coding Audits: Ensures compliance and reduces revenue loss from penalties.
+Self-Pay and Payment Plan Management: Improves patient balance collection.
+Real-Time Analytics and Reporting: Identifies financial performance issues to optimize billing.
+Claim Status Tracking: Monitors claims to ensure timely payments and prevent lost claims.
+Patient Portals: Allows online bill viewing and payment to improve collections.
+Predictive Analytics for Payer Behavior: Anticipates reimbursement issues and improves strategy.

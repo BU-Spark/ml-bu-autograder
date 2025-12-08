@@ -1,0 +1,42 @@
+Question
+Why do we need to do Business Process Re-engineering as a part of implementing an EHR?
+Note: Your answer should be at minimum 4 to 5 sentences and must be in your own words.
+Answer must be a minimum of 4 to 5 sentences and written in the student's own words.
+
+Grading Rubric
+Up to 6 Points for Identifying issues that require BPR (6 points). Objective scoring mapping (assign exactly one of the listed point totals based on content):
+- 6 points: Student names 3 or more distinct, concrete issues (e.g., redundant workflows/data entry, misaligned clinical workflows, interoperability gaps, poor data reuse, high maintenance costs) OR names 2 issues and provides specific, concrete examples of how each impairs operations (e.g., time lost per task, duplicated documentation steps, conflicting data fields). 
+- 5 points: Student names 2 distinct, relevant issues and gives at least one specific example or clear context for one of them.
+- 4 points: Student names 2 distinct issues but descriptions are general/vague (no concrete examples).
+- 3 points: Student names 1 issue with a specific, concrete description of impact.
+- 2 points: Student names 1 issue but description is vague/general.
+- 0–1 points: No relevant issues identified or content is incorrect/irrelevant. 
+Notes: Count distinct issues as separate problem types (e.g., "redundant data entry" and "interoperability gaps" are two distinct issues). Avoid assigning fractional points; use the exact mapping above.
+Up to 5 Points for Breadth: Number of distinct benefit areas linked to the identified issues (5 points). Objective scoring mapping (assign one exact point total):
+- 5 points: Student explicitly links the identified issue(s) to 3 or more distinct benefit categories (examples of categories: IT cost optimization/reuse/reduced redundancy; interoperability/standardized data; alignment with mission/stakeholders; improved IT operations/security/portability; increased ROI/reduced future investment; simplified procurement). Each link must show a clear connection (e.g., "redundant entry -> standardization -> interoperability").
+- 4 points: Student links issues to 2 distinct benefit categories with clear connections.
+- 2 points: Student links issues to 1 benefit category with a clear connection.
+- 0 points: No clear linkage between issues and recognized benefit categories.
+Notes: Do not award these points for mere listing of benefits without a stated connection to the identified issue(s); the response must show that the benefit addresses the issue named.
+Up to 3 Points for Depth: Mechanism / cause-effect explanation (3 points). Objective scoring mapping (assign one exact point total):
+- 3 points: Student provides a clear mechanism explaining how BPR produces the claimed benefit for at least one linked benefit (e.g., "redesigning workflow to remove duplicate data entry reduces data inconsistency and enables standardized interfaces, which improves interoperability and lowers maintenance costs"). The mechanism demonstrates cause-effect (what changes and why that change yields the benefit).
+- 2 points: Student provides a plausible mechanism but it is partial, somewhat generic, or lacks detail connecting the change to the benefit.
+- 1 point: Student attempts to describe a mechanism but explanation is vague or shows limited causal understanding.
+- 0 points: No mechanism or explanation of how BPR leads to the claimed benefit.
+Notes: Depth is assessed separately from breadth; a student may score high on breadth but low on depth if links are asserted without explanation. Prioritize conceptual correctness over technical jargon.
+Up to 2 Points for Originality and phrasing (2 points). Operational thresholds to reduce subjectivity and guide consistency (assign exactly 2, 1, or 0 points):
+- 2 points (Full): Response is clearly in the student's own words. If similarity checking is used, overall exact-match similarity to provided assignment/rubric text is <=20% AND there is no contiguous verbatim phrase of more than 8 words that appears unchanged in source material. Common technical terms (e.g., "interoperability," "redundant data entry") are exempt from this test.
+- 1 point (Partial): Moderate similarity: overall exact-match similarity is >20% and <=40% OR there is a contiguous verbatim phrase of 9–15 words from provided source material, but the student demonstrates paraphrase or additional original phrasing elsewhere.
+- 0 points (None): High similarity: overall exact-match similarity >40% OR any contiguous verbatim phrase >15 words identical to provided source material, indicating near-verbatim copying. In such cases, flag for academic integrity follow-up per course policy.
+Operational notes for graders: If no similarity tool is available, apply the contiguous-phrase thresholds as a heuristic (scan for long verbatim runs). Do not conflate non-native grammar or occasional identical short phrases with lack of originality. Originality affects only this 2-point criterion and should not be used to reduce conceptual scores assigned under other criteria; however, suspected academic misconduct should be reported and handled per institutional policy.
+Maximum of 16 Points
+
+Acceptable content (examples, not exhaustive): support for quality decision-making and managing change impact; optimizing IT for cost-effectiveness (reduce redundancy, reuse information/software, leverage EHR technology); aligning IT/processes with organizational mission and stakeholder goals; responding to external constraints (regulations, CMS); improving IT operations (lower development/support costs, portability, interoperability, security, easier upgrades); increasing ROI and reducing future investment needs (reduce infrastructure complexity, flexible make/buy choices, lower total cost of ownership); simplifying/speeding procurement (coherent procurement information, faster process, multi-vendor open systems). Other reasonable, well-explained points are acceptable. High-level understanding is primary: credit responses that correctly identify core problems and link them to how BPR mitigates those problems. Anchor examples (for grader calibration):
+- Full-credit example (all conceptual criteria met): "Existing workflows cause duplicate data entry and misaligned clinical tasks; BPR redesigns workflows to remove redundant steps and standardize data, enabling interoperability and reducing long-term maintenance costs." (This identifies multiple specific issues, links them to multiple benefit areas, and explains mechanism.)
+- Mid-credit example (~8–10 pts): "BPR fixes redundant tasks and standardizes data, which helps systems talk to each other and reduces support costs." (Names 1–2 issues and links to clear benefits but with limited mechanism detail.)
+- Low-credit example (~2–4 pts): "We need BPR because systems are inefficient." (Vague identification and little or no explanatory linkage.)
+When in doubt between two adjacent point totals, prefer awarding the higher value if the student's conceptual understanding is correct but phrased concisely. Do not penalize minor wording similarity; use the originality thresholds for substantial verbatim overlap only.
+
+Do not use sentence count or answer length as a quality scoring factor. The assignment's 4–5 sentence guidance is administrative only and should not reduce conceptual scores; treat it as a completeness check and ask for a rewrite only if the response is clearly too short to assess core understanding. Prioritize accurate, high-level conceptual understanding when awarding points: a brief but correct explanation should receive strong credit. Apply per-criterion rules first; use these global notes only to resolve borderline or ambiguous cases. Originality rules (operational): use the explicit thresholds in the originality criterion below as guidance. If automated similarity tools are available, use them to aid evaluation, but always interpret results in light of conceptual correctness. If a response exceeds the near-verbatim threshold (see originality criterion), assign provisional conceptual points, flag the submission, and notify the course instructor/academic integrity office per departmental policy. Do not finalize a penalty for academic integrity without following the official review process. Originality can only affect up to 2 points (the dedicated originality criterion) and must not reduce the conceptual-credit evaluation for demonstrably correct understanding.
+
+Grading Flags: ORIGINALITY
