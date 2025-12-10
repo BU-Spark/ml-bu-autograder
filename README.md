@@ -1,7 +1,15 @@
 # MET BU Autograder 🚀
 
+> ⚠️ **Note**: This README contains legacy documentation. For the most up-to-date setup instructions, API documentation, and project information, please refer to:
+> 
+> **👉 [`ai-baseline/app/README.md`](ai-baseline/app/README.md)**
+> 
+> The documentation below is kept for historical reference.
+
+---
+
 **A Boston University SPARK Project**  
-**For Boston University’s Metropolitan College Office of Education Technology and Innovation (MET ETI)**
+**For Boston University's Metropolitan College Office of Education Technology and Innovation (MET ETI)**
 
 ---
 
@@ -29,7 +37,7 @@
 
 ## 🌍 Overview
 
-**MET BU Autograder** is a web-based REST API for AI-Assisted Grading of written and “complex” assignments. It refines and optimizes grading capabilities using various Large Language Models (LLMs) and advanced context management.  
+**MET BU Autograder** is a web-based REST API for AI-Assisted Grading of written and "complex" assignments. It refines and optimizes grading capabilities using various Large Language Models (LLMs) and advanced context management.  
 
 Developed as part of a **Boston University SPARK** project for **BU MET ETI**, this tool is designed to integrate seamlessly with multiple LLM backends and provide a robust, well-documented API for clients seeking to enhance their grading workflows.
 
@@ -320,9 +328,8 @@ This project is licensed under the **GNU General Public License (GPL)**. See the
 
 ---
 
-> ⚠️ **Note**: This project is in active development. For more details on installation, usage, or contributing, please refer to the project’s documentation and issue tracker.  
+> ⚠️ **Note**: This project is in active development. For more details on installation, usage, or contributing, please refer to the project's documentation and issue tracker.  
 
 ---
 
 <sub>_If you have any questions or feedback, feel free to open an issue or reach out via email._</sub>
-
