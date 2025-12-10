@@ -1,10 +1,10 @@
-# Unified Pipeline
+# BU MET Autograder
 
-A comprehensive Python package for AI-powered rubric refinement and automated grading of student quiz answers. This pipeline orchestrates the complete workflow from rubric improvement to batch grading of student submissions.
+A comprehensive Python application for AI-powered rubric refinement and automated grading of student quiz answers. This application orchestrates the complete workflow from rubric improvement to batch grading of student submissions.
 
 ## Overview
 
-The Unified Pipeline provides an end-to-end solution for:
+The BU MET Autograder provides an end-to-end solution for:
 
 1. **Rubric Refinement**: Uses LLM-powered iterative refinement to improve grading rubrics until they meet quality targets
 2. **Automated Grading**: Grades student answers from CSV files using refined rubrics
@@ -41,7 +41,7 @@ The Unified Pipeline provides an end-to-end solution for:
    ```env
    AZURE_LLM_DEPLOYMENT_URL=https://your-resource.openai.azure.com/
    AZURE_LLM_DEPLOYMENT_KEY=your-api-key
-   AZURE_OPENAI_API_VERSION=2024-02-15-preview
+   AZURE_OPENAI_API_VERSION=your-llm-api-version
    AZURE_OPENAI_DEPLOYMENT_NAME=your-deployment-name
    ```
 
@@ -64,7 +64,7 @@ The main entry point (`main.py`) runs the complete workflow:
 
 **Run the complete pipeline:**
 ```bash
-cd ai-baseline/unified_pipeline
+cd ai-baseline/app
 python main.py --quiz-id quiz_1
 ```
 
@@ -142,12 +142,18 @@ For testing and refining rubrics without grading:
 
 **Using the CLI:**
 ```bash
-python -m unified_pipeline.cli --quiz-id quiz_1
+cd ai-baseline/app
+python -m app.cli --quiz-id quiz_1
+```
+
+Or if running from the project root:
+```bash
+python -m ai-baseline.app.cli --quiz-id quiz_1
 ```
 
 **CLI Options:**
 ```bash
-python -m unified_pipeline.cli --help
+python -m app.cli --help
 
 Required Arguments:
   --quiz-id ID                Quiz identifier (e.g., 'quiz_1', 'quiz_2')
@@ -162,23 +168,26 @@ Optional Arguments:
 **Examples:**
 ```bash
 # Refine quiz_1 with default settings
-python -m unified_pipeline.cli --quiz-id quiz_1
+cd ai-baseline/app
+python -m app.cli --quiz-id quiz_1
 
 # Refine quiz_2 with custom target score
-python -m unified_pipeline.cli --quiz-id quiz_2 --target-score 90 --max-iterations 10
+python -m app.cli --quiz-id quiz_2 --target-score 90 --max-iterations 10
 
 # Single-pass refinement (no iteration)
-python -m unified_pipeline.cli --quiz-id quiz_1 --no-iterative
+python -m app.cli --quiz-id quiz_1 --no-iterative
 
 # Use custom rubric file path
-python -m unified_pipeline.cli --quiz-id quiz_1 --rubric-file data/custom/rubric.txt
+python -m app.cli --quiz-id quiz_1 --rubric-file data/custom/rubric.txt
 ```
 
 ### Programmatic Usage
 
 **Import and use the package:**
+
+When running from the `ai-baseline/app` directory:
 ```python
-from unified_pipeline import (
+from app import (
     RubricTestRunner,
     initialize_llm_service,
     create_rubric_refinement_service,
@@ -215,10 +224,12 @@ if response:
     print(f"Refined rubric saved!")
 ```
 
-## Package Structure
+**Note**: When importing from outside the `ai-baseline/app` directory, you may need to adjust the import path or add the parent directory to `sys.path`.
+
+## Application Structure
 
 ```
-unified_pipeline/
+ai-baseline/app/
 ├── __init__.py              # Package exports
 ├── main.py                  # Complete grading pipeline entry point
 ├── cli.py                   # Command-line interface
@@ -235,7 +246,7 @@ unified_pipeline/
 │   ├── __init__.py
 │   ├── csv_parser.py        # CSV parsing utilities
 │   ├── formatter.py         # Rubric formatting
-│   ├── path_utils.py         # Path resolution utilities
+│   ├── path_utils.py        # Path resolution utilities
 │   └── storage.py           # File I/O operations
 └── test/                    # Tests
     └── test_rubric_review.py
@@ -394,7 +405,7 @@ python main.py --quiz-id quiz_1
 
 Run tests:
 ```bash
-cd ai-baseline/unified_pipeline
+cd ai-baseline/app
 python -m pytest test/
 ```
 

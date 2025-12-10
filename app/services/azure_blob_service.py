@@ -3,7 +3,7 @@ import logging
 import mimetypes
 import shutil
 from concurrent.futures import as_completed
-from datetime import timedelta, datetime, UTC
+from datetime import timedelta, datetime, timezone
 from typing import List, Dict, Optional, Set, Tuple
 
 import fsspec
@@ -92,8 +92,8 @@ class AzureBlobService:
 
         # Define start and expiry times for the SAS token.
         # (We set the start time a few minutes in the past to account for clock skew.)
-        start_time = datetime.now(UTC) - timedelta(minutes=5)
-        expiry_time = datetime.now(UTC) + timedelta(hours=24)  # Expires in 24 hour; adjust as needed.
+        start_time = datetime.now(timezone.utc) - timedelta(minutes=5)
+        expiry_time = datetime.now(timezone.utc) + timedelta(hours=24)  # Expires in 24 hour; adjust as needed.
 
         # Obtain a user delegation key for the time period.
         user_delegation_key = self.blob_service_client.get_user_delegation_key(start_time, expiry_time)
