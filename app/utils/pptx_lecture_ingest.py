@@ -1,6 +1,6 @@
 from pathlib import Path
 import json
-from pptx_text_extractor import extract_pptx_to_chunks
+from .pptx_text_extractor import extract_pptx_to_chunks
 
 
 def categorize_pptx(path: Path) -> str:
