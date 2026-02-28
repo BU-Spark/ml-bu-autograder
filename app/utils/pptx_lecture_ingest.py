@@ -29,11 +29,15 @@ def extract_and_categorize_all_pptx(
     with open(output_index_path, "w", encoding="utf-8") as index_f:
         for pptx_path in root.rglob("*.pptx"):
             category = categorize_pptx(pptx_path)
-            chunks = extract_pptx_to_chunks(
-                pptx_path,
-                course=course,
-                lecture_id=pptx_path.stem,
-            )
+            try:
+                chunks = extract_pptx_to_chunks(
+                    pptx_path,
+                    course=course,
+                    lecture_id=pptx_path.stem,
+                )
+            except Exception as exc:
+                print(f"Skipping {pptx_path}: {exc}")
+                continue
 
             for c in chunks:
                 c["metadata"]["category"] = category
