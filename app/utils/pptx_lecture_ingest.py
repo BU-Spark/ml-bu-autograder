@@ -5,16 +5,15 @@ from .pptx_text_extractor import extract_pptx_to_chunks
 
 def categorize_pptx(path: Path) -> str:
     """Heuristic categorization based on folder/file names."""
-    parts = [p.lower() for p in path.parts]
-    name = path.name.lower()
+    haystack = " / ".join(p.lower() for p in path.parts)
 
-    if "submission" in parts or "submissions" in parts or "student" in parts:
+    if any(k in haystack for k in ("submission", "submissions", "student")):
         return "student_submission"
-    if "quiz" in parts or "assignment" in parts or "rubric" in parts:
+    if any(k in haystack for k in ("quiz", "assignment", "rubric")):
         return "assessment_material"
-    if "lecture" in parts or "slides" in parts or "presentation" in parts:
+    if any(k in haystack for k in ("lecture", "slides", "presentation")):
         return "lecture"
-    if "meeting" in parts:
+    if "meeting" in haystack:
         return "meeting"
     return "other"
 
