@@ -42,8 +42,13 @@ try:
 except Exception:
     OpenAI = None
 
+try:
+    from bs4 import BeautifulSoup
+except Exception:
+    BeautifulSoup = None
 
-SUPPORTED_INPUT_EXTENSIONS = {".pdf", ".xlsx"}
+
+SUPPORTED_INPUT_EXTENSIONS = {".pdf", ".xlsx", ".html", ".htm"}
 
 
 @dataclass
@@ -188,6 +193,12 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=140,
         help="Overlap chars between adjacent text chunks.",
+    )
+    parser.add_argument(
+        "--min-text-chars",
+        type=int,
+        default=30,
+        help="Minimum cleaned text length to keep as a chunk (applies to PDF/HTML text).",
     )
     parser.add_argument(
         "--vector-db",
@@ -525,6 +536,13 @@ def list_target_files(data_dir: Path) -> list[Path]:
         if p.is_file() and p.suffix.lower() in SUPPORTED_INPUT_EXTENSIONS:
             out.append(p)
     return out
+
+
+def infer_source_type(rel_path: str) -> str:
+    low = rel_path.lower()
+    if "lecture" in low:
+        return "lecture"
+    return "student"
 
 
 def guess_mime(ext: str) -> str:
@@ -982,6 +1000,7 @@ def process_pdf(
         raise RuntimeError("PyMuPDF is not installed. Add PyMuPDF to requirements and install it.")
 
     chunks: list[dict[str, Any]] = []
+    source_type = infer_source_type(rel_path)
     stats = {
         "text_chunks": 0,
         "image_chunks": 0,
@@ -1016,9 +1035,13 @@ def process_pdf(
                     # Skip page-number fragments and tiny punctuation chunks.
                     if len(chunk) < 8 and re.fullmatch(r"[\d\W_]+", chunk):
                         continue
+                    if len(chunk) < int(args.min_text_chars):
+                        continue
                     meta = {
                         "filename": file_path.name,
                         "source_path": rel_path,
+                        "source_type": source_type,
+                        "format": "pdf",
                         "page": page_num,
                         "content_type": "text",
                         "block_id": block["id"],
@@ -1163,6 +1186,8 @@ def process_pdf(
                 meta = {
                     "filename": file_path.name,
                     "source_path": rel_path,
+                    "source_type": source_type,
+                    "format": "pdf",
                     "page": page_num,
                     "content_type": content_type,
                     "image_index_on_page": img_i,
@@ -1281,6 +1306,7 @@ def process_excel(
     vision: VisionDescriber | None,
 ) -> tuple[list[dict[str, Any]], dict[str, int]]:
     chunks: list[dict[str, Any]] = []
+    source_type = infer_source_type(rel_path)
     stats = {
         "table_chunks": 0,
         "image_chunks": 0,
@@ -1343,6 +1369,8 @@ def process_excel(
                     meta = {
                         "filename": file_path.name,
                         "source_path": rel_path,
+                        "source_type": source_type,
+                        "format": "xlsx",
                         "sheet_name": ws.title,
                         "content_type": "table",
                         "row_start": chunk_start + 1,
@@ -1463,6 +1491,8 @@ def process_excel(
                 meta = {
                     "filename": file_path.name,
                     "source_path": rel_path,
+                    "source_type": source_type,
+                    "format": "xlsx",
                     "sheet_name": ws.title,
                     "content_type": content_type,
                     "image_index_on_sheet": img_i,
@@ -1510,6 +1540,69 @@ def process_excel(
                     stats["vision_chunks"] += 1
     finally:
         wb.close()
+
+    return chunks, stats
+
+
+def process_html(
+    file_path: Path,
+    rel_path: str,
+    args: argparse.Namespace,
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    if BeautifulSoup is None:
+        raise RuntimeError(
+            "beautifulsoup4 is not installed. Install with: pip install beautifulsoup4"
+        )
+
+    source_type = infer_source_type(rel_path)
+    html = file_path.read_text(encoding="utf-8", errors="ignore")
+    soup = BeautifulSoup(html, "html.parser")
+
+    for tag in soup.find_all(["script", "style", "nav", "header", "footer", "noscript"]):
+        tag.decompose()
+
+    kept_tags = {"p", "h1", "h2", "h3", "li"}
+    elements = soup.find_all(list(kept_tags))
+
+    chunks: list[dict[str, Any]] = []
+    stats = {
+        "text_chunks": 0,
+        "elements_scanned": 0,
+        "elements_kept": 0,
+    }
+
+    element_index = 0
+    for el in elements:
+        element_index += 1
+        stats["elements_scanned"] += 1
+
+        tag_name = str(getattr(el, "name", "") or "").lower()
+        if tag_name not in kept_tags:
+            continue
+
+        raw = el.get_text(" ", strip=True)
+        text = clean_text(raw)
+        if len(text) < int(args.min_text_chars):
+            continue
+        stats["elements_kept"] += 1
+
+        for ci, piece in enumerate(chunk_text(text, args.text_chunk_chars, args.text_chunk_overlap), 1):
+            if len(piece) < int(args.min_text_chars):
+                continue
+
+            meta = {
+                "filename": file_path.name,
+                "source_path": rel_path,
+                "source_type": source_type,
+                "format": "html",
+                "content_type": "text",
+                "element_tag": tag_name,
+                "element_index": element_index,
+                "chunk_index_in_element": ci,
+            }
+            cid = sha1_id(f"{rel_path}|html|{tag_name}|{element_index}|{ci}")
+            chunks.append({"id": cid, "content": piece, "metadata": meta})
+            stats["text_chunks"] += 1
 
     return chunks, stats
 
@@ -1656,6 +1749,18 @@ def main() -> int:
                     per_file_root=per_file_json_dir,
                     rel_path=rel_path,
                     file_type="xlsx",
+                    stats=fstats,
+                    chunks=chunks,
+                )
+                fstats["per_file_json"] = str(per_file_json_path)
+                all_chunks.extend(chunks)
+            elif ext in {".html", ".htm"}:
+                chunks, stats = process_html(file_path, rel_path, args)
+                fstats.update({"file_type": "html", **stats, "chunk_count": len(chunks)})
+                per_file_json_path = write_per_file_json(
+                    per_file_root=per_file_json_dir,
+                    rel_path=rel_path,
+                    file_type="html",
                     stats=fstats,
                     chunks=chunks,
                 )
