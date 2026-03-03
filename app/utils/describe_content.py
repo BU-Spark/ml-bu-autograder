@@ -3,13 +3,14 @@ import base64
 import io
 import json
 import os
-from PIL import Image
-from typing import Any, Dict, List, Optional
+import time
+from typing import Any, Dict, List
 
+from PIL import Image
 from anthropic import Anthropic
 from dotenv import load_dotenv
 
-load_dotenv() 
+load_dotenv()
 
 
 def get_anthropic_client() -> Anthropic:
@@ -20,6 +21,20 @@ def get_anthropic_client() -> Anthropic:
             "  export ANTHROPIC_API_KEY='your_key_here'\n"
         )
     return Anthropic(api_key=api_key)
+
+
+def _extract_first_text_block(response: Any) -> str:
+    """
+    Anthropic SDK returns a Message with a list of typed content blocks.
+    Safely return the first non-empty text block.
+    """
+    blocks = getattr(response, "content", None) or []
+    for block in blocks:
+        if getattr(block, "type", None) == "text":
+            text = getattr(block, "text", None)
+            if text:
+                return text
+    raise RuntimeError("Claude response did not contain a text block")
 
 
 def describe_diagram_with_claude(client: Anthropic, image_path: str, caption: str) -> str:
@@ -61,7 +76,7 @@ Be specific and detailed.
             }
         ],
     )
-    return response.content[0].text
+    return _extract_first_text_block(response)
 
 
 def describe_table_with_claude(client: Anthropic, table_text: str, page: Any) -> str:
@@ -86,7 +101,7 @@ Be concise but thorough.
         max_tokens=1024,
         messages=[{"role": "user", "content": prompt}],
     )
-    return response.content[0].text
+    return _extract_first_text_block(response)
 
 
 def safe_write(path: str, content: str) -> None:
@@ -100,6 +115,7 @@ def process_all_content(metadata_path: str, output_dir: str) -> List[Dict[str, A
     Process both tables and diagrams for ONE metadata file.
     Writes summaries to output_dir.
     """
+    start_time = time.time()
     client = get_anthropic_client()
     os.makedirs(output_dir, exist_ok=True)
 
@@ -122,7 +138,7 @@ def process_all_content(metadata_path: str, output_dir: str) -> List[Dict[str, A
             description = describe_table_with_claude(client, table["text"], page)
 
             summary = f"""TABLE SUMMARY:
-Source PDF: {metadata.get('pdf_path')}
+Source PDF: {metadata.get('source_pdf')}
 Page: {page}
 Table Index: {idx}
 
@@ -136,12 +152,12 @@ Description:
 """
             summary_path = os.path.join(output_dir, f"table_page{page}_idx{idx}_summary.txt")
             safe_write(summary_path, summary)
-            print(f"Saved to {summary_path}")
+            print(f"✅ Saved to {summary_path}")
 
             all_summaries.append(
                 {
                     "type": "table",
-                    "source_pdf": metadata.get("pdf_path"),
+                    "source_pdf": metadata.get("source_pdf"),
                     "page": page,
                     "index": idx,
                     "summary_path": summary_path,
@@ -150,7 +166,7 @@ Description:
             )
 
         except Exception as e:
-            print(f"Error describing table page {page} idx {idx}: {e}")
+            print(f"❌ Error describing table page {page} idx {idx}: {e}")
 
     # Process diagrams
     print(f"\n{'='*60}")
@@ -172,7 +188,7 @@ Description:
             description = describe_diagram_with_claude(client, image_path, caption)
 
             summary = f"""DIAGRAM SUMMARY:
-Source PDF: {metadata.get('pdf_path')}
+Source PDF: {metadata.get('source_pdf')}
 Page: {page}
 Diagram Index: {idx}
 Caption: {caption}
@@ -185,12 +201,12 @@ Description:
 """
             summary_path = os.path.join(output_dir, f"diagram_page{page}_idx{idx}_summary.txt")
             safe_write(summary_path, summary)
-            print(f"Saved to {summary_path}")
+            print(f"✅ Saved to {summary_path}")
 
             all_summaries.append(
                 {
                     "type": "diagram",
-                    "source_pdf": metadata.get("pdf_path"),
+                    "source_pdf": metadata.get("source_pdf"),
                     "page": page,
                     "index": idx,
                     "summary_path": summary_path,
@@ -201,16 +217,25 @@ Description:
             )
 
         except Exception as e:
-            print(f"Error describing diagram page {page} idx {idx}: {e}")
+            print(f"❌ Error describing diagram page {page} idx {idx}: {e}")
 
     # Save master index for this student
     index_path = os.path.join(output_dir, "summaries_index.json")
     with open(index_path, "w", encoding="utf-8") as f:
         json.dump(all_summaries, f, indent=2, ensure_ascii=False)
 
+    total_tables = len(metadata.get("tables", []))
+    total_diagrams = len(metadata.get("diagrams", []))
+    total_api_calls = total_tables + total_diagrams
+
+    elapsed = time.time() - start_time
+
     print(f"\n{'='*60}")
-    print(f"Processed {len(all_summaries)} items total")
-    print(f"Index saved to {index_path}")
+    print(f"✅ Processed {len(all_summaries)} items total")
+    print(f"📊 Tables: {total_tables}, Diagrams: {total_diagrams}")
+    print(f"⏱️  Total time: {elapsed:.2f} seconds ({elapsed/60:.2f} minutes)")
+    print(f"🤖 API calls: {total_api_calls}")
+    print(f"📋 Index saved to {index_path}")
     print(f"{'='*60}")
 
     return all_summaries
@@ -221,7 +246,6 @@ def default_output_dir_for_pdf(pdf_path: str) -> str:
 
 
 if __name__ == "__main__":
-    # Same list as extractor: one run processes all 3 students
     PDF_PATHS = [
         "../data/Spring 2026/Assignment Examples Fall 2025 /Assignment 1_ Diagram & Text/Student 1 - Good Example/Student 1.pdf",
         "../data/Spring 2026/Assignment Examples Fall 2025 /Assignment 1_ Diagram & Text/Student 2 - Good Example/Student 2.pdf",
@@ -229,7 +253,7 @@ if __name__ == "__main__":
     ]
 
     for pdf_path in PDF_PATHS:
-        student_dir = default_output_dir_for_pdf(pdf_path)  # "Student 1"
+        student_dir = default_output_dir_for_pdf(pdf_path)
         metadata_path = os.path.join(student_dir, "content_metadata.json")
 
         if not os.path.exists(metadata_path):

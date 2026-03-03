@@ -6,6 +6,7 @@ import os
 import json
 import camelot
 import re
+import time
 from typing import Any, Dict, List
 
 
@@ -80,7 +81,8 @@ def extract_tables_from_pdf(pdf_path: str) -> List[Dict[str, Any]]:
             print(f"  Extracted table {i+1} from page {table.page}")
 
     except Exception as e:
-        print(f"Error extracting tables: {e}")
+        # Don't mask hard failures as "no tables"
+        raise RuntimeError(f"Table extraction failed for {pdf_path}: {e}") from e
 
     return all_tables
 
@@ -123,66 +125,73 @@ def extract_diagrams_from_pdf(pdf_path: str, output_dir: str) -> List[Dict[str, 
     print(f"\nExtracting diagrams from {pdf_path}...")
 
     os.makedirs(output_dir, exist_ok=True)
-    doc = fitz.open(pdf_path)
     diagrams: List[Dict[str, Any]] = []
 
-    for page_idx in range(len(doc)):
-        page = doc[page_idx]
-        images = page.get_images(full=True)
-        if not images:
-            continue
-
-        # For caption detection
-        page_blocks = page.get_text("blocks")
-
-        for img_idx, image in enumerate(images):
-            try:
-                xref = image[0]
-                base_image = doc.extract_image(xref)
-                image_bytes = base_image["image"]
-
-                pil_image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-
-                # In some cases get_image_bbox can fail; guard it
-                try:
-                    img_rect = page.get_image_bbox(image)
-                except Exception:
-                    img_rect = None
-
-                caption = "No caption found"
-                position = None
-                if img_rect is not None:
-                    caption = find_caption_near_image(page_blocks, img_rect)
-                    position = {"x0": img_rect.x0, "y0": img_rect.y0, "x1": img_rect.x1, "y1": img_rect.y1}
-
-                img_filename = f"page{page_idx + 1}_img{img_idx}.png"
-                img_path = os.path.join(output_dir, img_filename)
-                pil_image.save(img_path)
-
-                diagrams.append(
-                    {
-                        "page": page_idx + 1,
-                        "index": img_idx,
-                        "image_path": img_path,
-                        "caption": caption,
-                        "position": position,
-                    }
-                )
-
-                print(f"  Extracted diagram from page {page_idx + 1} -> {img_filename}")
-
-            except Exception as e:
-                print(f"  Error on page {page_idx + 1}, image {img_idx}: {e}")
+    # Use context manager to ensure PDF handle is always released
+    with fitz.open(pdf_path) as doc:
+        for page_idx in range(len(doc)):
+            page = doc[page_idx]
+            images = page.get_images(full=True)
+            if not images:
                 continue
 
-    doc.close()
+            # For caption detection
+            page_blocks = page.get_text("blocks")
+
+            for img_idx, image in enumerate(images):
+                try:
+                    xref = image[0]
+                    base_image = doc.extract_image(xref)
+                    image_bytes = base_image["image"]
+
+                    pil_image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+
+                    # In some cases get_image_bbox can fail; guard it
+                    try:
+                        img_rect = page.get_image_bbox(image)
+                    except Exception:
+                        img_rect = None
+
+                    caption = "No caption found"
+                    position = None
+                    if img_rect is not None:
+                        caption = find_caption_near_image(page_blocks, img_rect)
+                        position = {
+                            "x0": img_rect.x0,
+                            "y0": img_rect.y0,
+                            "x1": img_rect.x1,
+                            "y1": img_rect.y1,
+                        }
+
+                    img_filename = f"page{page_idx + 1}_img{img_idx}.png"
+                    img_path = os.path.join(output_dir, img_filename)
+                    pil_image.save(img_path)
+
+                    diagrams.append(
+                        {
+                            "page": page_idx + 1,
+                            "index": img_idx,
+                            "image_path": img_path,
+                            "caption": caption,
+                            "position": position,
+                        }
+                    )
+
+                    print(f"  Extracted diagram from page {page_idx + 1} -> {img_filename}")
+
+                except Exception as e:
+                    print(f"  Error on page {page_idx + 1}, image {img_idx}: {e}")
+                    continue
+
     return diagrams
 
 
 def extract_all_content(pdf_path: str, output_dir: str) -> Dict[str, Any]:
     """Extract both tables and diagrams from PDF"""
+    start_time = time.time()
+
     print(f"\n{'='*60}")
-    print(f"EXTRACTING ALL CONTENT FROM PDF")
+    print("EXTRACTING ALL CONTENT FROM PDF")
     print(f"{'='*60}")
 
     os.makedirs(output_dir, exist_ok=True)
@@ -190,8 +199,9 @@ def extract_all_content(pdf_path: str, output_dir: str) -> Dict[str, Any]:
     tables = extract_tables_from_pdf(pdf_path)
     diagrams = extract_diagrams_from_pdf(pdf_path, output_dir)
 
+    # Store sanitized identifier, not full local path
     metadata = {
-        "pdf_path": pdf_path,
+        "source_pdf": os.path.basename(pdf_path),
         "output_dir": output_dir,
         "tables": tables,
         "diagrams": diagrams,
@@ -201,11 +211,14 @@ def extract_all_content(pdf_path: str, output_dir: str) -> Dict[str, Any]:
     with open(metadata_path, "w", encoding="utf-8") as f:
         json.dump(metadata, f, indent=2, ensure_ascii=False)
 
+    elapsed = time.time() - start_time
+
     print(f"\n{'='*60}")
-    print(f"EXTRACTION COMPLETE")
+    print("EXTRACTION COMPLETE")
     print(f"{'='*60}")
     print(f"Tables extracted: {len(tables)}")
     print(f"Diagrams extracted: {len(diagrams)}")
+    print(f"⏱️  Processing time: {elapsed:.2f} seconds")
     print(f"Metadata saved to: {metadata_path}")
 
     return metadata
