@@ -22,3 +22,6 @@ pymupdf==1.25.5
 azure-ai-inference==1.0.0b9
 cohere==5.15.0
 pydub==0.25.1
+Pillow==10.4.0
+pytesseract==0.3.13
+python-docx==1.2.0
