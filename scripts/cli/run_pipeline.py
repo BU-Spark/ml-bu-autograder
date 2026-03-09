@@ -11,12 +11,11 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from core.config import load_environment, merged_config
-from core.pipeline import run_compare, run_describe, run_extract
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Unified multimodal extraction pipeline")
-    parser.add_argument("--mode", choices=["extract", "describe", "full", "compare"], required=True)
+    parser.add_argument("--mode", choices=["extract", "describe", "full", "compare", "index", "retrieve"], required=True)
 
     parser.add_argument("--data-dir", help="Input root directory for extract/full")
     parser.add_argument("--output-root", default="outputs/final_phase1", help="Root output directory")
@@ -38,6 +37,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--vision-output-cost-per-1m", type=float, default=0.0)
 
     parser.add_argument("--compare-summaries", nargs="*", default=[])
+
+    # Vector DB utilities
+    parser.add_argument("--chunks-jsonl", help="Path to chunks.jsonl for index/retrieve modes")
+    parser.add_argument("--retrieval-out-jsonl", default="outputs/retrieval_results.jsonl")
+    parser.add_argument("--retrieval-top-k", type=int, default=6)
 
     # Config overrides
     parser.add_argument("--max-pdf-pages", type=int)
@@ -106,6 +110,8 @@ def main() -> int:
     cfg = merged_config(build_overrides(args))
 
     if args.mode == "extract":
+        from core.pipeline import run_extract
+
         if not args.data_dir:
             raise SystemExit("--data-dir is required for extract mode")
         data_dir = Path(args.data_dir).expanduser().resolve()
@@ -115,6 +121,8 @@ def main() -> int:
         return 0
 
     if args.mode == "describe":
+        from core.pipeline import run_describe
+
         extract_dir = Path(args.extract_dir).expanduser().resolve() if args.extract_dir else (run_root / "extract")
         describe_dir = (
             Path(args.describe_dir).expanduser().resolve()
@@ -141,6 +149,8 @@ def main() -> int:
         return 0
 
     if args.mode == "full":
+        from core.pipeline import run_describe, run_extract
+
         if not args.data_dir:
             raise SystemExit("--data-dir is required for full mode")
         data_dir = Path(args.data_dir).expanduser().resolve()
@@ -168,12 +178,61 @@ def main() -> int:
         return 0
 
     if args.mode == "compare":
+        from core.pipeline import run_compare
+
         if len(args.compare_summaries) < 2:
             raise SystemExit("--compare-summaries requires at least two summary.json paths")
         compare_inputs = [Path(p).expanduser().resolve() for p in args.compare_summaries]
         compare_dir = run_root / "comparison"
         run_compare(compare_inputs=compare_inputs, output_dir=compare_dir)
         print(f"Comparison written to: {compare_dir}")
+        return 0
+
+    if args.mode == "index":
+        from retrieval.chroma_rag import index_lecture_chunks_to_chroma
+
+        if not args.chunks_jsonl:
+            raise SystemExit("--chunks-jsonl is required for index mode")
+        chunks_jsonl = Path(args.chunks_jsonl).expanduser().resolve()
+        if not chunks_jsonl.exists():
+            raise SystemExit(f"chunks.jsonl not found: {chunks_jsonl}")
+
+        # Default to indexing into the run_root unless an explicit chroma path was provided.
+        chroma_path = args.chroma_path or str(run_root / "chroma_db")
+        res = index_lecture_chunks_to_chroma(
+            chunks_jsonl=chunks_jsonl,
+            chroma_path=chroma_path,
+            chroma_collection=args.chroma_collection,
+            chroma_batch_size=args.chroma_batch_size,
+        )
+        if not res.ok:
+            raise SystemExit(f"Chroma index failed: {res.error}")
+        print(
+            f"Indexed lecture chunks to Chroma: {res.records_indexed}/{res.records_total} "
+            f"({args.chroma_collection} at {chroma_path})"
+        )
+        return 0
+
+    if args.mode == "retrieve":
+        from retrieval.chroma_rag import retrieve_lecture_context_for_student_chunks
+
+        if not args.chunks_jsonl:
+            raise SystemExit("--chunks-jsonl is required for retrieve mode")
+        chunks_jsonl = Path(args.chunks_jsonl).expanduser().resolve()
+        if not chunks_jsonl.exists():
+            raise SystemExit(f"chunks.jsonl not found: {chunks_jsonl}")
+
+        chroma_path = args.chroma_path or str(run_root / "chroma_db")
+        out_jsonl = Path(args.retrieval_out_jsonl).expanduser().resolve()
+        stats = retrieve_lecture_context_for_student_chunks(
+            chroma_path=chroma_path,
+            chroma_collection=args.chroma_collection,
+            student_chunks_jsonl=chunks_jsonl,
+            top_k=args.retrieval_top_k,
+            out_jsonl=out_jsonl,
+        )
+        print(f"Retrieval written: {stats['out_jsonl']}")
+        print(f"Student queries written: {stats['queries_written']}")
         return 0
 
     raise SystemExit(f"Unsupported mode: {args.mode}")

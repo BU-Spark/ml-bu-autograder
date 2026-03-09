@@ -36,9 +36,13 @@ def try_store_chroma(
                     flat[k] = json.dumps(v, ensure_ascii=True)
             metas.append(flat)
 
+        # Prefer upsert to make re-indexing idempotent.
+        upsert = getattr(collection, "upsert", None)
+        write_fn = upsert if callable(upsert) else collection.add
+
         for start in range(0, len(chunks), max(1, chroma_batch_size)):
             end = min(len(chunks), start + max(1, chroma_batch_size))
-            collection.add(ids=ids[start:end], documents=docs[start:end], metadatas=metas[start:end])
+            write_fn(ids=ids[start:end], documents=docs[start:end], metadatas=metas[start:end])
 
         return {
             "enabled": True,
