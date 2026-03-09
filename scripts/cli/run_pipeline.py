@@ -15,7 +15,11 @@ from core.config import load_environment, merged_config
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Unified multimodal extraction pipeline")
-    parser.add_argument("--mode", choices=["extract", "describe", "full", "compare", "index", "retrieve"], required=True)
+    parser.add_argument(
+        "--mode",
+        choices=["extract", "describe", "full", "compare", "index", "retrieve", "grade"],
+        required=True,
+    )
 
     parser.add_argument("--data-dir", help="Input root directory for extract/full")
     parser.add_argument("--output-root", default="outputs/final_phase1", help="Root output directory")
@@ -39,9 +43,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--compare-summaries", nargs="*", default=[])
 
     # Vector DB utilities
-    parser.add_argument("--chunks-jsonl", help="Path to chunks.jsonl for index/retrieve modes")
+    parser.add_argument("--chunks-jsonl", help="Path to chunks.jsonl for index/retrieve/grade modes")
     parser.add_argument("--retrieval-out-jsonl", default="outputs/retrieval_results.jsonl")
     parser.add_argument("--retrieval-top-k", type=int, default=6)
+    parser.add_argument("--student-path", default=None, help="Filter to one student source path substring")
+    parser.add_argument("--rubric-file", default=None, help="Optional rubric text file for grading")
+    parser.add_argument("--grading-model", default="gpt-4o-2024-11-20", help="LLM used in grade mode")
+    parser.add_argument("--max-lecture-chars", type=int, default=6000)
+    parser.add_argument("--max-student-chars", type=int, default=8000)
 
     # Config overrides
     parser.add_argument("--max-pdf-pages", type=int)
@@ -233,6 +242,34 @@ def main() -> int:
         )
         print(f"Retrieval written: {stats['out_jsonl']}")
         print(f"Student queries written: {stats['queries_written']}")
+        return 0
+
+    if args.mode == "grade":
+        from grading.grade_submission import run_grading
+
+        if not args.chunks_jsonl:
+            raise SystemExit("--chunks-jsonl is required for grade mode")
+        chunks_jsonl = Path(args.chunks_jsonl).expanduser().resolve()
+        if not chunks_jsonl.exists():
+            raise SystemExit(f"chunks.jsonl not found: {chunks_jsonl}")
+
+        retrieval_jsonl = Path(args.retrieval_out_jsonl).expanduser().resolve()
+        if not retrieval_jsonl.exists():
+            raise SystemExit(f"retrieval jsonl not found: {retrieval_jsonl}")
+
+        out_dir = run_root / "grading"
+        rubric_file = Path(args.rubric_file).expanduser().resolve() if args.rubric_file else None
+        out_path = run_grading(
+            retrieval_jsonl=retrieval_jsonl,
+            chunks_jsonl=chunks_jsonl,
+            student_path_filter=args.student_path,
+            out_dir=out_dir,
+            model=args.grading_model,
+            max_lecture_chars=int(args.max_lecture_chars),
+            max_student_chars=int(args.max_student_chars),
+            rubric_file=rubric_file,
+        )
+        print(f"Grading written: {out_path}")
         return 0
 
     raise SystemExit(f"Unsupported mode: {args.mode}")

@@ -503,6 +503,9 @@ Use the new modular runner in `scripts/cli/run_pipeline.py` for the merged archi
 - `describe` mode: run one model (`openai`, `gemini`, `anthropic`) on extracted artifacts.
 - `full` mode: extract then describe in one command.
 - `compare` mode: compare multiple `summary.json` files.
+- `index` mode: index lecture chunks into ChromaDB.
+- `retrieve` mode: retrieve lecture context for student chunks.
+- `grade` mode: rubric-aware grading using retrieved lecture context.
 
 Output structure:
 
@@ -543,6 +546,31 @@ python scripts/cli/run_pipeline.py \
   --vision-model "gpt-4o-2024-11-20" \
   --vision-input-cost-per-1m 5.0 \
   --vision-output-cost-per-1m 15.0
+
+# 3) Index lecture chunks into Chroma
+python scripts/cli/run_pipeline.py \
+  --mode index \
+  --chunks-jsonl "outputs/final_phase1/run_01/describe_openai_gpt-4o-2024-11-20/chunks.jsonl" \
+  --chroma-path "outputs/final_phase1/run_01/chroma_db" \
+  --chroma-collection "phase1_chunks"
+
+# 4) Retrieve lecture context for student chunks
+python scripts/cli/run_pipeline.py \
+  --mode retrieve \
+  --chunks-jsonl "outputs/final_phase1/run_01/describe_openai_gpt-4o-2024-11-20/chunks.jsonl" \
+  --chroma-path "outputs/final_phase1/run_01/chroma_db" \
+  --chroma-collection "phase1_chunks" \
+  --retrieval-out-jsonl "outputs/final_phase1/run_01/retrieval_results.jsonl" \
+  --retrieval-top-k 6
+
+# 5) Grade one student (with rubric)
+python scripts/cli/run_pipeline.py \
+  --mode grade \
+  --chunks-jsonl "outputs/final_phase1/run_01/describe_openai_gpt-4o-2024-11-20/chunks.jsonl" \
+  --retrieval-out-jsonl "outputs/final_phase1/run_01/retrieval_results.jsonl" \
+  --student-path "Student 1" \
+  --rubric-file "docs/rubric.txt" \
+  --grading-model "gpt-4o-2024-11-20"
 ```
 
 Note: sections below this block are legacy starter notes from earlier iterations.
