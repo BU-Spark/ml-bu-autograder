@@ -35,32 +35,37 @@ def build_prompt(
         preamble = (
             "You are a precise document analyst. This is a clear, high-resolution image "
             f"(width: {image_width}px, height: {image_height}px). "
-            "Extract EVERYTHING visible. Do not summarize. Do not infer."
+            "Extract EVERYTHING visible. For photographs or illustrations, describe what they depict. "
+            "Do not add information beyond what is visible."
         )
     elif image_quality == "low_res":
         preamble = (
             "You are a precise document analyst. This image is LOW RESOLUTION "
             f"(width: {image_width}px, height: {image_height}px). "
-            "Attempt full extraction and explicitly flag uncertainty. Do not guess."
+            "Attempt full extraction and explicitly flag uncertainty. "
+            "For photographs or illustrations, describe what they depict. Do not guess beyond what is visible."
         )
     else:
         preamble = (
             "You are a precise document analyst. This image is VERY LOW RESOLUTION or VERY SMALL "
             f"(width: {image_width}px, height: {image_height}px). "
-            "Attempt extraction anyway and be explicit about what is indeterminate."
+            "Attempt extraction anyway and be explicit about what is indeterminate. "
+            "For photographs or illustrations, describe what they depict as best as possible."
         )
 
     prompt = (
         f"{preamble}\n"
         "Rules:\n"
         "- Only report what is literally visible in the image.\n"
-        "- Do not infer or add external context.\n"
+        "- Do not add external context that is not visible in the image.\n"
+        "- For photographs or illustrations, describe what each one depicts (actions/objects) based only on visible evidence.\n"
         "- Preserve text verbatim where readable.\n"
         f"- Include at most {int(max_visible_text_items)} entries in all_visible_text.\n"
         "Return ONLY valid JSON with these exact keys:\n"
         "{\n"
         '  "image_type": "workflow_diagram|swimlane|table|chart|screenshot|photo|text_block|other|indeterminate",\n'
         '  "all_visible_text": ["string"],\n'
+        '  "description": "string",\n'
         '  "structural_elements": {\n'
         '    "boxes": "string",\n'
         '    "diamonds": "string",\n'

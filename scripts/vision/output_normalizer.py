@@ -178,6 +178,7 @@ def merge_vision_tile_outputs(tile_outputs: list[dict[str, Any]], tiled: bool) -
     swim_lanes: list[str] = []
     other_shapes: list[str] = []
     spatial_layout_parts: list[str] = []
+    description_parts: list[str] = []
     completeness_parts: list[str] = []
     unclear_parts_list: list[str] = []
     quality_warning_parts: list[str] = []
@@ -205,6 +206,10 @@ def merge_vision_tile_outputs(tile_outputs: list[dict[str, Any]], tiled: bool) -
         if layout:
             spatial_layout_parts.append(f"Tile {i}: {layout}" if tiled else layout)
 
+        description = clean_text(str(t.get("description", "")))
+        if description:
+            description_parts.append(f"Tile {i}: {description}" if tiled else description)
+
         completeness = clean_text(str(t.get("completeness", "")))
         if completeness:
             completeness_parts.append(f"Tile {i}: {completeness}" if tiled else completeness)
@@ -229,6 +234,7 @@ def merge_vision_tile_outputs(tile_outputs: list[dict[str, Any]], tiled: bool) -
     }
 
     merged_layout = clean_text(" ".join(spatial_layout_parts)) or "indeterminate"
+    merged_description = clean_text(" | ".join(dedupe_preserve_order(description_parts)))
     merged_completeness = clean_text(" | ".join(dedupe_preserve_order(completeness_parts))) or "unknown"
     merged_unclear = clean_text(" | ".join(dedupe_preserve_order(unclear_parts_list)))
     merged_quality_warning = clean_text(" | ".join(dedupe_preserve_order(quality_warning_parts)))
@@ -243,10 +249,13 @@ def merge_vision_tile_outputs(tile_outputs: list[dict[str, Any]], tiled: bool) -
         "unclear_parts": merged_unclear,
         "quality_warning": merged_quality_warning,
         "visible_text": merged_text,
-        "description": clean_text(
-            f"Type={choose_merged_image_type(image_types, tiled=tiled)}; layout={merged_layout}; completeness={merged_completeness}; unclear={merged_unclear or 'none'}"
-        )
-        or "[no_description_returned]",
+        "description": (
+            merged_description
+            or clean_text(
+                f"Type={choose_merged_image_type(image_types, tiled=tiled)}; layout={merged_layout}; completeness={merged_completeness}; unclear={merged_unclear or 'none'}"
+            )
+            or "[no_description_returned]"
+        ),
         "elements": dedupe_preserve_order(
             [
                 merged_structural["boxes"],
@@ -268,12 +277,15 @@ def build_image_text_content(vision_struct: dict[str, Any]) -> str:
     if not isinstance(structural_elements, dict):
         structural_elements = {}
     spatial_layout = clean_text(str(vision_struct.get("spatial_layout", vision_struct.get("layout", ""))))
+    description = clean_text(str(vision_struct.get("description", "")))
     completeness = clean_text(str(vision_struct.get("completeness", ""))) or "unknown"
     unclear_parts = clean_text(str(vision_struct.get("unclear_parts", "")))
     quality_warning = clean_text(str(vision_struct.get("quality_warning", "")))
 
     sections: list[str] = []
     sections.append(f"Image type: {image_type}")
+    if description:
+        sections.append(f"Image description: {description}")
     sections.append(
         "Extracted visible text:\n"
         + ("\n".join(f"- {line}" for line in visible_text_list) if visible_text_list else "- [none]")
