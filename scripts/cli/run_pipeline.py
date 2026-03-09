@@ -48,9 +48,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--retrieval-top-k", type=int, default=6)
     parser.add_argument("--student-path", default=None, help="Filter to one student source path substring")
     parser.add_argument("--rubric-file", default=None, help="Optional rubric text file for grading")
+    parser.add_argument("--assignment-file", default=None, help="Text file with the actual assignment instructions/questions for grading")
     parser.add_argument("--grading-model", default="gpt-4o-2024-11-20", help="LLM used in grade mode")
-    parser.add_argument("--max-lecture-chars", type=int, default=6000)
-    parser.add_argument("--max-student-chars", type=int, default=8000)
+    parser.add_argument("--max-lecture-chars", type=int, default=12000)
+    parser.add_argument("--max-student-chars", type=int, default=20000)
 
     # Config overrides
     parser.add_argument("--max-pdf-pages", type=int)
@@ -259,6 +260,7 @@ def main() -> int:
 
         out_dir = run_root / "grading"
         rubric_file = Path(args.rubric_file).expanduser().resolve() if args.rubric_file else None
+        assignment_file = Path(args.assignment_file).expanduser().resolve() if args.assignment_file else None
         out_path = run_grading(
             retrieval_jsonl=retrieval_jsonl,
             chunks_jsonl=chunks_jsonl,
@@ -268,6 +270,7 @@ def main() -> int:
             max_lecture_chars=int(args.max_lecture_chars),
             max_student_chars=int(args.max_student_chars),
             rubric_file=rubric_file,
+            assignment_file=assignment_file,
         )
         print(f"Grading written: {out_path}")
         return 0
