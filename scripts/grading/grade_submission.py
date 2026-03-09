@@ -38,6 +38,14 @@ def write_json(path: Path, obj: Any) -> None:
     path.write_text(json.dumps(obj, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
+def anonymize_label(text: str) -> str:
+    """Remove quality hints such as 'good example' / 'bad example' from labels."""
+    t = str(text or "")
+    t = re.sub(r"(?i)\bgood\s+example\b", "example", t)
+    t = re.sub(r"(?i)\bbad\s+example\b", "example", t)
+    return re.sub(r"\s+", " ", t).strip()
+
+
 # ---------------------------------------------------------------------------
 # Data loading
 # ---------------------------------------------------------------------------
@@ -146,6 +154,15 @@ CALIBRATION:
 - 50-69: Limited coverage or significant issues.
 - <50: Major missing/incorrect content.
 - Do not deduct heavily for grammar/style when technical content is strong.
+
+BLIND GRADING REQUIREMENT:
+- Ignore any dataset labels or hints (e.g., filenames, IDs, folder names, words like "good/bad").
+- Grade only the assignment content quality.
+
+DEDUCTION POLICY:
+- Start from full credit in each category and deduct only for explicit missing/incorrect required content.
+- Do NOT deduct for optional enhancements or stylistic preferences.
+- If information appears in diagram/image-extracted text, count it as valid evidence.
 
 Return ONLY valid JSON (no markdown, no extra text):
 {
@@ -454,6 +471,7 @@ def run_grading(
     student_file = "unknown"
     if student_chunks:
         student_file = student_chunks[0].get("metadata", {}).get("filename", "unknown")
+    student_file_for_model = anonymize_label(student_file)
 
     print(f"Student file: {student_file}  |  {len(student_text):,} chars  |  {len(student_chunks)} chunks")
 
@@ -498,7 +516,7 @@ def run_grading(
     user_msg = build_user_message(
         student_text=student_text,
         lecture_context=lecture_context,
-        student_file=student_file,
+        student_file=student_file_for_model,
         rubric_text=rubric_text,
         assignment_text=assignment_text,
         expected_sections=expected_sections,
