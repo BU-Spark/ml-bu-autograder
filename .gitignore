@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 
 
 
@@ -189,3 +190,11 @@ env
 test.py
 cache
 .env.backend-frontend
+=======
+.venv/
+__pycache__/
+*.pyc
+outputs/
+Spring 2026/
+.DS_Store
+>>>>>>> e9c0591 (Initial modular multimodal pipeline with exporters and comparison tools)
