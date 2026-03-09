@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -85,12 +86,25 @@ def retrieve_lecture_context_for_student_chunks(
 ) -> dict[str, Any]:
     try:
         import chromadb
+        from chromadb.utils import embedding_functions
     except Exception as exc:
         raise RuntimeError(f"chromadb import failed: {exc}") from exc
 
     student_chunks = filter_chunks_by_source_type(read_jsonl(student_chunks_jsonl), student_source_type)
     client = chromadb.PersistentClient(path=chroma_path)
-    collection = client.get_or_create_collection(name=chroma_collection)
+
+    embed_fn = None
+    api_key = os.getenv("OPENAI_API_KEY")
+    if api_key:
+        embed_fn = embedding_functions.OpenAIEmbeddingFunction(
+            model_name="text-embedding-3-large",
+            api_key=api_key,
+        )
+
+    if embed_fn is not None:
+        collection = client.get_or_create_collection(name=chroma_collection, embedding_function=embed_fn)
+    else:
+        collection = client.get_or_create_collection(name=chroma_collection)
 
     out_jsonl.parent.mkdir(parents=True, exist_ok=True)
     written = 0

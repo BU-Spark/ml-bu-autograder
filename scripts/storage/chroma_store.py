@@ -1,8 +1,29 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
+
+
+def _build_openai_embedding_function():
+    """
+    Construct an OpenAI embedding function for Chroma using the OPENAI_API_KEY.
+    Falls back to None if chromadb's embedding utilities are unavailable.
+    """
+    try:
+        from chromadb.utils import embedding_functions
+    except Exception:
+        return None
+
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        return None
+    # You can change the model here if desired.
+    return embedding_functions.OpenAIEmbeddingFunction(
+        model_name="text-embedding-3-large",
+        api_key=api_key,
+    )
 
 
 def try_store_chroma(
@@ -18,8 +39,12 @@ def try_store_chroma(
 
     Path(chroma_path).mkdir(parents=True, exist_ok=True)
     try:
+        embed_fn = _build_openai_embedding_function()
         client = chromadb.PersistentClient(path=chroma_path)
-        collection = client.get_or_create_collection(name=chroma_collection)
+        if embed_fn is not None:
+            collection = client.get_or_create_collection(name=chroma_collection, embedding_function=embed_fn)
+        else:
+            collection = client.get_or_create_collection(name=chroma_collection)
 
         ids = [c["id"] for c in chunks]
         docs = [c["content"] for c in chunks]
