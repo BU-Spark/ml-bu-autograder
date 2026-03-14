@@ -95,9 +95,11 @@ def retrieve_lecture_context_for_student_chunks(
 
     embed_fn = None
     api_key = os.getenv("OPENAI_API_KEY")
-    if api_key:
+    use_openai = str(os.getenv("CHROMA_USE_OPENAI_EMBEDDINGS", "0")).strip().lower() in {"1", "true", "yes"}
+    if api_key and use_openai:
+        model_name = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
         embed_fn = embedding_functions.OpenAIEmbeddingFunction(
-            model_name="text-embedding-3-large",
+            model_name=model_name,
             api_key=api_key,
         )
 
@@ -144,4 +146,3 @@ __all__ = [
     "IndexResult",
     "RetrievalItem",
 ]
-

@@ -10,7 +10,12 @@ def _build_openai_embedding_function():
     """
     Construct an OpenAI embedding function for Chroma using the OPENAI_API_KEY.
     Falls back to None if chromadb's embedding utilities are unavailable.
+    Disabled by default; enable with CHROMA_USE_OPENAI_EMBEDDINGS=1.
     """
+    use_openai = str(os.getenv("CHROMA_USE_OPENAI_EMBEDDINGS", "0")).strip().lower() in {"1", "true", "yes"}
+    if not use_openai:
+        return None
+
     try:
         from chromadb.utils import embedding_functions
     except Exception:
@@ -19,9 +24,9 @@ def _build_openai_embedding_function():
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         return None
-    # You can change the model here if desired.
+    model_name = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
     return embedding_functions.OpenAIEmbeddingFunction(
-        model_name="text-embedding-3-large",
+        model_name=model_name,
         api_key=api_key,
     )
 

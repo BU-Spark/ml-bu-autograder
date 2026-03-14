@@ -10,7 +10,7 @@ except Exception:  # pragma: no cover
     load_dotenv = None
 
 
-SUPPORTED_EXTENSIONS = {".pdf", ".xlsx", ".html", ".htm"}
+SUPPORTED_EXTENSIONS = {".pdf", ".pptx", ".xlsx", ".html", ".htm"}
 
 
 DEFAULT_CONFIG: dict[str, Any] = {
@@ -93,5 +93,5 @@ def get_api_key(provider: str) -> str | None:
     if low == "anthropic":
         return os.getenv("ANTHROPIC_API_KEY")
     if low == "gemini":
-        return os.getenv("GEMINI_API_KEY")
+        return os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     return None

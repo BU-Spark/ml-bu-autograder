@@ -570,8 +570,20 @@ python scripts/cli/run_pipeline.py \
   --retrieval-out-jsonl "outputs/final_phase1/run_01/retrieval_results.jsonl" \
   --student-path "Student 1" \
   --rubric-file "docs/rubric.txt" \
+  --grading-provider openai \
   --grading-model "gpt-4o-2024-11-20"
 ```
+
+Web MVP demo (upload PDF -> model select -> grade):
+
+```bash
+streamlit run scripts/cli/mvp_web.py
+```
+
+Notes for web MVP:
+- Upload 3 files in UI: `student submission (.pdf or .xlsx)` + optional `rubric` + optional `assignment instructions`.
+- Rubric/assignment can be `.txt`, `.md`, `.pdf`, or `.docx`.
+- RAG retrieval uses a run-specific Chroma DB and local embeddings by default to avoid OpenAI embedding permission errors.
 
 Note: sections below this block are legacy starter notes from earlier iterations.
 For the current merged architecture, follow the commands in this "Final Unified Pipeline (New)" section.

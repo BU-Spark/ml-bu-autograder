@@ -11,9 +11,11 @@ from extractors import (
     extract_excel,
     extract_html,
     extract_pdf,
+    extract_pptx,
     extracted_excel_to_jsonable,
     extracted_html_to_jsonable,
     extracted_pdf_to_jsonable,
+    extracted_pptx_to_jsonable,
 )
 from storage import try_store_chroma, write_json, write_jsonl, write_per_file_json
 from vision.describer import VisionDescriber, describe_image_with_strategy
@@ -74,6 +76,9 @@ def run_extract(data_dir: Path, run_root: Path, cfg: dict[str, Any]) -> dict[str
             if ext == ".pdf":
                 extracted = extract_pdf(file_path, rel_path, extract_dir, cfg)
                 payload = extracted_pdf_to_jsonable(extracted)
+            elif ext == ".pptx":
+                extracted = extract_pptx(file_path, rel_path, extract_dir, cfg)
+                payload = extracted_pptx_to_jsonable(extracted)
             elif ext == ".xlsx":
                 extracted = extract_excel(file_path, rel_path, extract_dir, cfg)
                 payload = extracted_excel_to_jsonable(extracted)
@@ -333,13 +338,26 @@ def _describe_image_item(
                 stats["vision_json_fallbacks"] += 1
             if result.error:
                 vision_error = result.error
+            # Append OCR text if it contains words not already captured by vision.
+            # This ensures text inside diagrams that vision may have missed is still graded.
+            if ocr_text and len(ocr_text.strip()) >= 10:
+                vision_visible = " ".join(
+                    to_string_list(structured.get("all_visible_text", structured.get("visible_text", [])))
+                ).lower()
+                ocr_lower = ocr_text.lower()
+                # Only append if OCR has at least some unique content (avoids duplication)
+                ocr_words = [w for w in ocr_lower.split() if len(w) > 3]
+                already_covered = sum(1 for w in ocr_words if w in vision_visible)
+                coverage = already_covered / max(1, len(ocr_words))
+                if coverage < 0.7:  # less than 70% of OCR words in vision output → append
+                    content += f"\n\nOCR extracted text from image:\n{ocr_text}"
         else:
             vision_error = result.error or "vision_strategy_failed_without_output"
             fallback = [f"[vision_error] {vision_error}"]
             if caption_text:
                 fallback.append(f"Caption hint: {caption_text}")
             if ocr_text:
-                fallback.append(f"OCR fallback: {ocr_text}")
+                fallback.append(f"OCR text: {ocr_text}")
             content = " ".join(fallback)
 
     meta = {
@@ -636,6 +654,65 @@ def run_describe(
                         min_text_chars=int(cfg["min_text_chars"]),
                         extra_meta={"element_tag": t.get("element_tag")},
                     )
+            elif file_type == "pptx":
+                text_blocks = payload.get("text_blocks", [])
+                images = payload.get("images", [])
+                units: list[dict[str, Any]] = []
+                for t in text_blocks:
+                    units.append({"kind": "text", "order": int(t.get("document_order", 0)), "item": t})
+                for im in images:
+                    units.append({"kind": "image", "order": int(im.get("document_order", 0)), "item": im})
+                units.sort(key=lambda u: u["order"])
+
+                # PPTX shapes often carry short but meaningful labels (e.g. "Approved",
+                # "Data needed:", decision-node text, slide titles).  Use a much lower
+                # threshold than the PDF default so these are never silently dropped.
+                pptx_min_text_chars = 5
+
+                for unit in units:
+                    if unit["kind"] == "text":
+                        t = unit["item"]
+                        fstats["text_chunks"] += _append_text_chunks(
+                            chunks,
+                            rel_path=rel_path,
+                            file_name=file_name,
+                            source_type=source_type,
+                            fmt="pptx",
+                            page_number=int(t["page_number"]),
+                            block_index=int(t["block_index"]),
+                            document_order=int(t["document_order"]),
+                            text=str(t["text"]),
+                            max_chars=int(cfg["text_chunk_chars"]),
+                            overlap=int(cfg["text_chunk_overlap"]),
+                            min_text_chars=pptx_min_text_chars,
+                            extra_meta={
+                                "block_id": t.get("block_id"),
+                                "bbox": t.get("bbox"),
+                                "shape_name": t.get("shape_name"),
+                                "shape_type": t.get("shape_type"),
+                            },
+                        )
+                    else:
+                        im = unit["item"]
+                        image_chunk, s = _describe_image_item(
+                            im,
+                            rel_path=rel_path,
+                            file_name=file_name,
+                            source_type=source_type,
+                            fmt="pptx",
+                            page_number=int(im["page_number"]),
+                            block_index=int(im["block_index"]),
+                            document_order=int(im["document_order"]),
+                            vision=vision,
+                            vision_provider=vision_provider,
+                            vision_model=vision_model,
+                            cfg=cfg,
+                        )
+                        chunks.append(image_chunk)
+                        fstats["image_chunks"] += 1
+                        fstats["vision_chunks"] += 1
+                        for k, v in s.items():
+                            fstats[k] += int(v)
 
             for k in totals:
                 totals[k] += int(fstats.get(k, 0))

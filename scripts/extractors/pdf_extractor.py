@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import logging
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
@@ -23,6 +24,10 @@ try:
     import camelot
 except Exception:  # pragma: no cover
     camelot = None
+
+# Suppress noisy parser warnings from third-party PDF stack.
+for _logger_name in ("pdfminer", "camelot", "pypdf"):
+    logging.getLogger(_logger_name).setLevel(logging.ERROR)
 
 
 @dataclass
@@ -111,21 +116,50 @@ def normalize_cell(v: Any) -> str:
 
 
 def _df_to_text(df: Any, title: str) -> str:
+    """Convert a Camelot DataFrame to rich structured text for LLM grading.
+    Produces both a markdown-style grid and a key:value row format so the
+    grader can read tabular data clearly.
+    """
     if df is None or len(df) == 0:
         return f"TABLE: {title}\n\n(Empty table)\n"
-    headers = [normalize_cell(h) for h in df.iloc[0].tolist()]
-    rows_text: list[str] = [f"TABLE: {title}\n"]
-    rows_text.append("Columns: " + " | ".join(headers) + "\n")
-    for i in range(1, len(df)):
-        row = [normalize_cell(x) for x in df.iloc[i].tolist()]
+
+    all_rows = [[normalize_cell(c) for c in row] for row in df.values.tolist()]
+
+    # Detect header row: first row if it has more non-empty cells than subsequent average
+    headers = all_rows[0] if all_rows else []
+    data_rows = all_rows[1:] if len(all_rows) > 1 else all_rows
+
+    out: list[str] = [f"TABLE: {title}"]
+
+    # Markdown grid (easy for LLM to parse structure)
+    if headers:
+        header_line = " | ".join(h if h else "(col)" for h in headers)
+        sep_line = " | ".join("---" for _ in headers)
+        out.append(header_line)
+        out.append(sep_line)
+        for row in data_rows:
+            # Pad row to header length
+            padded = row + [""] * max(0, len(headers) - len(row))
+            out.append(" | ".join(c if c else "" for c in padded[:len(headers)]))
+
+    out.append("")  # blank line
+
+    # Key-value format for each row (easier for evidence matching)
+    for i, row in enumerate(data_rows, 1):
         if all(not c for c in row):
             continue
-        rows_text.append(f"\nRow {i}:")
+        row_parts: list[str] = []
         for h, c in zip(headers, row):
-            if not h or not c:
-                continue
-            rows_text.append(f"  {h}: {c}")
-    return "\n".join(rows_text)
+            if c:
+                row_parts.append(f"{h}: {c}" if h else c)
+        # Include any extra cells beyond header count
+        for extra_c in row[len(headers):]:
+            if extra_c:
+                row_parts.append(extra_c)
+        if row_parts:
+            out.append(f"Row {i}: " + " | ".join(row_parts))
+
+    return "\n".join(out)
 
 
 def _is_meaningful_table(df: Any) -> bool:

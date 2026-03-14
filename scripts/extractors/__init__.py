@@ -1,6 +1,7 @@
 from .pdf_extractor import ExtractedPDF, extract_pdf, extracted_pdf_to_jsonable
 from .excel_extractor import ExtractedExcel, extract_excel, extracted_excel_to_jsonable
 from .html_extractor import ExtractedHTML, extract_html, extracted_html_to_jsonable
+from .pptx_extractor import ExtractedPPTX, extract_pptx, extracted_pptx_to_jsonable
 
 __all__ = [
     "ExtractedPDF",
@@ -12,4 +13,7 @@ __all__ = [
     "ExtractedHTML",
     "extract_html",
     "extracted_html_to_jsonable",
+    "ExtractedPPTX",
+    "extract_pptx",
+    "extracted_pptx_to_jsonable",
 ]
