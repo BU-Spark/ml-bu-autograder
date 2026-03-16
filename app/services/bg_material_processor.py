@@ -165,7 +165,8 @@ def process_course_material(json_str: str):
     course_material = CourseMaterialData.model_validate_json(json_str)
     #  Step 2: Convert the binary data of the course material into document chunks using
     #          bytes_to_doc_util.py.
-    to_doc_func = course_material.data.data_type.get_to_doc_func()
+    _USE_MINERU = os.getenv("USE_MINERU", "false").lower() == "true"
+    to_doc_func = course_material.data.data_type.get_to_doc_func(use_mineru=_USE_MINERU)
     document: Document = to_doc_func(
         f"{course_material.material_id}.{course_material.data.data_type.extension}",
         course_material.data.content_as_bytes(),

@@ -1,0 +1,8 @@
+# Optional: MinerU (magic-pdf) for structured PDF extraction.
+# Install after app/requirements.txt: pip install -r requirements-mineru.txt
+# Requires model files at path in ~/magic-pdf.json. Set USE_MINERU=true to enable.
+#
+# Pinned versions to avoid breaking upgrades (opencv/pycocotools can be fragile).
+magic-pdf[full]==1.3.12
+opencv-python-headless>=4.8.0,<5.0.0
+pycocotools>=2.0.6,<3.0.0
