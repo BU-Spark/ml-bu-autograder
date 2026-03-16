@@ -181,6 +181,9 @@ __pycache__/
 .env
 .ipynb_checkpoints
 app.log
+app/outputs/
+app/scripts/**/__pycache__/
+app/scripts/**/*.pyc
 app/utils/test,py
 app/utils/legacy_vector_store.py
 test,py

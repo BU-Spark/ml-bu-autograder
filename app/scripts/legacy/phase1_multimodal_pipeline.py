@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Phase 2 multimodal extraction utility:
+Phase 2 multimodal extraction pipeline:
 - PDF: text blocks + images (with nearest-caption matching + block ordering)
 - Excel: sheet table extraction + embedded images
 - HTML: cleaned element extraction
