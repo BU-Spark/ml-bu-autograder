@@ -25,3 +25,16 @@ pydub==0.25.1
 Pillow==10.4.0
 pytesseract==0.3.13
 python-docx==1.2.0
+anthropic==0.49.0
+
+# Multimodal extraction / grading pipeline under app/scripts
+pandas>=2.0.0
+pypdf>=4.0.0
+matplotlib>=3.8.0
+opencv-python-headless>=4.10.0
+pypdfium2>=4.30.0
+python-pptx>=1.0.2
+camelot-py[base]>=0.11.0
+python-dotenv>=1.0.0
+flask>=3.0.0
+beautifulsoup4>=4.12.0
