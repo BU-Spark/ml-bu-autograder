@@ -167,11 +167,14 @@ def process_course_material(json_str: str):
     #          bytes_to_doc_util.py.
     _USE_MINERU = os.getenv("USE_MINERU", "false").lower() == "true"
     to_doc_func = course_material.data.data_type.get_to_doc_func(use_mineru=_USE_MINERU)
-    document: Document = to_doc_func(
+    document: Optional[Document] = to_doc_func(
         f"{course_material.material_id}.{course_material.data.data_type.extension}",
         course_material.data.content_as_bytes(),
         True
     )
+    if document is None:
+        logging.error("Failed to convert course material to document chunks.")
+        return
     #  Step 3: Upload these chunks to azure and get the blob paths
     blob_uploader = AzureBlobService.get_instance()
     uploaded_chunks: Dict[int, str] = blob_uploader.upload_material_chunks(

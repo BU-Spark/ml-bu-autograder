@@ -2,11 +2,10 @@ import base64
 import logging
 import shutil
 import tempfile
-from builtins import bytes
 from enum import Enum
 from io import BytesIO
 from pathlib import Path
-from typing import Dict, List, Tuple, Any, Optional, Protocol, Callable, Literal
+from typing import Dict, List, Tuple, Any, Optional, Callable, Literal
 
 import fitz  # PyMuPDF
 from pydantic import BaseModel, field_validator  # Use pydantic BaseModel for DocumentChunk
@@ -270,8 +269,9 @@ class Document:
             binary_stream = BytesIO(file_bytes)
             try:
                 doc = fitz.open(stream=binary_stream, filetype="pdf")
-            except FileDataError as e:
+            except FileDataError:
                 logging.error("Failed to open pdf file. Is this even a PDF?")
+                return None
 
             for page_num_zero_based, page in enumerate(doc):
                 page_num_one_based = page_num_zero_based + 1
