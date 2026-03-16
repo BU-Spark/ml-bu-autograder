@@ -560,17 +560,25 @@ class Document:
                         if not img_file.is_absolute():
                             img_file = work_dir / img_file
 
-                        if not img_file.exists():
-                            logging.warning(f"MinerU image path not found: {img_file}")
+                        resolved_img = img_file.resolve()
+                        work_dir_resolved = work_dir.resolve()
+                        if not resolved_img.is_relative_to(work_dir_resolved):
+                            logging.warning(
+                                f"MinerU image path outside work_dir, skipping: {resolved_img}"
+                            )
                             continue
 
-                        img_bytes = img_file.read_bytes()
+                        if not resolved_img.exists():
+                            logging.warning(f"MinerU image path not found: {resolved_img}")
+                            continue
+
+                        img_bytes = resolved_img.read_bytes()
                         if len(img_bytes) < min_image_bytes:
                             continue
 
-                        data_type = DataType.from_extension(img_file.suffix.lstrip(".").lower())
+                        data_type = DataType.from_extension(resolved_img.suffix.lstrip(".").lower())
                         if data_type is None:
-                            logging.warning(f"Skipping MinerU image with unknown extension: {img_file.suffix}")
+                            logging.warning(f"Skipping MinerU image with unknown extension: {resolved_img.suffix}")
                             continue
 
                         meta: Dict[str, Any] = {"page_num": [page_num], "element_type": "IMAGE"}

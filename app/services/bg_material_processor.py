@@ -167,11 +167,18 @@ def process_course_material(json_str: str):
     #          bytes_to_doc_util.py.
     _USE_MINERU = os.getenv("USE_MINERU", "false").lower() == "true"
     to_doc_func = course_material.data.data_type.get_to_doc_func(use_mineru=_USE_MINERU)
-    document: Optional[Document] = to_doc_func(
-        f"{course_material.material_id}.{course_material.data.data_type.extension}",
-        course_material.data.content_as_bytes(),
-        True
-    )
+    try:
+        document: Optional[Document] = to_doc_func(
+            f"{course_material.material_id}.{course_material.data.data_type.extension}",
+            course_material.data.content_as_bytes(),
+            True
+        )
+    except Exception as e:
+        logging.error(
+            "Failed to convert course material to document chunks: %s", e, exc_info=True
+        )
+        return
+
     if document is None:
         logging.error("Failed to convert course material to document chunks.")
         return
