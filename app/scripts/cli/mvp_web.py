@@ -28,7 +28,7 @@ DEFAULT_RUBRIC_ROOT = Path("/Users/sai/Downloads/Spring 2026 2/Assignment Rubric
 MODEL_BY_PROVIDER = {
     "openai": "gpt-4o-2024-11-20",
     "gemini": "gemini-2.5-flash",
-    "anthropic": "claude-sonnet-4-20250514",
+    "anthropic": "claude-sonnet-4-6",
 }
 
 NOISY_PATTERNS = [

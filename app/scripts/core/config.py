@@ -17,8 +17,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
     # image filtering (friend)
     "min_area": 30_000,
     "min_side": 80,
-    "max_aspect_ratio": 8.0,
-    "min_aspect_ratio": 0.1,
+    "max_aspect_ratio": 15.0,   # allow tall flowcharts and wide Gantt charts (was 8.0)
+    "min_aspect_ratio": 0.067,  # 1:15 — very tall diagrams still accepted (was 0.1)
     "page_margin_pct": 0.07,
     # caption scoring (friend)
     "caption_vertical_window": 120,
@@ -47,7 +47,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     # OCR (sai)
     "ocr_word_threshold": 45,
     "ocr_char_threshold": 280,
-    "ocr_min_confidence_for_scanned": 55.0,
+    "ocr_min_confidence_for_scanned": 70.0,  # raised from 55% — rejects low-confidence gibberish
     # excel table chunking (sai)
     "table_rows_per_chunk": 35,
     # bounds

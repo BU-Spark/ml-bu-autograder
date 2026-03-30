@@ -39,10 +39,19 @@ def write_json(path: Path, obj: Any) -> None:
 
 
 def anonymize_label(text: str) -> str:
-    """Remove quality hints such as 'good example' / 'bad example' from labels."""
+    """Remove quality hints from filenames/labels to ensure blind grading."""
     t = str(text or "")
+    # Good/bad example labels
     t = re.sub(r"(?i)\bgood\s+example\b", "example", t)
     t = re.sub(r"(?i)\bbad\s+example\b", "example", t)
+    # Solution / answer key / exemplar / reference hints
+    # Use (?<![A-Za-z0-9]) to match even after underscores (underscores are \w so \b doesn't work)
+    t = re.sub(
+        r"(?i)(?<![A-Za-z0-9])(solution|answer[_\s-]?key|exemplar|model[_\s-]?answer"
+        r"|reference[_\s-]?answer|instructor[_\s-]?example|sample[_\s-]?answer)(?![A-Za-z0-9])",
+        "submission",
+        t,
+    )
     return re.sub(r"\s+", " ", t).strip()
 
 
@@ -234,20 +243,11 @@ DEFAULT_RUBRIC_CRITERIA: list[dict[str, Any]] = [
 
 
 SYSTEM_PROMPT = """\
-You are a fair and calibrated grader for a graduate-level Health Informatics course.
-Your goal is accurate, not harsh, grading. Submissions that are genuinely complete should score 90–100.
-Submissions with meaningful gaps should score 70–85. Only clearly poor work should score below 65.
+You are an expert grader for a graduate-level university course.
 
 BLIND GRADING:
 - Ignore filename/folder labels such as "good example" or "bad example".
 - Grade only the submission content against the assignment instructions and rubric.
-
-CALIBRATION ANCHORS (internalize before grading):
-- 95–100%: Submission addresses all or nearly all checklist items with clear, substantive content.
-  Minor omissions or imperfect phrasing do NOT bring this below 90%.
-- 80–90%: Submission addresses most items well; 1–2 items are thin or missing.
-- 65–79%: Submission has noticeable gaps — several items missing or only superficially covered.
-- Below 65%: Submission is substantially incomplete or fundamentally misses the assignment.
 
 GRADING METHOD — FOLLOW EXACTLY FOR EACH CRITERION:
 
@@ -257,20 +257,32 @@ Step 1 — Identify checklist items:
   If no ☐ items exist, use your holistic judgment to estimate checklist_pct.
 
 Step 2 — Evaluate each ☐ item against the student submission:
-  YES     = the concept or requirement is present in the submission, even if phrased differently
-            or not labeled explicitly. Credit the substance, not the exact wording.
-  PARTIAL = the item is only touched on briefly, is vague, or clearly incomplete.
-  NO      = the item is entirely absent or what is present is factually wrong.
+  YES     = demonstrated — concept present, even if phrasing differs from the rubric wording.
+            Use YES when the student clearly addresses the concept in any form.
+  PARTIAL = any attempt, partial mention, implied coverage, or related concept present.
+            Give PARTIAL if the student shows ANY awareness of the concept even if brief or incomplete.
+            When uncertain between YES and PARTIAL → choose YES.
+            When uncertain between PARTIAL and NO → choose PARTIAL.
+  NO      = completely absent — zero reference, no attempt, not even implied anywhere in the submission.
+            Reserve NO only when you are confident the concept is truly missing.
 
-  BENEFIT OF DOUBT:
-  - If you can find any reasonable evidence for an item, mark YES.
-  - Only mark PARTIAL if the attempt is genuinely thin or incomplete.
-  - Only mark NO if the item is completely missing or incorrect.
-  - Do NOT penalize students for not using exact rubric terminology.
-  - Do NOT mark NO just because evidence is implicit rather than explicit.
+  GRADUATE STUDENT STANDARD — CRITICAL:
+  - These are graduate-level professional students. They often use different terminology
+    than the rubric but demonstrate the same understanding. Judge SUBSTANCE, not wording.
+  - A passing reference or one-sentence mention = PARTIAL (not NO).
+  - Incorrect but relevant attempt = PARTIAL (not NO).
+  - Only use NO when the concept is genuinely absent from the entire submission.
+
+  CALIBRATION GUIDE (use these anchors):
+  - Student covers all items adequately (no deep detail needed) → checklist_pct ~92–95%
+  - Student covers 80% of items well, rest partially → checklist_pct ~88–90%
+  - Student covers most items but misses 2 entirely → checklist_pct ~78–82%
+  - Student covers about half the items → checklist_pct ~65–70%
+  - Only drop below 60% if the student clearly missed most of the items
+  - Do NOT penalize for phrasing, style, or diagram format choice
 
 Step 3 — Compute checklist_pct:
-  checklist_pct = (yes_count + 0.75 × partial_count) / total_items × 100
+  checklist_pct = (yes_count + 0.67 × partial_count) / total_items × 100
 
 Step 4 — Apply GRADE BAND TABLE to get awarded_points:
   95–100% → multiply max_points by 1.000
@@ -281,16 +293,38 @@ Step 4 — Apply GRADE BAND TABLE to get awarded_points:
   70–74%  → multiply max_points by 0.733
   65–69%  → multiply max_points by 0.700
   60–64%  → multiply max_points by 0.633
-  55–59%  → multiply max_points by 0.600
-  below 55% → multiply max_points by 0.500
+  55–59%  → multiply max_points by 0.567
+  50–54%  → multiply max_points by 0.533
+  below 50% → multiply max_points by 0.500
 
   Round awarded_points to nearest 0.5.
 
 IMPORTANT RULES:
 - Images, diagrams, and tables in the submission ARE valid evidence — reference them as [IMAGE Page N] or [TABLE Page N].
+- Structured tables that map workflow steps to data, people, EHR features, or process stages are a VALID form of workflow representation. When a student uses tables instead of a visual swim-lane diagram, apply these equivalencies for checklist evaluation:
+  • "Swim lanes shown" → PARTIAL/YES if table has a "Who is Involved" or "People" column organized per process step
+  • "Decision points / Y/N flags shown" → PARTIAL if the text or table describes conditional steps, approval gates, or alternative paths
+  • "Branching shown" → PARTIAL if multiple process paths or conditional outcomes are described in text or table rows
+  • "Process steps listed" → YES if table rows clearly enumerate workflow steps in order
+  Do NOT mark all diagram-specific items as NO just because there is no visual diagram — use the PARTIAL grade for items that are implied or represented in tabular form.
 - Do NOT deduct for items not explicitly in the rubric or assignment.
 - Do NOT assign the same score to every criterion — differentiate based on evidence quality.
 - missing_items must name specific ☐ checklist items that were NO or missing.
+
+LECTURE CONTEXT — HOW TO USE IT:
+The === LECTURE CONTEXT === section contains retrieved course material relevant to this submission.
+- Use it to verify whether the student's claims, terminology, and concepts align with what was taught.
+- When a student's answer matches or references lecture content → mark checklist items YES and cite it.
+- When lecture context is rich and corroborates the student's work → confidence should be HIGH (0.85–1.0).
+- When lecture context is sparse or doesn't cover the student's topic → confidence should be MODERATE (0.65–0.80).
+- When no lecture context is available at all → confidence should be LOWER (0.50–0.65).
+
+CONFIDENCE CALIBRATION:
+- 0.90–1.00: You have a specific rubric, rich lecture context, and the student submission is clear and complete.
+- 0.75–0.89: You have a rubric and some lecture context, but some checklist items required interpretation.
+- 0.60–0.74: Limited lecture context OR rubric is vague OR submission text is sparse/unclear.
+- Below 0.60: No rubric provided, no lecture context, or submission is largely unreadable/missing.
+Do NOT default to low confidence when you have sufficient rubric + lecture context to make a clear judgment.
 
 OUTPUT COMPACTNESS (CRITICAL — prevent truncation):
 - justification: max 30 words
@@ -330,26 +364,42 @@ Return ONLY valid JSON:
 
 def detect_expected_sections(text: str) -> list[str]:
     """
-    Detect numbered sections like:
-      1. ...       Q1. ...
-      2) ...       Q2. ...
-      Section 3 ...
-    Returns stable IDs: ["Q1", "Q2", ...]
+    Detect numbered or lettered sections like:
+      1. ...   Q1. ...   1) ...   Section 1: ...
+      Part A:  Part A.   Part A)
+      Question 1:  Q1:
+    Returns stable IDs: ["Q1", "Q2", ...] or ["PA", "PB", ...]
     """
-    # Match both plain numbers (1. 2)) and Q-prefixed (Q1. Q2.)
-    matches = re.findall(
-        r"(?im)^\s*(?:section\s+)?(?:Q)?([1-9][0-9]?)\s*[\.\)]\s+",
-        text or "",
-    )
-    ordered_unique: list[int] = []
-    seen: set[int] = set()
-    for m in matches:
-        n = int(m)
-        if n not in seen:
-            seen.add(n)
-            ordered_unique.append(n)
-    ordered_unique.sort()
-    return [f"Q{n}" for n in ordered_unique]
+    t = text or ""
+    results: list[str] = []
+    seen: set[str] = set()
+
+    def _add(sid: str) -> None:
+        sid = sid.upper()
+        if sid not in seen:
+            seen.add(sid)
+            results.append(sid)
+
+    # Numeric sections: "1.", "1)", "Q1.", "Q1)", "Section 1", "Question 1", with optional colon
+    for m in re.finditer(
+        r"(?im)^\s*(?:section|question|q)?\s*([1-9][0-9]?)\s*[\.\)\:]\s*\S",
+        t,
+    ):
+        _add(f"Q{m.group(1)}")
+
+    # Lettered parts: "Part A", "Part A:", "Part A.", "Part A)"
+    for m in re.finditer(
+        r"(?im)^\s*(?:part|section)\s+([A-Fa-f])\s*[\.\)\:\s]",
+        t,
+    ):
+        _add(f"P{m.group(1).upper()}")
+
+    # Sort numeric IDs by number, letter IDs alphabetically
+    numeric = sorted([s for s in results if s.startswith("Q") and s[1:].isdigit()],
+                     key=lambda x: int(x[1:]))
+    alpha = sorted([s for s in results if s.startswith("P")])
+    other = [s for s in results if s not in numeric and s not in alpha]
+    return numeric + alpha + other
 
 
 def _clean_ws(text: str) -> str:
@@ -437,34 +487,25 @@ def extract_rubric_criteria(rubric_text: str) -> list[dict[str, Any]]:
                 continue
             seen.add(key)
 
-            # Scan forward from this line to collect checklist items in the
-            # feedback block (lines starting with ☐ or after "Feedback:" header),
-            # stopping at the next criterion "(N points)" marker.
-            feedback_lines: list[str] = []
-            for fwd in range(idx + 1, min(len(lines), idx + 60)):
-                fwd_line = lines[fwd]
-                # Stop if we hit the next criterion's points marker
-                if re.search(r"\(\d{1,3}\s*points?\)", fwd_line, flags=re.IGNORECASE):
-                    break
-                feedback_lines.append(fwd_line)
-            checklist_items = _extract_checklist_items_from_text("\n".join(feedback_lines))
-
             parsed.append(
                 {
                     "criterion_id": f"C{len(parsed) + 1}",
                     "criterion_name": left,
                     "max_points": float(pts),
-                    "checklist_items": checklist_items,
                 }
             )
-            break
+            # Do NOT break — a line can have multiple criteria (e.g. "A (30 pts) or B (20 pts)")
 
-    # Keep usable rubric: typical assignment has 3-8 criteria; total usually ~100.
+    # Keep usable rubric: widen range to support small quizzes (≥20 pts) and large projects (≤250 pts).
     if not parsed:
         return []
     total = sum(float(c["max_points"]) for c in parsed)
-    if total < 60 or total > 140:
-        # likely parsing noise, better fallback to default criteria.
+    if total < 20 or total > 250:
+        print(
+            f"WARNING: Rubric total {total} pts is outside expected range (20–250). "
+            "Falling back to default criteria. Check rubric formatting.",
+            file=__import__("sys").stderr,
+        )
         return []
     return parsed
 
@@ -608,10 +649,15 @@ def extract_rubric_criteria_from_docx(path: Path) -> list[dict[str, Any]]:
                     continue
                 seen.add(key)
 
-                # Extract checklist items: prefer the feedback/criteria column (last col),
-                # then fall back to scanning all cells.
-                feedback_col = raw_cells[-1] if len(raw_cells) > 1 else ""
-                checklist_items = _extract_checklist_items_from_text(feedback_col)
+                # Extract checklist items: try each column from longest to shortest
+                # (longest text column most likely contains the criteria/feedback).
+                # Fall back to scanning all cells if nothing found in any single column.
+                checklist_items: list[str] = []
+                col_candidates = sorted(raw_cells, key=len, reverse=True)
+                for col_text in col_candidates:
+                    checklist_items = _extract_checklist_items_from_text(col_text)
+                    if checklist_items:
+                        break
                 if not checklist_items:
                     full_row_raw = "\n".join(raw_cells)
                     checklist_items = _extract_checklist_items_from_text(full_row_raw)
@@ -641,7 +687,13 @@ def extract_rubric_criteria_from_docx(path: Path) -> list[dict[str, Any]]:
                     criteria[current_criterion_idx]["checklist_items"] = existing
 
     total = sum(float(c["max_points"]) for c in criteria)
-    if not criteria or total < 60 or total > 140:
+    if not criteria or total < 20 or total > 250:
+        if criteria:
+            print(
+                f"WARNING: Rubric table total {total} pts is outside expected range (20–250). "
+                "Falling back to default criteria. Check rubric formatting.",
+                file=__import__("sys").stderr,
+            )
         return []
     return criteria
 
@@ -656,9 +708,18 @@ def build_user_message(
     expected_sections: list[str],
     max_student_chars: int,
 ) -> str:
-    student_excerpt = student_text[:max_student_chars]
+    # If submission exceeds limit, keep the first 70% and last 30% so both
+    # the introduction AND the conclusion sections are always visible to the grader.
     if len(student_text) > max_student_chars:
-        student_excerpt += "\n\n[... content truncated ...]"
+        head = int(max_student_chars * 0.70)
+        tail = max_student_chars - head
+        student_excerpt = (
+            student_text[:head]
+            + f"\n\n[... {len(student_text) - max_student_chars:,} chars omitted — middle section ...]\n\n"
+            + student_text[-tail:]
+        )
+    else:
+        student_excerpt = student_text
 
     if expected_sections:
         sections_line = f"Expected sections: {', '.join(expected_sections)}."
@@ -677,8 +738,8 @@ def build_user_message(
         f"{json.dumps(rubric_criteria, ensure_ascii=True, indent=2)}\n\n"
         "=== RUBRIC ===\n"
         f"{rubric_text or '(No rubric provided)'}\n\n"
-        "=== LECTURE CONTEXT ===\n"
-        f"{lecture_context}\n\n"
+        "=== LECTURE CONTEXT (use to verify student claims and calibrate confidence) ===\n"
+        f"{lecture_context or '(No lecture context retrieved — grade from rubric and submission only, set confidence ≤ 0.65)'}\n\n"
         "=== STUDENT SUBMISSION ===\n"
         f"{student_excerpt}"
     )
@@ -1075,7 +1136,7 @@ GRADING_PROVIDERS = {
 DEFAULT_GRADING_MODELS = {
     "openai": "gpt-4o-2024-11-20",
     "gemini": "gemini-2.5-flash",
-    "anthropic": "claude-sonnet-4-20250514",
+    "anthropic": "claude-sonnet-4-6",
 }
 
 
@@ -1113,19 +1174,24 @@ def _evidence_match_count(evidence_refs: list[str], student_text: str) -> int:
     st_tokens = set(st.split())
     hits = 0
     for ref in evidence_refs:
+        # Image/table references like "[IMAGE Page 3]" or "[TABLE Page 2]" are always valid
+        ref_stripped = ref.strip()
+        if re.match(r"(?i)^\[(image|table|figure|diagram|chart|slide)", ref_stripped):
+            hits += 1
+            continue
         token = _normalize_student_text_for_match(ref)
-        if len(token) < 10:
+        if len(token) < 8:
             continue
         if token in st:
             hits += 1
             continue
-        # Fuzzy fallback: token overlap (handles punctuation/quote variations).
-        ref_tokens = [t for t in token.split() if len(t) >= 4]
-        if len(ref_tokens) < 3:
+        # Fuzzy fallback: relaxed token overlap (was 3+/50%, now 2+/35%)
+        ref_tokens = [t for t in token.split() if len(t) >= 3]
+        if len(ref_tokens) < 2:
             continue
         overlap = sum(1 for t in set(ref_tokens) if t in st_tokens)
         ratio = overlap / max(1, len(set(ref_tokens)))
-        if overlap >= 3 and ratio >= 0.5:
+        if overlap >= 2 and ratio >= 0.35:
             hits += 1
     return hits
 
@@ -1138,18 +1204,20 @@ def _assignment_requires_workflow_diagram(assignment_text: str) -> bool:
 def _student_has_diagram_evidence(student_text: str, student_chunks: list[dict[str, Any]]) -> bool:
     """
     Return True if the student likely submitted a workflow diagram.
-    Checks two signals:
+    Checks three signals:
     1. Any image chunk in the describe output (diagram as image/figure in PDF).
-    2. Diagram-related keywords in student text (BPMN terms, figure refs, swimlane, etc.).
+    2. Any table chunk — structured tables with process steps are valid workflow representations.
+    3. Diagram-related keywords in student text (BPMN terms, figure refs, swimlane, etc.).
     """
     # 1. Any image-type chunk present
+    # 2. Any table chunk — tables describing process steps count as workflow evidence
     for c in student_chunks:
         md = c.get("metadata", {}) or {}
         ctype = str(md.get("content_type", "")).lower()
-        if "image" in ctype:
+        if "image" in ctype or "table" in ctype:
             return True
 
-    # 2. Text keywords indicating a diagram was described or referenced
+    # 3. Text keywords indicating a diagram or structured workflow was described/referenced
     t = _normalize_student_text_for_match(student_text)
     diagram_keywords = [
         "swim lane", "swimlane", "swim-lane",
@@ -1163,6 +1231,8 @@ def _student_has_diagram_evidence(student_text: str, student_chunks: list[dict[s
         "bpmn", "uml diagram",
         "the diagram", "in the diagram", "refer to diagram",
         "step 1", "step 2", "step 3",  # numbered workflow steps
+        "[table page",  # table reference markers from PDF/PPTX extraction
+        "process step", "workflow step",
     ]
     return any(kw in t for kw in diagram_keywords)
 
@@ -1309,13 +1379,22 @@ def normalize_grade_result(
         evidence_hits = _evidence_match_count(evidence_refs, student_text)
 
         # Anti-hallucination guard: cap criterion at 60% of max when no evidence found.
-        # Skip this cap for image-heavy submissions — evidence may be in diagrams/tables, not text.
-        has_image_chunks = any(
-            "image" in str(c.get("metadata", {}).get("content_type", "")).lower()
+        # Skip for: image/table chunks, PPTX shape-based diagrams (layout summary text),
+        # or any submission where the text itself describes visual/diagram content.
+        has_image_or_table_chunks = any(
+            ("image" in str(c.get("metadata", {}).get("content_type", "")).lower()
+             or "table" in str(c.get("metadata", {}).get("content_type", "")).lower())
             for c in student_chunks
         )
+        # PPTX shape-only diagrams produce layout summary text blocks — detect them
+        has_pptx_diagram_summary = (
+            "workflow diagram" in student_text.lower()
+            or "flowchart" in student_text.lower()
+            or "decision point" in student_text.lower()
+            or "process step" in student_text.lower()
+        )
         no_evidence_cap_applied = False
-        if evidence_hits == 0 and not has_image_chunks and not grade_band_snapped:
+        if evidence_hits == 0 and not has_image_or_table_chunks and not has_pptx_diagram_summary and not grade_band_snapped:
             cap_val = round(max_points * 0.60, 2)
             if awarded > cap_val:
                 awarded = cap_val
@@ -1359,6 +1438,7 @@ def normalize_grade_result(
     # Deterministic scoring
     raw_total = round(sum(score_breakdown.values()), 2)
     final_score = raw_total
+    pre_cap_score = raw_total  # preserve original for audit trail
     policy_caps: list[str] = []
 
     # Cap for missing required workflow diagram deliverable.
@@ -1369,6 +1449,8 @@ def normalize_grade_result(
                 policy_caps.append("missing_required_workflow_diagram_cap_78")
 
     # Cap for missing assignment sections.
+    # Only fires when 2+ sections are missing or 3+ are partial — a single missing/partial
+    # section may reflect grader strictness rather than a genuine structural omission.
     if expected_sections:
         sec_map = {str(s.get("section_id", "")).upper(): str(s.get("status", "")) for s in section_coverage}
         missing_count = 0
@@ -1379,21 +1461,15 @@ def normalize_grade_result(
                 missing_count += 1
             elif st == "partial":
                 partial_count += 1
-        if missing_count > 0 or partial_count > 1:
-            # deterministic conservative cap
-            section_cap = max(55.0, 100.0 - (missing_count * 15.0) - (partial_count * 6.0))
+        if missing_count > 1 or partial_count > 3:
+            # Softer deterministic cap: 10 pts per missing section, 3 pts per partial,
+            # floor at 65 so even worst-case submissions get some credit.
+            section_cap = max(65.0, 100.0 - (missing_count * 10.0) - (partial_count * 3.0))
             if final_score > section_cap:
                 final_score = round(section_cap, 2)
                 policy_caps.append(
                     f"section_coverage_cap_missing_{missing_count}_partial_{partial_count}"
                 )
-
-    # Professor-calibration boost: Claude grades ~10 pts conservative vs holistic grading.
-    # Only applied to submissions that scored above the floor (not genuinely poor work).
-    CALIBRATION_BOOST = 18.0
-    CALIBRATION_FLOOR = 50.0
-    if final_score >= CALIBRATION_FLOOR:
-        final_score = min(100.0, final_score + CALIBRATION_BOOST)
 
     overall_feedback = _clean_ws(str(result.get("overall_feedback", result.get("overallFeedback", ""))))
     if not overall_feedback:
@@ -1406,6 +1482,7 @@ def normalize_grade_result(
     return {
         "student_file": str(result.get("student_file", student_file)).strip() or student_file,
         "overall_score": round(max(0.0, min(100.0, final_score)), 2),
+        "pre_cap_score": round(pre_cap_score, 2),   # score before any policy cap — for transparency
         "overall_feedback": overall_feedback,
         "score_breakdown": score_breakdown,
         "criterion_details": criterion_details,
@@ -1442,7 +1519,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--model", default=None, help="Model name (default: provider's default model)")
     parser.add_argument("--max-lecture-chars", type=int, default=12000)
-    parser.add_argument("--max-student-chars", type=int, default=20000)
+    parser.add_argument("--max-student-chars", type=int, default=40000)
     parser.add_argument(
         "--rubric-file",
         default=None,
@@ -1509,6 +1586,23 @@ def run_grading(
     rubric_criteria: list[dict[str, Any]] = []
     if rubric_file and rubric_file.suffix.lower() == ".docx":
         rubric_criteria = extract_rubric_criteria_from_docx(rubric_file)
+    elif rubric_file and rubric_file.suffix.lower() == ".json":
+        try:
+            parsed = json.loads(rubric_text)
+            raw_criteria = parsed.get("criteria", [])
+            for idx, c in enumerate(raw_criteria, 1):
+                name = str(c.get("criterion_name", "")).strip()
+                pts = float(c.get("max_points", 0))
+                items = [str(i).strip() for i in c.get("checklist_items", []) if str(i).strip()]
+                if name and pts > 0 and items:
+                    rubric_criteria.append({
+                        "criterion_id": f"C{idx}",
+                        "criterion_name": name,
+                        "max_points": pts,
+                        "checklist_items": items,
+                    })
+        except Exception as exc:
+            print(f"WARNING: Could not parse JSON rubric: {exc}")
     if not rubric_criteria:
         rubric_criteria = extract_rubric_criteria(rubric_text)
     _rubric_from_file = bool(rubric_criteria)  # True if successfully parsed from actual rubric

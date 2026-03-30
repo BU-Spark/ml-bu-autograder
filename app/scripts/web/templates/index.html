@@ -1,0 +1,1624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GradeAI Pro — CS581 Health Informatics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+/* ── RESET & BASE ──────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f0f2f5; --surface:#fff; --surface2:#f8f9fb;
+  --primary:#6366f1; --primary-d:#4f46e5; --primary-l:#a5b4fc; --primary-bg:rgba(99,102,241,.08);
+  --teal:#14b8a6; --teal-d:#0d9488; --amber:#f59e0b; --red:#ef4444; --green:#22c55e;
+  --text:#1e293b; --text2:#475569; --text3:#94a3b8;
+  --border:#e2e8f0; --shadow:0 4px 24px rgba(15,23,42,.07);
+  --r:16px; --rs:10px; --rx:24px;
+  --font:'Inter',system-ui,-apple-system,sans-serif;
+}
+html{font-size:15px;scroll-behavior:smooth}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;
+  background-image:
+    radial-gradient(ellipse 900px 500px at 80% -10%,rgba(99,102,241,.08),transparent),
+    radial-gradient(ellipse 900px 500px at 0% 20%,rgba(20,184,166,.06),transparent);
+}
+a{color:var(--primary);text-decoration:none}
+button{font-family:var(--font);cursor:pointer}
+
+/* ── HEADER ────────────────────────────────────────────────── */
+.header{
+  background:linear-gradient(135deg,#1e1b4b,#312e81 40%,#3730a3);
+  padding:1.2rem 2rem;display:flex;align-items:center;gap:1rem;
+  box-shadow:0 2px 20px rgba(30,27,75,.25);position:sticky;top:0;z-index:100;
+}
+.header .logo{
+  width:42px;height:42px;border-radius:12px;
+  background:linear-gradient(135deg,var(--primary),var(--teal));
+  display:flex;align-items:center;justify-content:center;
+  font-weight:900;font-size:1.1rem;color:#fff;flex-shrink:0;
+}
+.header h1{font-size:1.25rem;font-weight:700;color:#fff;letter-spacing:-.02em}
+.header .sub{font-size:.8rem;color:rgba(255,255,255,.55);margin-left:auto}
+.header .badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.15);
+  border-radius:20px;padding:.25rem .7rem;font-size:.7rem;color:rgba(255,255,255,.7);
+  font-weight:500;margin-left:.5rem}
+
+/* ── MAIN LAYOUT ───────────────────────────────────────────── */
+.main{max-width:1200px;margin:0 auto;padding:2rem 1.5rem 4rem}
+
+/* ── CARDS ─────────────────────────────────────────────────── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+  padding:1.5rem;box-shadow:var(--shadow);transition:box-shadow .2s}
+.card:hover{box-shadow:0 8px 32px rgba(15,23,42,.1)}
+.card-title{font-size:1rem;font-weight:700;margin-bottom:1rem;display:flex;align-items:center;gap:.5rem}
+.card-title .icon{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;
+  justify-content:center;font-size:1.1rem;flex-shrink:0}
+
+/* ── UPLOAD SECTION ────────────────────────────────────────── */
+.upload-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:1.5rem}
+@media(max-width:800px){.upload-grid{grid-template-columns:1fr}}
+
+.drop-zone{
+  border:2px dashed var(--border);border-radius:var(--r);padding:2rem 1rem;text-align:center;
+  transition:all .25s;cursor:pointer;background:var(--surface2);position:relative;min-height:160px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.5rem;
+}
+.drop-zone:hover,.drop-zone.drag-over{border-color:var(--primary);background:var(--primary-bg)}
+.drop-zone .dz-icon{font-size:2rem;opacity:.5}
+.drop-zone .dz-label{font-weight:600;font-size:.85rem;color:var(--text2)}
+.drop-zone .dz-hint{font-size:.72rem;color:var(--text3)}
+.drop-zone .dz-file{font-size:.78rem;color:var(--primary);font-weight:600;
+  background:var(--primary-bg);padding:.3rem .7rem;border-radius:8px;margin-top:.3rem;
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.drop-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
+.drop-zone.has-file{border-color:var(--teal);border-style:solid;background:rgba(20,184,166,.06)}
+.drop-zone.has-file .dz-icon{color:var(--teal)}
+
+/* ── CONFIG ROW ────────────────────────────────────────────── */
+.config-row{display:flex;gap:1rem;align-items:end;flex-wrap:wrap;margin-bottom:2rem}
+.config-group{display:flex;flex-direction:column;gap:.35rem}
+.config-group label{font-size:.75rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.04em}
+.config-group select,.config-group input[type=text]{
+  font-family:var(--font);font-size:.85rem;padding:.55rem .8rem;border:1px solid var(--border);
+  border-radius:var(--rs);background:var(--surface);color:var(--text);outline:none;min-width:180px;
+  transition:border-color .2s}
+.config-group select:focus,.config-group input[type=text]:focus{border-color:var(--primary)}
+
+/* ── GRADE BUTTON ──────────────────────────────────────────── */
+.btn-grade{
+  background:linear-gradient(135deg,var(--primary),var(--primary-d));
+  color:#fff;border:none;padding:.7rem 2.2rem;border-radius:var(--rs);font-size:.9rem;
+  font-weight:700;letter-spacing:.01em;transition:all .2s;box-shadow:0 4px 14px rgba(99,102,241,.3);
+  display:flex;align-items:center;gap:.5rem;margin-left:auto}
+.btn-grade:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(99,102,241,.4)}
+.btn-grade:active{transform:translateY(0)}
+.btn-grade:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
+.btn-grade .spinner{width:18px;height:18px;border:2.5px solid rgba(255,255,255,.3);
+  border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none}
+.btn-grade.loading .spinner{display:block}
+.btn-grade.loading .btn-text{display:none}
+.btn-secondary{
+  background:var(--surface);color:var(--text);border:1px solid var(--border);padding:.7rem 1.2rem;
+  border-radius:var(--rs);font-size:.84rem;font-weight:700;transition:all .2s;
+  display:flex;align-items:center;gap:.5rem
+}
+.btn-secondary:hover{border-color:var(--primary);color:var(--primary)}
+.btn-row{display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;margin-left:auto}
+.mono-input{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace !important;
+  font-size:.75rem !important
+}
+
+/* ── PROGRESS ──────────────────────────────────────────────── */
+.progress-panel{display:none;margin-bottom:2rem}
+.progress-panel.active{display:block}
+.progress-steps{display:flex;flex-direction:column;gap:.6rem}
+.p-step{display:flex;align-items:center;gap:.7rem;padding:.6rem .9rem;border-radius:var(--rs);
+  background:var(--surface);border:1px solid var(--border);font-size:.82rem;transition:all .3s}
+.p-step .p-dot{width:24px;height:24px;border-radius:50%;flex-shrink:0;display:flex;
+  align-items:center;justify-content:center;font-size:.7rem;font-weight:700;
+  background:var(--surface2);border:2px solid var(--border);color:var(--text3);transition:all .3s}
+.p-step.running{border-color:var(--primary);background:var(--primary-bg)}
+.p-step.running .p-dot{border-color:var(--primary);background:var(--primary);color:#fff;
+  animation:pulse 1.2s ease infinite}
+.p-step.done{border-color:var(--teal);background:rgba(20,184,166,.05)}
+.p-step.done .p-dot{border-color:var(--teal);background:var(--teal);color:#fff}
+.p-step.error{border-color:var(--red);background:rgba(239,68,68,.05)}
+.p-step.error .p-dot{border-color:var(--red);background:var(--red);color:#fff}
+.p-step .p-label{font-weight:600;color:var(--text)}
+.p-step .p-status{margin-left:auto;font-size:.72rem;color:var(--text3);font-weight:500}
+
+/* ── RESULTS ───────────────────────────────────────────────── */
+.results{display:none;animation:fadeUp .5s ease}
+.results.active{display:block}
+
+.score-hero{display:flex;gap:2rem;align-items:center;margin-bottom:2rem;flex-wrap:wrap}
+.score-ring-wrap{flex-shrink:0}
+.score-ring-wrap svg{width:180px;height:180px}
+.score-ring-bg{fill:none;stroke:var(--border);stroke-width:10}
+.score-ring-fill{fill:none;stroke-width:10;stroke-linecap:round;
+  transition:stroke-dashoffset 1.5s cubic-bezier(.4,0,.2,1),stroke 1s ease}
+.score-center{font-size:2.8rem;font-weight:900;fill:var(--text)}
+.score-label{font-size:.85rem;fill:var(--text3);font-weight:500}
+.score-meta{flex:1;min-width:240px}
+.score-meta h2{font-size:1.4rem;font-weight:800;margin-bottom:.3rem;letter-spacing:-.02em}
+.score-meta .meta-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.6rem}
+.meta-chip{font-size:.72rem;font-weight:600;padding:.25rem .6rem;border-radius:20px;
+  background:var(--surface2);border:1px solid var(--border);color:var(--text2)}
+.feedback-text{font-size:.88rem;color:var(--text2);line-height:1.6;margin-top:.5rem}
+
+/* ── BREAKDOWN BARS ────────────────────────────────────────── */
+.breakdown-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:2rem}
+@media(max-width:700px){.breakdown-grid{grid-template-columns:1fr}}
+.bar-item{display:flex;flex-direction:column;gap:.3rem}
+.bar-head{display:flex;justify-content:space-between;font-size:.78rem;font-weight:600}
+.bar-name{color:var(--text2);max-width:70%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar-score{color:var(--primary);font-weight:700}
+.bar-track{height:10px;background:var(--surface2);border-radius:6px;overflow:hidden;border:1px solid var(--border)}
+.bar-fill{height:100%;border-radius:6px;transition:width 1.2s cubic-bezier(.4,0,.2,1);width:0}
+
+/* ── FEEDBACK CARDS ────────────────────────────────────────── */
+.feedback-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:2rem}
+@media(max-width:800px){.feedback-grid{grid-template-columns:1fr}}
+.fb-card{border-radius:var(--r);padding:1.2rem;border:1px solid var(--border)}
+.fb-card h4{font-size:.82rem;font-weight:700;margin-bottom:.7rem;display:flex;align-items:center;gap:.4rem}
+.fb-card ul{list-style:none;display:flex;flex-direction:column;gap:.4rem}
+.fb-card li{font-size:.8rem;color:var(--text2);line-height:1.5;padding-left:1rem;position:relative}
+.fb-card li::before{content:'';position:absolute;left:0;top:.45em;width:6px;height:6px;border-radius:50%}
+.fb-strengths{background:rgba(34,197,94,.04)} .fb-strengths h4{color:var(--green)}
+.fb-strengths li::before{background:var(--green)}
+.fb-gaps{background:rgba(239,68,68,.04)} .fb-gaps h4{color:var(--red)}
+.fb-gaps li::before{background:var(--red)}
+.fb-actions{background:rgba(99,102,241,.04)} .fb-actions h4{color:var(--primary)}
+.fb-actions li::before{background:var(--primary)}
+
+/* ── CRITERION DETAILS TABLE ───────────────────────────────── */
+.criterion-table{width:100%;border-collapse:separate;border-spacing:0;font-size:.8rem;margin-bottom:2rem}
+.criterion-table th{text-align:left;padding:.6rem .8rem;background:var(--surface2);
+  border-bottom:2px solid var(--border);color:var(--text3);font-weight:600;
+  text-transform:uppercase;letter-spacing:.03em;font-size:.7rem}
+.criterion-table td{padding:.6rem .8rem;border-bottom:1px solid var(--border);vertical-align:top}
+.criterion-table tr:last-child td{border-bottom:none}
+.criterion-table tr:hover td{background:rgba(99,102,241,.03)}
+.evidence-tag{display:inline-block;font-size:.7rem;background:rgba(20,184,166,.08);
+  color:var(--teal-d);padding:.15rem .4rem;border-radius:4px;margin:.1rem .15rem;max-width:200px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.missing-tag{display:inline-block;font-size:.7rem;background:rgba(239,68,68,.08);
+  color:var(--red);padding:.15rem .4rem;border-radius:4px;margin:.1rem .15rem}
+
+/* ── SECTION COVERAGE ──────────────────────────────────────── */
+.section-coverage{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:2rem}
+.sec-chip{padding:.4rem .8rem;border-radius:var(--rs);font-size:.78rem;font-weight:600;
+  border:1px solid var(--border)}
+.sec-chip.addressed{background:rgba(34,197,94,.08);color:var(--green);border-color:rgba(34,197,94,.2)}
+.sec-chip.partial{background:rgba(245,158,11,.08);color:var(--amber);border-color:rgba(245,158,11,.2)}
+.sec-chip.missing{background:rgba(239,68,68,.08);color:var(--red);border-color:rgba(239,68,68,.2)}
+
+/* ── RAW JSON TOGGLE ───────────────────────────────────────── */
+.json-toggle{font-size:.8rem;color:var(--primary);cursor:pointer;font-weight:600;
+  display:flex;align-items:center;gap:.3rem;margin-bottom:.5rem}
+.json-panel{display:none;background:var(--surface2);border:1px solid var(--border);
+  border-radius:var(--rs);padding:1rem;font-family:'Courier New',monospace;font-size:.72rem;
+  max-height:400px;overflow:auto;white-space:pre-wrap;word-break:break-all;color:var(--text2)}
+.json-panel.open{display:block}
+
+/* ── HISTORY ───────────────────────────────────────────────── */
+.history-list{margin-top:2rem}
+.history-item{display:flex;align-items:center;gap:1rem;padding:.7rem 1rem;
+  border-radius:var(--rs);border:1px solid var(--border);background:var(--surface);
+  margin-bottom:.5rem;font-size:.82rem}
+.history-score{font-weight:800;font-size:1.1rem;color:var(--primary);min-width:50px}
+.history-file{font-weight:600;flex:1}
+.history-model{color:var(--text3);font-size:.72rem}
+
+/* ── ANIMATIONS ────────────────────────────────────────────── */
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@keyframes slideIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:none}}
+.anim-in{animation:fadeUp .4s ease both}
+.anim-d1{animation-delay:.1s} .anim-d2{animation-delay:.2s} .anim-d3{animation-delay:.3s}
+</style>
+</head>
+<body>
+
+<!-- ═══ HEADER ═══ -->
+<div class="header">
+  <div class="logo">AG</div>
+  <div>
+    <h1>GradeAI Pro</h1>
+  </div>
+  <span class="sub">CS581 Health Informatics &middot; ETI / Spark Collaboration</span>
+  <span class="badge">Spring 2026</span>
+</div>
+
+<!-- ═══ MAIN ═══ -->
+<div class="main">
+
+  <!-- ── Upload Section ── -->
+  <div class="card anim-in" style="margin-bottom:1.5rem">
+    <div class="card-title">
+      <div class="icon" style="background:var(--primary-bg);color:var(--primary)">&#x2191;</div>
+      Upload Files
+    </div>
+    <form id="gradeForm" enctype="multipart/form-data">
+      <input type="hidden" name="generated_rubric_json" id="generatedRubricJson" value="">
+      <div class="upload-grid">
+        <!-- Student PDF -->
+        <div class="drop-zone" id="dz-student">
+          <div class="dz-icon">&#x1F4C4;</div>
+          <div class="dz-label">Student Submission</div>
+          <div class="dz-hint">PDF, PPTX or XLSX &middot; Required</div>
+          <div class="dz-file" id="dz-student-name" style="display:none"></div>
+          <input type="file" name="student_pdf" accept=".pdf,.pptx,.xlsx" onchange="fileSelected(this,'dz-student','dz-student-name')">
+        </div>
+        <!-- Rubric -->
+        <div class="drop-zone" id="dz-rubric">
+          <div class="dz-icon">&#x1F4CB;</div>
+          <div class="dz-label">Rubric</div>
+          <div class="dz-hint">DOCX, PDF, TXT &middot; Optional</div>
+          <div class="dz-file" id="dz-rubric-name" style="display:none"></div>
+          <input type="file" name="rubric" accept=".docx,.pdf,.txt,.md,.json" onchange="fileSelected(this,'dz-rubric','dz-rubric-name')">
+        </div>
+        <!-- Assignment -->
+        <div class="drop-zone" id="dz-assign">
+          <div class="dz-icon">&#x1F4DD;</div>
+          <div class="dz-label">Assignment Instructions</div>
+          <div class="dz-hint">TXT, PDF, DOCX &middot; Optional</div>
+          <div class="dz-file" id="dz-assign-name" style="display:none"></div>
+          <input type="file" name="assignment" accept=".txt,.md,.pdf,.docx" onchange="fileSelected(this,'dz-assign','dz-assign-name')">
+        </div>
+      </div>
+
+      <!-- Config Row -->
+      <div class="config-row">
+        <div class="config-group">
+          <label>Describe Provider</label>
+          <select name="describe_provider" id="describeProviderSelect" onchange="updateModel('describeProviderSelect','describeModelInput')">
+            {% for key, p in providers.items() %}
+            <option value="{{ key }}">{{ p.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="config-group">
+          <label>Describe Model</label>
+          <input type="text" name="describe_model" id="describeModelInput" value="{{ providers['openai'].model }}">
+        </div>
+        <div class="config-group">
+          <label>Grade Provider</label>
+          <select name="grade_provider" id="gradeProviderSelect" onchange="updateModel('gradeProviderSelect','gradeModelInput')">
+            {% for key, p in providers.items() %}
+            <option value="{{ key }}">{{ p.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="config-group">
+          <label>Grade Model</label>
+          <input type="text" name="grade_model" id="gradeModelInput" value="{{ providers['openai'].model }}">
+        </div>
+        {% if rubrics %}
+        <div class="config-group">
+          <label>Pre-loaded Rubric</label>
+          <select name="selected_rubric" id="selRubric">
+            <option value="">(none — upload above)</option>
+            {% for r in rubrics %}
+            <option value="{{ r.path }}">{{ r.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endif %}
+        {% if assignments %}
+        <div class="config-group">
+          <label>Pre-loaded Assignment</label>
+          <select name="selected_assignment" id="selAssign">
+            <option value="">(default assignment1)</option>
+            {% for a in assignments %}
+            <option value="{{ a.path }}">{{ a.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endif %}
+        <div class="btn-row">
+          <button type="button" class="btn-secondary" id="describeBtn">
+            <span class="btn-text">&#x1F5BC; Describe Only</span>
+          </button>
+          <button type="submit" class="btn-grade" id="gradeBtn">
+            <span class="btn-text">&#x2728; Full Pipeline</span>
+            <div class="spinner"></div>
+          </button>
+        </div>
+      </div>
+    </form>
+
+    <!-- Lecture index status bar -->
+    <div style="display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;padding:.8rem 0 0;border-top:1px solid var(--border);margin-top:.5rem">
+      {% if shared_chroma_ready %}
+      <span style="font-size:.78rem;color:var(--teal);font-weight:600">&#x2714; Lecture index ready — RAG context will be used</span>
+      {% elif lecture_chunks_exist %}
+      <span style="font-size:.78rem;color:var(--amber);font-weight:600">&#x26A0; Lecture chunks found but not indexed yet</span>
+      <button type="button" id="indexLecturesBtn" onclick="indexLectures()"
+        style="font-family:var(--font);font-size:.78rem;font-weight:600;padding:.35rem .9rem;border-radius:8px;
+               border:1px solid var(--teal);background:rgba(20,184,166,.08);color:var(--teal-d);cursor:pointer">
+        Build Lecture Index
+      </button>
+      {% else %}
+      <span style="font-size:.78rem;color:var(--text3)">&#x2139; No lecture chunks found — grading without RAG context</span>
+      {% endif %}
+      <span id="indexStatus" style="font-size:.75rem;color:var(--text2)"></span>
+    </div>
+  </div>
+
+  <!-- Error banner -->
+  <div id="errorBanner" style="display:none;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);
+    border-radius:var(--r);padding:1rem 1.2rem;margin-bottom:1.5rem;color:var(--red);font-size:.85rem">
+    <strong>Error:</strong> <span id="errorMsg"></span>
+    <div id="errorLog" style="margin-top:.5rem;font-family:monospace;font-size:.72rem;color:var(--text2);
+      white-space:pre-wrap;max-height:200px;overflow:auto;display:none"></div>
+    <button onclick="document.getElementById('errorBanner').style.display='none'"
+      style="font-family:var(--font);font-size:.72rem;margin-top:.5rem;padding:.2rem .5rem;border:1px solid var(--red);
+             border-radius:6px;background:transparent;color:var(--red);cursor:pointer">Dismiss</button>
+  </div>
+
+  <!-- ── Progress Panel ── -->
+  <div class="card progress-panel" id="progressPanel">
+    <div class="card-title">
+      <div class="icon" style="background:rgba(99,102,241,.1);color:var(--primary)">&#x2699;</div>
+      Pipeline Progress
+    </div>
+    <div class="progress-steps" id="progressSteps">
+      <div class="p-step" data-step="extract"><div class="p-dot">1</div><span class="p-label">Extract PDF Content</span><span class="p-status"></span></div>
+      <div class="p-step" data-step="describe"><div class="p-dot">2</div><span class="p-label">Analyze Images &amp; Text</span><span class="p-status"></span></div>
+      <div class="p-step" data-step="index"><div class="p-dot">3</div><span class="p-label">Index Lecture Context</span><span class="p-status"></span></div>
+      <div class="p-step" data-step="retrieve"><div class="p-dot">4</div><span class="p-label">Retrieve RAG Context</span><span class="p-status"></span></div>
+      <div class="p-step" data-step="grade"><div class="p-dot">5</div><span class="p-label">Grade Submission</span><span class="p-status"></span></div>
+    </div>
+  </div>
+
+  <!-- ── Describe Results ── -->
+  <div class="card" id="describePanel" style="display:none;margin-bottom:1.5rem">
+    <div class="card-title">
+      <div class="icon" style="background:rgba(20,184,166,.1);color:var(--teal)">&#x1F50E;</div>
+      Describe Output
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;align-items:start">
+      <div>
+        <div style="font-size:.78rem;color:var(--text3);margin-bottom:.35rem">Run ID</div>
+        <div id="describeRunId" style="font-weight:700;margin-bottom:.8rem">—</div>
+        <div style="font-size:.78rem;color:var(--text3);margin-bottom:.35rem">Chunks JSONL</div>
+        <div id="describeChunksPath" class="mono-input" style="word-break:break-all;margin-bottom:.8rem">—</div>
+        <div style="font-size:.78rem;color:var(--text3);margin-bottom:.35rem">Summary JSON</div>
+        <div id="describeSummaryPath" class="mono-input" style="word-break:break-all">—</div>
+      </div>
+      <div>
+        <div id="describeStats" style="font-size:.84rem;color:var(--text2);line-height:1.7"></div>
+      </div>
+    </div>
+    <div class="json-toggle" onclick="document.getElementById('describeJsonPanel').classList.toggle('open')" style="margin-top:1rem">
+      &#x25B6; Describe Summary JSON
+    </div>
+    <div class="json-panel" id="describeJsonPanel"></div>
+  </div>
+
+  <!-- ── Results ── -->
+  <div class="results" id="resultsPanel">
+
+    <!-- Rubric warning (shown when generic defaults were used) -->
+    <div id="rubricWarning" style="display:none;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);
+      border-radius:var(--r);padding:.8rem 1.2rem;margin-bottom:1rem;color:#92400e;font-size:.82rem">
+      &#x26A0; <strong>Generic rubric used</strong> — no rubric file was uploaded or parsed. Scores are approximate.
+      Upload the professor's rubric DOCX for accurate assignment-specific grading.
+    </div>
+
+    <!-- Score Hero -->
+    <div class="card anim-in" style="margin-bottom:1.5rem">
+      <div class="score-hero">
+        <div class="score-ring-wrap">
+          <svg viewBox="0 0 200 200">
+            <circle class="score-ring-bg" cx="100" cy="100" r="85"/>
+            <circle class="score-ring-fill" id="scoreRing" cx="100" cy="100" r="85"
+              stroke-dasharray="534.07" stroke-dashoffset="534.07" transform="rotate(-90 100 100)"/>
+            <text class="score-center" id="scoreText" x="100" y="96" text-anchor="middle">0</text>
+            <text class="score-label" x="100" y="120" text-anchor="middle">/ 100</text>
+          </svg>
+        </div>
+        <div class="score-meta">
+          <h2 id="studentFileName">—</h2>
+          <div class="meta-row">
+            <span class="meta-chip" id="metaModel">—</span>
+            <span class="meta-chip" id="metaTokens">—</span>
+            <span class="meta-chip" id="metaConfidence">—</span>
+          </div>
+          <div class="feedback-text" id="overallFeedback"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section Coverage -->
+    <div id="sectionCoverageWrap" style="display:none">
+      <div class="card anim-in anim-d1" style="margin-bottom:1.5rem">
+        <div class="card-title">
+          <div class="icon" style="background:rgba(20,184,166,.1);color:var(--teal)">&#x2713;</div>
+          Section Coverage
+        </div>
+        <div class="section-coverage" id="sectionCoverage"></div>
+      </div>
+    </div>
+
+    <!-- Score Breakdown -->
+    <div class="card anim-in anim-d1" style="margin-bottom:1.5rem">
+      <div class="card-title">
+        <div class="icon" style="background:rgba(245,158,11,.1);color:var(--amber)">&#x2261;</div>
+        Score Breakdown
+      </div>
+      <div class="breakdown-grid" id="breakdownGrid"></div>
+    </div>
+
+    <!-- Feedback Cards -->
+    <div class="feedback-grid anim-in anim-d2">
+      <div class="fb-card fb-strengths card">
+        <h4>&#x2714; Strengths</h4>
+        <ul id="strengthsList"></ul>
+      </div>
+      <div class="fb-card fb-gaps card">
+        <h4>&#x2718; Gaps</h4>
+        <ul id="gapsList"></ul>
+      </div>
+      <div class="fb-card fb-actions card">
+        <h4>&#x2192; Action Items</h4>
+        <ul id="actionsList"></ul>
+      </div>
+    </div>
+
+    <!-- Criterion Details Table -->
+    <div id="criterionWrap" style="display:none" class="anim-in anim-d3">
+      <div class="card" style="margin-bottom:1.5rem;overflow-x:auto">
+        <div class="card-title">
+          <div class="icon" style="background:var(--primary-bg);color:var(--primary)">&#x1F50D;</div>
+          Criterion Evidence Details
+        </div>
+        <table class="criterion-table" id="criterionTable">
+          <thead><tr><th>Criterion</th><th>Score</th><th>Justification</th><th>Evidence</th><th>Missing</th></tr></thead>
+          <tbody id="criterionBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Policy Caps -->
+    <div id="policyCapsWrap" style="display:none" class="anim-in">
+      <div class="card" style="margin-bottom:1.5rem">
+        <div class="card-title">
+          <div class="icon" style="background:rgba(245,158,11,.1);color:var(--amber)">&#x26A0;</div>
+          Policy Adjustments Applied
+        </div>
+        <ul id="policyCaps" style="font-size:.82rem;color:var(--text2);padding-left:1.2rem"></ul>
+      </div>
+    </div>
+
+    <!-- Raw JSON -->
+    <div class="card anim-in anim-d3" style="margin-bottom:1.5rem">
+      <div class="json-toggle" onclick="document.getElementById('jsonPanel').classList.toggle('open')">
+        &#x25B6; Raw JSON Response
+      </div>
+      <div class="json-panel" id="jsonPanel"></div>
+    </div>
+  </div>
+
+  <!-- ── Lecture Index Inspector ── -->
+  <div class="card anim-in" id="lectureInspectorCard" style="margin-bottom:1.5rem">
+    <div class="card-title" style="justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:.5rem">
+        <div class="icon" style="background:rgba(99,102,241,.1);color:var(--primary)">&#x1F4DA;</div>
+        Lecture Index Inspector
+      </div>
+      <button onclick="loadLectureStats()" id="inspectorRefreshBtn"
+        style="font-family:var(--font);font-size:.75rem;font-weight:600;padding:.3rem .8rem;border-radius:8px;
+               border:1px solid var(--primary);background:var(--primary-bg);color:var(--primary);cursor:pointer">
+        &#x21BB; Refresh
+      </button>
+    </div>
+    <p style="font-size:.82rem;color:var(--text2);margin-bottom:1.2rem;line-height:1.5">
+      See exactly what content has been extracted and indexed as lecture context.
+      Test retrieval to verify the AI finds the right lecture material for any topic.
+    </p>
+
+    <!-- Overview stat tiles -->
+    <div id="inspectorStats" style="display:none">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.75rem;margin-bottom:1.5rem">
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:.9rem 1rem;text-align:center">
+          <div id="iStatChunks" style="font-size:1.6rem;font-weight:800;color:var(--primary)">—</div>
+          <div style="font-size:.72rem;color:var(--text3);font-weight:600;margin-top:.2rem">TOTAL CHUNKS</div>
+        </div>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:.9rem 1rem;text-align:center">
+          <div id="iStatFiles" style="font-size:1.6rem;font-weight:800;color:var(--teal)">—</div>
+          <div style="font-size:.72rem;color:var(--text3);font-weight:600;margin-top:.2rem">LECTURE FILES</div>
+        </div>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:.9rem 1rem;text-align:center">
+          <div id="iStatAvg" style="font-size:1.6rem;font-weight:800;color:var(--amber)">—</div>
+          <div style="font-size:.72rem;color:var(--text3);font-weight:600;margin-top:.2rem">AVG CHARS/CHUNK</div>
+        </div>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:.9rem 1rem;text-align:center">
+          <div id="iStatProvider" style="font-size:.9rem;font-weight:800;color:var(--green)">—</div>
+          <div style="font-size:.72rem;color:var(--text3);font-weight:600;margin-top:.2rem">EMBEDDINGS</div>
+        </div>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:.9rem 1rem;text-align:center">
+          <div id="iStatStatus" style="font-size:.9rem;font-weight:800">—</div>
+          <div style="font-size:.72rem;color:var(--text3);font-weight:600;margin-top:.2rem">INDEX STATUS</div>
+        </div>
+      </div>
+
+      <!-- Content type breakdown pills -->
+      <div style="margin-bottom:1.5rem">
+        <div style="font-size:.78rem;font-weight:700;color:var(--text2);margin-bottom:.6rem;text-transform:uppercase;letter-spacing:.04em">Content Types in Index</div>
+        <div id="iTagBreakdown" style="display:flex;flex-wrap:wrap;gap:.4rem"></div>
+      </div>
+
+      <!-- RAG Search Test -->
+      <div style="background:rgba(99,102,241,.04);border:1px solid rgba(99,102,241,.15);border-radius:var(--rs);padding:1rem 1.1rem;margin-bottom:1.5rem">
+        <div style="font-size:.82rem;font-weight:700;color:var(--primary);margin-bottom:.7rem">&#x1F50D; Test Retrieval — see what lecture chunks the AI would actually use for a topic</div>
+        <div style="display:flex;gap:.5rem">
+          <input type="text" id="ragSearchInput"
+            placeholder="e.g. workflow diagram, EHR interoperability, HIPAA security rule…"
+            style="flex:1;font-family:var(--font);font-size:.83rem;padding:.55rem .8rem;
+                   border:1px solid var(--border);border-radius:var(--rs);outline:none;background:var(--surface)"
+            onkeydown="if(event.key==='Enter') testRAG()"
+            onfocus="this.style.borderColor='var(--primary)'"
+            onblur="this.style.borderColor='var(--border)'">
+          <button type="button" onclick="testRAG()"
+            style="font-family:var(--font);font-size:.83rem;font-weight:600;padding:.55rem 1.2rem;
+                   border-radius:var(--rs);border:none;background:var(--primary);color:#fff;cursor:pointer">
+            Search
+          </button>
+        </div>
+        <div id="ragResults" style="margin-top:.8rem"></div>
+      </div>
+
+      <!-- Per-file list -->
+      <div>
+        <div style="font-size:.78rem;font-weight:700;color:var(--text2);margin-bottom:.6rem;text-transform:uppercase;letter-spacing:.04em">
+          Per-File Breakdown <span id="iFileCount" style="font-weight:400;text-transform:none;color:var(--text3)"></span>
+        </div>
+        <div id="iFileList" style="max-height:420px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rs);font-size:.8rem"></div>
+      </div>
+    </div>
+
+    <div id="inspectorLoading" style="text-align:center;padding:1.5rem;color:var(--text3);font-size:.85rem">
+      Click <strong>Refresh</strong> to load extraction stats
+    </div>
+  </div>
+
+  <!-- ── Web Link Summarizer ── -->
+  <div class="card anim-in" id="webLinksCard" style="margin-bottom:1.5rem">
+    <div class="card-title">
+      <div class="icon" style="background:rgba(20,184,166,.12);color:var(--teal)">&#x1F310;</div>
+      Web Page Summarizer
+    </div>
+    <p style="font-size:.82rem;color:var(--text2);margin-bottom:1.2rem;line-height:1.6">
+      Paste any URL to see exactly how the AI reads and extracts information from a web page —
+      the page is fetched, its text is pulled out, and the model writes a 2–3 paragraph summary
+      of the key educational content.
+    </p>
+
+    <div style="display:flex;flex-direction:column;gap:.85rem">
+
+      <!-- URL input (single URL) -->
+      <div>
+        <label style="font-size:.72rem;font-weight:700;color:var(--text3);letter-spacing:.04em;
+                       text-transform:uppercase;display:block;margin-bottom:.35rem">URL</label>
+        <input type="url" id="webLinkUrl"
+          placeholder="https://www.healthit.gov/topic/health-it-basics/what-is-an-electronic-health-record-ehr"
+          style="font-family:var(--font);font-size:.84rem;padding:.65rem 1rem;border:1px solid var(--border);
+                 border-radius:var(--rs);outline:none;width:100%;color:var(--text);
+                 background:var(--surface2);transition:border-color .2s"
+          onfocus="this.style.borderColor='var(--teal)'" onblur="this.style.borderColor='var(--border)'"
+          onkeydown="if(event.key==='Enter') summarizeLink()">
+      </div>
+
+      <!-- Provider + Model + Button row -->
+      <div style="display:flex;gap:.75rem;align-items:end;flex-wrap:wrap">
+        <div class="config-group">
+          <label>Summarise with</label>
+          <select id="webLinkProvider" onchange="updateWebLinkModel()" style="min-width:140px">
+            {% for key, p in providers.items() %}
+            <option value="{{ key }}">{{ p.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="config-group">
+          <label>Model</label>
+          <input type="text" id="webLinkModel" style="min-width:190px"
+            placeholder="auto (cheapest for provider)">
+        </div>
+        <button type="button" id="summarizeLinkBtn" onclick="summarizeLink()"
+          style="font-family:var(--font);font-size:.85rem;font-weight:600;padding:.6rem 1.5rem;
+                 border-radius:var(--rs);border:none;
+                 background:linear-gradient(135deg,var(--teal),var(--teal-d));
+                 color:#fff;cursor:pointer;display:flex;align-items:center;gap:.5rem;
+                 box-shadow:0 4px 14px rgba(20,184,166,.3);transition:all .2s;margin-top:auto"
+          onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">
+          <span id="summarizeLinkBtnIcon">&#x1F50D;</span>
+          <span id="summarizeLinkBtnText">Summarize</span>
+        </button>
+      </div>
+
+      <!-- Results area -->
+      <div id="webSummaryOutput" style="display:none;margin-top:.25rem"></div>
+    </div>
+  </div>
+
+  <!-- ── Rubric Generator ── -->
+  <div class="card anim-in" id="rubricGenCard" style="margin-bottom:1.5rem">
+    <div class="card-title">
+      <div class="icon" style="background:rgba(124,58,237,.1);color:#7c3aed">&#x1F4CB;</div>
+      Rubric Generator
+    </div>
+    <p style="font-size:.82rem;color:var(--text2);margin-bottom:1.2rem;line-height:1.6">
+      Paste or upload assignment instructions to generate a grading rubric with criteria and checklist items.
+      Optionally paste an existing rubric to enhance it instead.
+    </p>
+
+    <div style="display:flex;flex-direction:column;gap:1rem">
+
+      <!-- Assignment instructions -->
+      <div>
+        <label style="font-size:.72rem;font-weight:700;color:var(--text3);letter-spacing:.04em;
+                       text-transform:uppercase;display:block;margin-bottom:.35rem">
+          Assignment Instructions <span style="color:var(--red)">*</span>
+        </label>
+        <textarea id="rubricAssignText" rows="5"
+          placeholder="Paste assignment instructions here, or upload a file below…"
+          style="font-family:var(--font);font-size:.83rem;padding:.65rem 1rem;border:1px solid var(--border);
+                 border-radius:var(--rs);outline:none;width:100%;resize:vertical;line-height:1.5;
+                 background:var(--surface2);color:var(--text);transition:border-color .2s"
+          onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='var(--border)'"></textarea>
+        <div style="margin-top:.5rem">
+          <label style="font-size:.75rem;color:var(--text3);cursor:pointer;display:inline-flex;align-items:center;gap:.4rem">
+            <input type="file" id="rubricAssignFile" accept=".txt,.pdf,.md"
+              onchange="rubricFileChosen(this,'rubricAssignFileLabel')" style="display:none">
+            <span style="padding:.3rem .8rem;border:1px solid var(--border);border-radius:8px;
+                         background:var(--surface2);font-size:.75rem;font-weight:600">&#x1F4CE; Upload file</span>
+            <span id="rubricAssignFileLabel" style="color:var(--text2)"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Existing rubric (optional) -->
+      <div>
+        <label style="font-size:.72rem;font-weight:700;color:var(--text3);letter-spacing:.04em;
+                       text-transform:uppercase;display:block;margin-bottom:.35rem">
+          Existing Rubric <span style="font-weight:400;color:var(--text3)">(optional — upload or paste to enhance instead of generate)</span>
+        </label>
+        <!-- Upload option -->
+        <div style="margin-bottom:.5rem">
+          <label style="font-size:.75rem;color:var(--text3);cursor:pointer;display:inline-flex;align-items:center;gap:.4rem">
+            <input type="file" id="rubricExistingFile" accept=".docx,.pdf,.txt,.md,.json"
+              onchange="rubricExistingFileChosen(this)" style="display:none">
+            <span style="padding:.3rem .8rem;border:1px solid var(--border);border-radius:8px;
+                         background:var(--surface2);font-size:.75rem;font-weight:600">&#x1F4CE; Upload rubric file</span>
+            <span id="rubricExistingFileLabel" style="color:var(--text2);font-size:.78rem"></span>
+          </label>
+        </div>
+        <textarea id="rubricExistingText" rows="3"
+          placeholder="…or paste your current rubric text here"
+          style="font-family:var(--font);font-size:.83rem;padding:.65rem 1rem;border:1px solid var(--border);
+                 border-radius:var(--rs);outline:none;width:100%;resize:vertical;line-height:1.5;
+                 background:var(--surface2);color:var(--text);transition:border-color .2s"
+          onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='var(--border)'"></textarea>
+      </div>
+
+      <!-- Additional instructions -->
+      <div>
+        <label style="font-size:.72rem;font-weight:700;color:var(--text3);letter-spacing:.04em;
+                       text-transform:uppercase;display:block;margin-bottom:.35rem">
+          Additional Instructions <span style="font-weight:400;color:var(--text3)">(optional)</span>
+        </label>
+        <input type="text" id="rubricInstructions"
+          placeholder="e.g. Emphasize HL7 standards, add more weight to the diagram criterion…"
+          style="font-family:var(--font);font-size:.83rem;padding:.6rem 1rem;border:1px solid var(--border);
+                 border-radius:var(--rs);outline:none;width:100%;background:var(--surface2);
+                 color:var(--text);transition:border-color .2s"
+          onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='var(--border)'">
+      </div>
+
+      <!-- Button row -->
+      <div style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap">
+        <button type="button" id="rubricGenBtn" onclick="generateRubric()"
+          style="font-family:var(--font);font-size:.85rem;font-weight:600;padding:.6rem 1.5rem;
+                 border-radius:var(--rs);border:none;
+                 background:linear-gradient(135deg,#7c3aed,#6d28d9);
+                 color:#fff;cursor:pointer;display:flex;align-items:center;gap:.5rem;
+                 box-shadow:0 4px 14px rgba(124,58,237,.3);transition:all .2s"
+          onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">
+          <span id="rubricGenBtnIcon">&#x2728;</span>
+          <span id="rubricGenBtnText">Generate Rubric</span>
+        </button>
+        <span id="rubricGenStatus" style="font-size:.8rem;color:var(--text2)"></span>
+      </div>
+
+      <!-- Output -->
+      <div id="rubricGenOutput" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+          <div style="font-size:.82rem;font-weight:700;color:var(--text2)">Generated Rubric</div>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+            <button onclick="rubricUseForGrading()"
+              style="font-family:var(--font);font-size:.75rem;font-weight:600;padding:.3rem .9rem;
+                     border-radius:8px;border:none;background:linear-gradient(135deg,#7c3aed,#6d28d9);
+                     color:#fff;cursor:pointer;display:flex;align-items:center;gap:.35rem">
+              &#x2705; Use for Grading
+            </button>
+            <button onclick="rubricCopyJSON()"
+              style="font-family:var(--font);font-size:.75rem;font-weight:600;padding:.3rem .8rem;
+                     border-radius:8px;border:1px solid var(--border);background:var(--surface2);cursor:pointer">
+              &#x1F4CB; Copy JSON
+            </button>
+            <button onclick="rubricDownload()"
+              style="font-family:var(--font);font-size:.75rem;font-weight:600;padding:.3rem .8rem;
+                     border-radius:8px;border:1px solid #7c3aed;background:rgba(124,58,237,.07);
+                     color:#7c3aed;cursor:pointer">
+              &#x2B07; Download JSON
+            </button>
+          </div>
+        </div>
+        <div id="rubricCriteriaList" style="display:flex;flex-direction:column;gap:.75rem"></div>
+        <div style="margin-top:.75rem">
+          <div class="json-toggle" onclick="document.getElementById('rubricRawJson').classList.toggle('open')">
+            &#x25B6; Raw JSON
+          </div>
+          <div class="json-panel" id="rubricRawJson"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── History ── -->
+  <div class="card history-list anim-in" id="historyCard" style="display:none">
+    <div class="card-title" style="justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:.5rem">
+        <div class="icon" style="background:var(--surface2);color:var(--text3)">&#x1F4C1;</div>
+        Recent Runs
+      </div>
+      <a href="/api/export-csv" download
+        style="font-family:var(--font);font-size:.78rem;font-weight:600;padding:.35rem .9rem;border-radius:8px;
+               border:1px solid var(--teal);background:rgba(20,184,166,.08);color:var(--teal-d);text-decoration:none">
+        &#x2B07; Export All Grades CSV
+      </a>
+    </div>
+    <div id="historyList"></div>
+  </div>
+
+</div><!-- .main -->
+
+<script>
+/* ── PROVIDER CONFIG ─────────────────────────────────────── */
+const MODELS = {{ providers | tojson }};
+const droppedFiles = {};
+
+function updateModel(selectId, inputId){
+  const p = document.getElementById(selectId).value;
+  document.getElementById(inputId).value = MODELS[p]?.model || '';
+}
+
+/* ── FILE UPLOAD ─────────────────────────────────────────── */
+function fileSelected(input, zoneId, nameId){
+  const zone = document.getElementById(zoneId);
+  const nameEl = document.getElementById(nameId);
+  if(input.files.length){
+    droppedFiles[input.name] = input.files[0];
+    zone.classList.add('has-file');
+    nameEl.textContent = input.files[0].name;
+    nameEl.style.display = 'block';
+  } else {
+    delete droppedFiles[input.name];
+    zone.classList.remove('has-file');
+    nameEl.style.display = 'none';
+  }
+}
+
+// Drag & drop
+document.querySelectorAll('.drop-zone').forEach(zone => {
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('drag-over');
+    const input = zone.querySelector('input[type=file]');
+    if(e.dataTransfer.files.length){
+      const file = e.dataTransfer.files[0];
+      droppedFiles[input.name] = file;
+      try{
+        input.files = e.dataTransfer.files;
+      } catch(_err){
+        try{
+          // Safari/strict browsers may block direct FileList assignment.
+          const dt = new DataTransfer();
+          Array.from(e.dataTransfer.files).forEach(f => dt.items.add(f));
+          input.files = dt.files;
+        } catch(_err2){
+          // If still blocked, keep file in droppedFiles and submit via FormData fallback.
+        }
+      }
+      const nameId = input.name === 'student_pdf'
+        ? 'dz-student-name'
+        : (input.name === 'rubric' ? 'dz-rubric-name' : 'dz-assign-name');
+      const zoneId = input.name === 'student_pdf'
+        ? 'dz-student'
+        : (input.name === 'rubric' ? 'dz-rubric' : 'dz-assign');
+      const zoneEl = document.getElementById(zoneId);
+      const nameEl = document.getElementById(nameId);
+      zoneEl.classList.add('has-file');
+      nameEl.textContent = file.name;
+      nameEl.style.display = 'block';
+      try{
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      } catch(_err3){
+        // no-op
+      }
+    }
+  });
+});
+
+/* ── SCORE ANIMATION ─────────────────────────────────────── */
+function animateScore(score){
+  const ring = document.getElementById('scoreRing');
+  const text = document.getElementById('scoreText');
+  const circ = 2 * Math.PI * 85; // ~534.07
+  const offset = circ - (score / 100) * circ;
+
+  // Color based on score
+  let color = '#ef4444'; // red
+  if(score >= 90) color = '#22c55e';
+  else if(score >= 80) color = '#14b8a6';
+  else if(score >= 70) color = '#f59e0b';
+  else if(score >= 60) color = '#f97316';
+
+  ring.style.stroke = color;
+  ring.style.strokeDashoffset = offset;
+
+  // Count up animation
+  let current = 0;
+  const step = Math.max(1, Math.ceil(score / 40));
+  const timer = setInterval(() => {
+    current = Math.min(current + step, score);
+    text.textContent = Math.round(current);
+    if(current >= score) clearInterval(timer);
+  }, 30);
+}
+
+/* ── PROGRESS STEPS ──────────────────────────────────────── */
+const PROGRESS_MODES = {
+  full: ['Extract Submission','Describe Submission','Index Lectures','Retrieve Context','Grade Submission'],
+  describe: ['Extract Submission','Describe Submission']
+};
+let currentStepIdx = 0;
+
+function showProgress(mode){
+  document.getElementById('progressPanel').classList.add('active');
+  document.getElementById('describePanel').style.display = 'none';
+  document.getElementById('resultsPanel').classList.remove('active');
+  currentStepIdx = 0;
+  const labels = PROGRESS_MODES[mode] || PROGRESS_MODES.full;
+  document.querySelectorAll('.p-step').forEach((s, idx) => {
+    s.className = 'p-step';
+    s.querySelector('.p-status').textContent = '';
+    s.querySelector('.p-dot').textContent = String(idx + 1);
+    s.querySelector('.p-label').textContent = labels[idx] || 'Unused';
+    s.style.display = idx < labels.length ? 'flex' : 'none';
+  });
+  advanceStep();
+}
+
+function advanceStep(){
+  const visibleSteps = Array.from(document.querySelectorAll('.p-step')).filter(el => el.style.display !== 'none');
+  if(currentStepIdx >= visibleSteps.length) return;
+  const steps = document.querySelectorAll('.p-step');
+  steps[currentStepIdx].classList.add('running');
+  steps[currentStepIdx].querySelector('.p-status').textContent = 'Running...';
+}
+
+function completeCurrentStep(ok){
+  const steps = document.querySelectorAll('.p-step');
+  if(currentStepIdx >= steps.length) return;
+  steps[currentStepIdx].classList.remove('running');
+  steps[currentStepIdx].classList.add(ok ? 'done' : 'error');
+  steps[currentStepIdx].querySelector('.p-status').textContent = ok ? 'Done' : 'Failed';
+  steps[currentStepIdx].querySelector('.p-dot').textContent = ok ? '✓' : '✗';
+  currentStepIdx++;
+  if(ok && currentStepIdx < steps.length){
+    setTimeout(advanceStep, 200);
+  }
+}
+
+/* ── FAKE PROGRESS (since API is synchronous) ────────────── */
+let fakeTimer = null;
+function startFakeProgress(mode){
+  let idx = 0;
+  const labels = PROGRESS_MODES[mode] || PROGRESS_MODES.full;
+  showProgress(mode);
+  const delays = [10000, 90000, 15000, 10000, 35000]; // realistic: extract, vision-describe, index, retrieve, grade
+  function tick(){
+    if(idx > 0) completeCurrentStep(true);
+    if(idx < labels.length){
+      advanceStep();
+      fakeTimer = setTimeout(tick, delays[idx] || 5000);
+      idx++;
+    }
+  }
+  fakeTimer = setTimeout(tick, delays[0]);
+}
+
+function stopFakeProgress(steps){
+  if(fakeTimer) clearTimeout(fakeTimer);
+  // Set all steps from API response
+  const stepEls = document.querySelectorAll('.p-step');
+  if(steps && steps.length){
+    stepEls.forEach(el => {
+      el.className = 'p-step';
+      el.querySelector('.p-status').textContent = '';
+      el.querySelector('.p-dot').textContent = el.querySelector('.p-dot').textContent.replace(/[✓✗]/,'');
+    });
+    steps.forEach((s, i) => {
+      if(i < stepEls.length){
+        stepEls[i].classList.add(s.ok ? 'done' : 'error');
+        stepEls[i].querySelector('.p-status').textContent = s.ok ? 'Done' : 'Failed';
+        stepEls[i].querySelector('.p-dot').textContent = s.ok ? '✓' : '✗';
+      }
+    });
+  }
+}
+
+/* ── RENDER RESULTS ──────────────────────────────────────── */
+function renderResults(grades){
+  const panel = document.getElementById('resultsPanel');
+  panel.classList.add('active');
+  document.getElementById('describePanel').style.display = 'none';
+
+  // Rubric warning
+  document.getElementById('rubricWarning').style.display =
+    grades.rubric_used_generic_defaults ? 'block' : 'none';
+
+  // Score
+  const score = Math.round(grades.overall_score || 0);
+  animateScore(score);
+
+  // Meta
+  document.getElementById('studentFileName').textContent = grades.student_file || 'Unknown';
+  document.getElementById('metaModel').textContent = '🤖 ' + (grades.grading_model || '—');
+  const tu = grades.token_usage || {};
+  document.getElementById('metaTokens').textContent =
+    '📊 ' + ((tu.input_tokens||0)+(tu.output_tokens||0)).toLocaleString() + ' tokens';
+  const conf = grades.confidence;
+  document.getElementById('metaConfidence').textContent =
+    '🎯 ' + (conf != null ? (conf*100).toFixed(0)+'% confidence' : '—');
+  document.getElementById('overallFeedback').textContent = grades.overall_feedback || '';
+
+  // Section Coverage
+  const secCov = grades.section_coverage || [];
+  const secWrap = document.getElementById('sectionCoverageWrap');
+  const secEl = document.getElementById('sectionCoverage');
+  if(secCov.length){
+    secWrap.style.display = 'block';
+    secEl.innerHTML = secCov.map(s =>
+      `<div class="sec-chip ${s.status}">${s.section_id}: ${s.status}</div>`
+    ).join('');
+  } else { secWrap.style.display = 'none'; }
+
+  // Score Breakdown
+  const bd = grades.score_breakdown || {};
+  const grid = document.getElementById('breakdownGrid');
+  grid.innerHTML = '';
+  const entries = Object.entries(bd);
+  if(entries.length){
+    // Determine max for each bar from criterion details
+    const details = grades.criterion_details || [];
+    entries.forEach(([name, val], i) => {
+      const detail = details.find(d => d.criterion_name === name || d.criterion_id === name);
+      const max = detail ? detail.max_points : 100;
+      const pct = Math.min(100, (val / max) * 100);
+      let color = pct >= 85 ? 'var(--green)' : pct >= 70 ? 'var(--teal)' : pct >= 55 ? 'var(--amber)' : 'var(--red)';
+      const label = name.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+      grid.innerHTML += `
+        <div class="bar-item">
+          <div class="bar-head"><span class="bar-name" title="${name}">${label}</span>
+            <span class="bar-score">${val} / ${max}</span></div>
+          <div class="bar-track"><div class="bar-fill" style="background:${color}" data-width="${pct}%"></div></div>
+        </div>`;
+    });
+    // Animate bars
+    setTimeout(()=>{
+      grid.querySelectorAll('.bar-fill').forEach(b => b.style.width = b.dataset.width);
+    }, 100);
+  }
+
+  // Feedback lists
+  renderList('strengthsList', grades.strengths || []);
+  renderList('gapsList', grades.gaps || []);
+  renderList('actionsList', grades.action_items || []);
+
+  // Criterion Details
+  const crit = grades.criterion_details || [];
+  const critWrap = document.getElementById('criterionWrap');
+  const critBody = document.getElementById('criterionBody');
+  if(crit.length){
+    critWrap.style.display = 'block';
+    critBody.innerHTML = crit.map(c => {
+      const evTags = (c.evidence_refs||[]).map(e=>`<span class="evidence-tag" title="${esc(e)}">"${esc(e.substring(0,40))}"</span>`).join('');
+      const missTags = (c.missing_items||[]).map(m=>`<span class="missing-tag">${esc(m)}</span>`).join('');
+      const capNote = c.no_evidence_cap_applied ? ' <span style="color:var(--amber);font-size:.65rem">(capped: no evidence)</span>' : '';
+      return `<tr>
+        <td><strong>${esc(c.criterion_name||c.criterion_id)}</strong></td>
+        <td><strong>${c.awarded_points}</strong> / ${c.max_points}${capNote}</td>
+        <td style="font-size:.75rem;color:var(--text2)">${esc(c.justification||'')}</td>
+        <td>${evTags||'<span style="color:var(--text3);font-size:.72rem">—</span>'}</td>
+        <td>${missTags||'<span style="color:var(--text3);font-size:.72rem">—</span>'}</td>
+      </tr>`;
+    }).join('');
+  } else { critWrap.style.display = 'none'; }
+
+  // Policy Caps
+  const caps = grades.policy_caps_applied || [];
+  const capsWrap = document.getElementById('policyCapsWrap');
+  if(caps.length){
+    capsWrap.style.display = 'block';
+    document.getElementById('policyCaps').innerHTML = caps.map(c=>`<li>${esc(c)}</li>`).join('');
+  } else { capsWrap.style.display = 'none'; }
+
+  // Raw JSON
+  document.getElementById('jsonPanel').textContent = JSON.stringify(grades, null, 2);
+
+  // Scroll to results
+  setTimeout(()=> panel.scrollIntoView({behavior:'smooth', block:'start'}), 300);
+}
+
+function renderDescribe(data){
+  document.getElementById('resultsPanel').classList.remove('active');
+  const panel = document.getElementById('describePanel');
+  panel.style.display = 'block';
+  document.getElementById('describeRunId').textContent = data.run_id || '—';
+  document.getElementById('describeChunksPath').textContent = data.describe?.chunks_jsonl || '—';
+  document.getElementById('describeSummaryPath').textContent = data.describe?.summary_path || '—';
+
+  const summary = data.describe?.summary || {};
+  const counts = summary.counts_by_content_type || {};
+  document.getElementById('describeStats').innerHTML = `
+    <div><strong>Files processed:</strong> ${summary.processed_file_count ?? '—'} / ${summary.file_count ?? '—'}</div>
+    <div><strong>Chunks generated:</strong> ${summary.chunk_count ?? '—'}</div>
+    <div><strong>Text chunks:</strong> ${counts.text ?? 0}</div>
+    <div><strong>Image descriptions:</strong> ${counts.image_description ?? 0}</div>
+    <div><strong>Table chunks:</strong> ${counts.table ?? 0}</div>
+    <div><strong>Vision provider:</strong> ${summary.vision_provider || '—'}</div>
+    <div><strong>Vision model:</strong> ${summary.vision_model || '—'}</div>
+  `;
+  document.getElementById('describeJsonPanel').textContent = JSON.stringify(summary, null, 2);
+  setTimeout(()=> panel.scrollIntoView({behavior:'smooth', block:'start'}), 300);
+}
+
+function renderList(id, items){
+  const el = document.getElementById(id);
+  el.innerHTML = items.length
+    ? items.map(i => `<li>${esc(i)}</li>`).join('')
+    : '<li style="color:var(--text3)">None</li>';
+}
+
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+/* ── ERROR BANNER ─────────────────────────────────────────── */
+function showError(msg, log){
+  document.getElementById('errorMsg').textContent = msg;
+  const logEl = document.getElementById('errorLog');
+  if(log){ logEl.textContent = log; logEl.style.display = 'block'; }
+  else { logEl.style.display = 'none'; }
+  document.getElementById('errorBanner').style.display = 'block';
+  document.getElementById('errorBanner').scrollIntoView({behavior:'smooth'});
+}
+
+/* ── WEB PAGE SUMMARIZER ─────────────────────────────────── */
+function updateWebLinkModel(){
+  const defaults = { openai:'gpt-4o-mini', gemini:'gemini-2.0-flash', anthropic:'claude-haiku-4-5' };
+  const p = document.getElementById('webLinkProvider').value;
+  document.getElementById('webLinkModel').placeholder = defaults[p] || 'auto';
+}
+
+async function summarizeLink(){
+  const url = (document.getElementById('webLinkUrl').value || '').trim();
+  if(!url || !url.startsWith('http')){
+    alert('Please enter a valid URL starting with http:// or https://');
+    return;
+  }
+
+  const provider = document.getElementById('webLinkProvider').value;
+  const model    = document.getElementById('webLinkModel').value.trim();
+  const btn      = document.getElementById('summarizeLinkBtn');
+  const icon     = document.getElementById('summarizeLinkBtnIcon');
+  const txt      = document.getElementById('summarizeLinkBtnText');
+  const outDiv   = document.getElementById('webSummaryOutput');
+
+  btn.disabled = true;
+  icon.textContent = '⏳';
+  txt.textContent = 'Summarizing…';
+  outDiv.style.display = 'block';
+  outDiv.innerHTML = `<div style="font-size:.82rem;color:var(--text3);padding:.6rem 0">
+    Fetching page and summarizing — this may take 15–30 seconds…
+  </div>`;
+
+  try {
+    const resp = await fetch('/api/summarize-web-link', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ url, provider, model: model || undefined }),
+    });
+    const d = await resp.json();
+
+    if(!d.success){
+      outDiv.innerHTML = `<div style="color:var(--red);font-size:.83rem;padding:.5rem 0">
+        ✗ ${esc(d.error || 'Unknown error')}
+      </div>`;
+      return;
+    }
+
+    // Format paragraphs
+    const paragraphs = d.summary.split(/\n\n+/).filter(p=>p.trim());
+    const parasHtml = paragraphs.map(p =>
+      `<p style="margin:0 0 .85rem 0;line-height:1.7;font-size:.86rem;color:var(--text)">${esc(p.trim())}</p>`
+    ).join('');
+
+    outDiv.innerHTML = `
+      <!-- Header bar -->
+      <div style="background:linear-gradient(135deg,rgba(20,184,166,.08),rgba(20,184,166,.03));
+                  border:1px solid rgba(20,184,166,.25);border-radius:var(--rs);
+                  padding:.75rem 1rem;margin-bottom:1rem">
+        <div style="font-size:.7rem;font-weight:700;color:var(--teal);letter-spacing:.05em;
+                    text-transform:uppercase;margin-bottom:.3rem">Page Extracted</div>
+        <div style="font-size:.88rem;font-weight:600;color:var(--text);margin-bottom:.2rem">${esc(d.title)}</div>
+        <div style="font-size:.75rem;color:var(--text3);word-break:break-all">${esc(d.url)}</div>
+        <div style="display:flex;gap:1rem;margin-top:.55rem;flex-wrap:wrap">
+          <span style="font-size:.72rem;color:var(--text3)">
+            📄 <strong style="color:var(--text2)">${d.extracted_chars.toLocaleString()}</strong> chars extracted
+          </span>
+          <span style="font-size:.72rem;color:var(--text3)">
+            📋 <strong style="color:var(--text2)">${d.extracted_lines}</strong> content lines found
+          </span>
+          <span style="font-size:.72rem;color:var(--text3)">
+            🤖 Summarized by <strong style="color:var(--text2)">${esc(d.model_used)}</strong>
+          </span>
+        </div>
+      </div>
+
+      <!-- AI Summary -->
+      <div style="margin-bottom:.75rem">
+        <div style="font-size:.7rem;font-weight:700;color:var(--primary);letter-spacing:.05em;
+                    text-transform:uppercase;margin-bottom:.6rem">
+          ✨ AI Summary (${paragraphs.length} paragraph${paragraphs.length!==1?'s':''})
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);
+                    padding:1rem 1.1rem;">
+          ${parasHtml}
+        </div>
+      </div>
+
+      <!-- Raw extraction preview (collapsible) -->
+      <details style="font-size:.78rem;color:var(--text2)">
+        <summary style="cursor:pointer;font-weight:600;color:var(--text3);
+                         list-style:none;display:flex;align-items:center;gap:.4rem;
+                         padding:.3rem 0;user-select:none">
+          <span style="font-size:.7rem">▶</span>
+          Raw text extracted from page (first ${Math.min(d.raw_preview.length,30)} lines)
+        </summary>
+        <div style="margin-top:.6rem;background:var(--surface2);border:1px solid var(--border);
+                    border-radius:var(--rs);padding:.75rem 1rem;max-height:200px;overflow-y:auto">
+          ${(d.raw_preview||[]).map((line,i)=>
+            `<div style="padding:.15rem 0;border-bottom:1px solid var(--border);
+                          display:flex;gap:.6rem;align-items:flex-start">
+              <span style="font-size:.68rem;color:var(--text3);flex-shrink:0;padding-top:.1rem">${i+1}</span>
+              <span style="font-size:.76rem;color:var(--text)">${esc(line)}</span>
+            </div>`
+          ).join('')}
+        </div>
+      </details>`;
+
+    outDiv.scrollIntoView({behavior:'smooth', block:'nearest'});
+  } catch(err){
+    outDiv.innerHTML = `<div style="color:var(--red);font-size:.83rem">✗ ${err.message}</div>`;
+  } finally {
+    btn.disabled = false;
+    icon.textContent = '🔍';
+    txt.textContent = 'Summarize';
+  }
+}
+
+/* ── LECTURE INDEX INSPECTOR ─────────────────────────────── */
+const TAG_COLORS = {
+  p:'#6366f1', h1:'#8b5cf6', h2:'#8b5cf6', h3:'#8b5cf6',
+  h4:'#a78bfa', h5:'#a78bfa', h6:'#a78bfa',
+  table:'#14b8a6', img_alt:'#f59e0b',
+  li:'#6366f1', blockquote:'#ec4899', code:'#f97316', pre:'#f97316',
+  web_summary:'#22c55e', html:'#6366f1',
+};
+
+async function loadLectureStats(){
+  const btn = document.getElementById('inspectorRefreshBtn');
+  const loading = document.getElementById('inspectorLoading');
+  const stats = document.getElementById('inspectorStats');
+  btn.textContent = '⏳ Loading…';
+  btn.disabled = true;
+  loading.textContent = 'Loading extraction stats…';
+  loading.style.display = 'block';
+  stats.style.display = 'none';
+
+  try {
+    const resp = await fetch('/api/lecture-index-stats');
+    const d = await resp.json();
+    if(!d.success){ loading.textContent = '✗ ' + (d.error||'Error'); return; }
+
+    // Fill stat tiles
+    document.getElementById('iStatChunks').textContent = d.total_chunks.toLocaleString();
+    document.getElementById('iStatFiles').textContent  = d.total_files.toLocaleString();
+    document.getElementById('iStatAvg').textContent    = d.avg_chunk_chars.toLocaleString();
+    document.getElementById('iStatProvider').textContent = d.embedding_provider.toUpperCase();
+    const statusEl = document.getElementById('iStatStatus');
+    if(d.chroma_ready){
+      statusEl.textContent = '✓ Ready';
+      statusEl.style.color = 'var(--green)';
+    } else {
+      statusEl.textContent = '✗ Not indexed';
+      statusEl.style.color = 'var(--red)';
+    }
+
+    // Tag breakdown pills
+    const tagEl = document.getElementById('iTagBreakdown');
+    tagEl.innerHTML = Object.entries(d.tag_breakdown)
+      .sort((a,b)=>b[1]-a[1])
+      .map(([tag, cnt]) => {
+        const color = TAG_COLORS[tag] || '#94a3b8';
+        return `<span style="display:inline-flex;align-items:center;gap:.3rem;padding:.25rem .65rem;
+          border-radius:20px;font-size:.73rem;font-weight:600;background:${color}18;color:${color};
+          border:1px solid ${color}30">
+          ${esc(tag)} <span style="background:${color};color:#fff;border-radius:10px;padding:0 .4rem;font-size:.65rem">${cnt}</span>
+        </span>`;
+      }).join('');
+
+    // File count label
+    document.getElementById('iFileCount').textContent = `(${d.total_files} files)`;
+
+    // Per-file list
+    const fileEl = document.getElementById('iFileList');
+    fileEl.innerHTML = d.files.map((f, idx) => {
+      const isWeb = f.is_web;
+      const icon = isWeb ? '🌐' : (f.format === 'html' ? '📄' : '📋');
+      const name = isWeb ? (f.web_title || f.web_url) : f.filename;
+      const badge = isWeb
+        ? `<span style="font-size:.65rem;background:#22c55e18;color:#22c55e;border:1px solid #22c55e30;
+            border-radius:8px;padding:.1rem .4rem;font-weight:600">WEB</span>`
+        : `<span style="font-size:.65rem;background:var(--primary-bg);color:var(--primary);border:1px solid rgba(99,102,241,.2);
+            border-radius:8px;padding:.1rem .4rem;font-weight:600">${esc(f.format.toUpperCase())}</span>`;
+      const tagPills = Object.entries(f.tag_counts||{}).map(([t,c])=>
+        `<span style="font-size:.65rem;color:${TAG_COLORS[t]||'#94a3b8'}">${t}(${c})</span>`
+      ).join(' ');
+      return `<div style="padding:.65rem .9rem;border-bottom:1px solid var(--border);
+          display:flex;flex-direction:column;gap:.3rem;background:${idx%2===0?'var(--surface)':'var(--surface2)'}">
+        <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+          <span>${icon}</span>
+          ${badge}
+          <span style="font-weight:600;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+            title="${esc(isWeb ? f.web_url : f.filename)}">${esc(name)}</span>
+          <span style="flex-shrink:0;font-size:.72rem;font-weight:700;color:var(--primary);
+            background:var(--primary-bg);padding:.1rem .5rem;border-radius:8px">${f.chunks} chunks</span>
+        </div>
+        <div style="color:var(--text3);font-size:.7rem;display:flex;gap:.6rem;flex-wrap:wrap">${tagPills}</div>
+        <div style="color:var(--text2);font-size:.73rem;font-style:italic;
+          overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%"
+          title="${esc(f.sample)}">"${esc(f.sample)}"</div>
+      </div>`;
+    }).join('');
+
+    loading.style.display = 'none';
+    stats.style.display = 'block';
+  } catch(err){
+    loading.textContent = '✗ Request error: ' + err.message;
+  } finally {
+    btn.textContent = '↻ Refresh';
+    btn.disabled = false;
+  }
+}
+
+async function testRAG(){
+  const q = document.getElementById('ragSearchInput').value.trim();
+  if(!q) return;
+  const resEl = document.getElementById('ragResults');
+  resEl.innerHTML = '<div style="color:var(--text3);font-size:.78rem">Searching…</div>';
+  try {
+    const resp = await fetch(`/api/lecture-search?q=${encodeURIComponent(q)}&k=5`);
+    const d = await resp.json();
+    if(!d.success){ resEl.innerHTML = `<div style="color:var(--red);font-size:.78rem">✗ ${esc(d.error)}</div>`; return; }
+    if(!d.hits.length){ resEl.innerHTML = '<div style="color:var(--text3);font-size:.78rem">No results found.</div>'; return; }
+
+    resEl.innerHTML = d.hits.map((h, i) => {
+      const relevColor = h.relevance_pct >= 70 ? 'var(--green)' : h.relevance_pct >= 45 ? 'var(--amber)' : 'var(--red)';
+      return `<div style="border:1px solid var(--border);border-radius:var(--rs);padding:.65rem .85rem;
+          margin-bottom:.5rem;background:var(--surface)">
+        <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.35rem;flex-wrap:wrap">
+          <span style="font-size:.7rem;font-weight:800;color:#fff;background:var(--primary);
+            border-radius:6px;padding:.1rem .4rem">#${i+1}</span>
+          <span style="font-size:.72rem;font-weight:600;color:var(--text2)">${esc(h.filename)}</span>
+          ${h.element_tag ? `<span style="font-size:.65rem;color:${TAG_COLORS[h.element_tag]||'#94a3b8'}">&lt;${esc(h.element_tag)}&gt;</span>` : ''}
+          <span style="margin-left:auto;font-size:.72rem;font-weight:700;color:${relevColor}">
+            ${h.relevance_pct}% relevant
+          </span>
+        </div>
+        <div style="font-size:.78rem;color:var(--text);line-height:1.5">${esc(h.content)}</div>
+      </div>`;
+    }).join('');
+    resEl.scrollIntoView({behavior:'smooth', block:'nearest'});
+  } catch(err){
+    resEl.innerHTML = `<div style="color:var(--red);font-size:.78rem">✗ ${err.message}</div>`;
+  }
+}
+
+/* ── INDEX LECTURES ──────────────────────────────────────── */
+async function indexLectures(){
+  const btn = document.getElementById('indexLecturesBtn');
+  const status = document.getElementById('indexStatus');
+  if(btn){ btn.disabled = true; btn.textContent = 'Building index...'; }
+  status.textContent = 'Indexing lecture chunks, this may take a minute...';
+  try {
+    const resp = await fetch('/api/index-lectures', { method:'POST' });
+    const data = await resp.json();
+    if(data.success){
+      status.textContent = '✓ Lecture index built! Refresh the page to confirm.';
+      if(btn){ btn.textContent = '✓ Done'; btn.style.color = 'var(--teal)'; }
+    } else {
+      status.textContent = 'Failed: ' + (data.error || 'Unknown error');
+      if(btn){ btn.disabled = false; btn.textContent = 'Retry'; }
+    }
+  } catch(err){
+    status.textContent = 'Request error: ' + err.message;
+    if(btn){ btn.disabled = false; btn.textContent = 'Retry'; }
+  }
+}
+
+/* ── FORM SUBMIT ─────────────────────────────────────────── */
+async function submitPipeline(mode){
+  document.getElementById('errorBanner').style.display = 'none';
+  const btn = document.getElementById('gradeBtn');
+  const describeBtn = document.getElementById('describeBtn');
+  const form = document.getElementById('gradeForm');
+  const studentInput = form.querySelector('input[name="student_pdf"]');
+  const rubricInput = form.querySelector('input[name="rubric"]');
+  const assignmentInput = form.querySelector('input[name="assignment"]');
+  const studentFileReady = (studentInput && studentInput.files && studentInput.files.length)
+    || droppedFiles.student_pdf;
+  if(mode === 'full' || mode === 'describe'){
+    if(!studentFileReady){
+      showError('Please upload a student submission file.');
+      return;
+    }
+  }
+
+  btn.classList.remove('loading');
+  describeBtn.classList.remove('loading');
+  [btn, describeBtn].forEach(b => b.disabled = true);
+  const activeBtn = mode === 'describe' ? describeBtn : btn;
+  activeBtn.classList.add('loading');
+  startFakeProgress(mode);
+
+  const fd = new FormData(form);
+  if(studentInput && (!studentInput.files || !studentInput.files.length) && droppedFiles.student_pdf){
+    fd.append('student_pdf', droppedFiles.student_pdf, droppedFiles.student_pdf.name);
+  }
+  if(rubricInput && (!rubricInput.files || !rubricInput.files.length) && droppedFiles.rubric){
+    fd.append('rubric', droppedFiles.rubric, droppedFiles.rubric.name);
+  }
+  if(assignmentInput && (!assignmentInput.files || !assignmentInput.files.length) && droppedFiles.assignment){
+    fd.append('assignment', droppedFiles.assignment, droppedFiles.assignment.name);
+  }
+  fd.set('action_mode', mode);
+
+  try {
+    const endpoint = mode === 'describe' ? '/api/describe' : '/api/grade';
+    const resp = await fetch(endpoint, { method:'POST', body: fd });
+    let data = null;
+    const ct = (resp.headers.get('content-type') || '').toLowerCase();
+    if(ct.includes('application/json')){
+      data = await resp.json();
+    } else {
+      const text = await resp.text();
+      data = { success:false, error: text || `HTTP ${resp.status}` };
+    }
+    stopFakeProgress(data.steps || []);
+
+    if(resp.ok && data.success){
+      if(mode === 'describe'){
+        setTimeout(()=> renderDescribe(data), 600);
+      } else {
+        setTimeout(()=> renderResults(data.grades), 600);
+      }
+      loadHistory();
+    } else {
+      // Find the first failed step log
+      const failedStep = (data.steps || []).find(s => !s.ok);
+      showError(data.error || 'Grading failed.', failedStep ? failedStep.log : (data.log || null));
+    }
+  } catch(err){
+    stopFakeProgress([]);
+    showError('Request failed: ' + err.message);
+  } finally {
+    [btn, describeBtn].forEach(b => {
+      b.classList.remove('loading');
+      b.disabled = false;
+    });
+  }
+}
+
+document.getElementById('gradeForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  await submitPipeline('full');
+});
+
+document.getElementById('describeBtn').addEventListener('click', async () => {
+  await submitPipeline('describe');
+});
+
+/* ── LOAD HISTORY ────────────────────────────────────────── */
+async function loadHistory(){
+  try {
+    const resp = await fetch('/api/history');
+    const runs = await resp.json();
+    if(runs.length){
+      document.getElementById('historyCard').style.display = 'block';
+      document.getElementById('historyList').innerHTML = runs.map(r => `
+        <div class="history-item">
+          <span class="history-score" style="color:${r.score>=90?'var(--green)':r.score>=80?'var(--teal)':r.score>=70?'var(--amber)':'var(--red)'}">${Math.round(r.score)}</span>
+          <span class="history-file">${esc(r.student_file)}</span>
+          <span class="history-model">${esc(r.model)}</span>
+          <span class="history-model">${esc(r.timestamp||'')}</span>
+        </div>
+      `).join('');
+    }
+  } catch(e){ /* ignore */ }
+}
+/* ── RUBRIC GENERATOR ────────────────────────────────────── */
+let _lastRubricData = null;
+
+function rubricFileChosen(input, labelId) {
+  const label = document.getElementById(labelId);
+  if (input.files && input.files[0]) {
+    label.textContent = input.files[0].name;
+  }
+}
+
+function rubricExistingFileChosen(input) {
+  const label = document.getElementById('rubricExistingFileLabel');
+  if (!input.files || !input.files[0]) return;
+  const file = input.files[0];
+  label.textContent = file.name;
+  // For plain text / JSON / MD — read into textarea so professor can preview/edit
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (['txt', 'md', 'json'].includes(ext)) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      document.getElementById('rubricExistingText').value = e.target.result;
+    };
+    reader.readAsText(file);
+  } else {
+    // DOCX/PDF — will be sent as file, clear textarea to avoid sending both
+    document.getElementById('rubricExistingText').value = '';
+    label.textContent = file.name + ' (will be read server-side)';
+  }
+}
+
+async function generateRubric() {
+  const assignText = document.getElementById('rubricAssignText').value.trim();
+  const assignFile = document.getElementById('rubricAssignFile').files[0];
+  const existingText = document.getElementById('rubricExistingText').value.trim();
+  const instructions = document.getElementById('rubricInstructions').value.trim();
+
+  if (!assignText && !assignFile) {
+    document.getElementById('rubricGenStatus').innerHTML =
+      '<span style="color:var(--red)">Please provide assignment instructions.</span>';
+    return;
+  }
+
+  const btn = document.getElementById('rubricGenBtn');
+  const btnText = document.getElementById('rubricGenBtnText');
+  const btnIcon = document.getElementById('rubricGenBtnIcon');
+  const status = document.getElementById('rubricGenStatus');
+  const output = document.getElementById('rubricGenOutput');
+
+  btn.disabled = true;
+  btnIcon.innerHTML = '&#x23F3;';
+  btnText.textContent = 'Generating…';
+  status.textContent = '';
+  output.style.display = 'none';
+
+  const existingFile = document.getElementById('rubricExistingFile').files[0];
+  const fd = new FormData();
+  if (assignText) fd.append('assignment_text', assignText);
+  if (assignFile) fd.append('assignment_file', assignFile);
+  if (existingText) fd.append('existing_rubric', existingText);
+  else if (existingFile) fd.append('existing_rubric_file', existingFile);
+  if (instructions) fd.append('instructions', instructions);
+
+  try {
+    const resp = await fetch('/api/generate-rubric', { method: 'POST', body: fd });
+    const data = await resp.json();
+
+    if (!data.success) {
+      status.innerHTML = `<span style="color:var(--red)">Error: ${esc(data.error)}</span>`;
+      return;
+    }
+
+    _lastRubricData = data.rubric;
+    const modeLabel = data.mode === 'enhance' ? '✏️ Enhanced' : '✨ Generated';
+    status.innerHTML = `<span style="color:var(--green)">${modeLabel} — ${data.rubric.criteria.length} criteria, ${data.rubric.total_points} pts total</span>`;
+
+    // Render criteria cards
+    const list = document.getElementById('rubricCriteriaList');
+    list.innerHTML = data.rubric.criteria.map((c, i) => `
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:1rem 1.1rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem">
+          <div style="font-weight:700;font-size:.9rem;color:var(--text)">${esc(c.criterion_name)}</div>
+          <div style="font-size:.8rem;font-weight:700;color:#7c3aed;background:rgba(124,58,237,.1);
+                      padding:.2rem .7rem;border-radius:20px">${c.max_points} pts</div>
+        </div>
+        <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.3rem">
+          ${c.checklist_items.map(item =>
+            `<li style="font-size:.8rem;color:var(--text2);display:flex;gap:.5rem;align-items:flex-start">
+              <span style="color:#7c3aed;flex-shrink:0;margin-top:.05rem">☐</span>
+              <span>${esc(item)}</span>
+            </li>`
+          ).join('')}
+        </ul>
+      </div>
+    `).join('');
+
+    // Raw JSON panel
+    document.getElementById('rubricRawJson').textContent = JSON.stringify(data.rubric, null, 2);
+    output.style.display = 'block';
+
+  } catch(e) {
+    status.innerHTML = `<span style="color:var(--red)">Request failed: ${esc(String(e))}</span>`;
+  } finally {
+    btn.disabled = false;
+    btnIcon.innerHTML = '&#x2728;';
+    btnText.textContent = 'Generate Rubric';
+  }
+}
+
+function rubricUseForGrading() {
+  if (!_lastRubricData) return;
+  document.getElementById('generatedRubricJson').value = JSON.stringify(_lastRubricData);
+  // Clear any uploaded rubric file so the generated one takes priority
+  const rubricInput = document.querySelector('input[name="rubric"]');
+  if (rubricInput) rubricInput.value = '';
+  document.getElementById('dz-rubric').classList.remove('has-file');
+  document.getElementById('dz-rubric-name').style.display = 'none';
+  // Visual confirmation — scroll up to upload section
+  document.getElementById('dz-rubric').style.borderColor = '#7c3aed';
+  document.getElementById('dz-rubric').style.background = 'rgba(124,58,237,.07)';
+  document.getElementById('dz-rubric-name').textContent = '✓ Using generated rubric';
+  document.getElementById('dz-rubric-name').style.display = 'block';
+  document.getElementById('dz-rubric-name').style.color = '#7c3aed';
+  document.getElementById('rubricGenStatus').innerHTML =
+    '<span style="color:#7c3aed;font-weight:600">✓ Rubric set for grading — scroll up and run the pipeline</span>';
+  document.querySelector('.card.anim-in').scrollIntoView({ behavior: 'smooth' });
+}
+
+function rubricCopyJSON() {
+  if (!_lastRubricData) return;
+  navigator.clipboard.writeText(JSON.stringify(_lastRubricData, null, 2))
+    .then(() => { document.getElementById('rubricGenStatus').innerHTML = '<span style="color:var(--green)">Copied to clipboard!</span>'; });
+}
+
+function rubricDownload() {
+  if (!_lastRubricData) return;
+  const blob = new Blob([JSON.stringify(_lastRubricData, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'rubric.json';
+  a.click();
+}
+
+loadHistory();
+</script>
+</body>
+</html>

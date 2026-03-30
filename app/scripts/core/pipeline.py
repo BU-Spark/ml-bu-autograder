@@ -431,6 +431,7 @@ def run_describe(
     chroma_batch_size: int,
     vision_input_cost_per_1m: float,
     vision_output_cost_per_1m: float,
+    source_type_override: str | None = None,
 ) -> dict[str, Any]:
     manifest_path = extract_dir / "manifest.json"
     if not manifest_path.exists():
@@ -488,7 +489,7 @@ def run_describe(
         try:
             payload = json.loads(per_file_json_path.read_text(encoding="utf-8"))
             file_name = Path(rel_path).name
-            source_type = infer_source_type(rel_path)
+            source_type = source_type_override if source_type_override else infer_source_type(rel_path)
 
             chunks: list[dict[str, Any]] = []
             fstats: dict[str, Any] = {
@@ -520,11 +521,6 @@ def run_describe(
                     units.append({"kind": "image", "order": int(im.get("document_order", 0)), "item": im})
                 units.sort(key=lambda u: u["order"])
 
-                # PDFs exported from presentations lose shape structure, so short
-                # text labels (node labels, callouts, etc.) must not be dropped.
-                # Match the PPTX threshold of 5 so equivalent content scores the same.
-                pdf_min_text_chars = 5
-
                 max_doc_order = 0
                 for unit in units:
                     max_doc_order = max(max_doc_order, int(unit["order"]))
@@ -542,7 +538,7 @@ def run_describe(
                             text=str(t["text"]),
                             max_chars=int(cfg["text_chunk_chars"]),
                             overlap=int(cfg["text_chunk_overlap"]),
-                            min_text_chars=pdf_min_text_chars,
+                            min_text_chars=int(cfg["min_text_chars"]),
                             extra_meta={"block_id": t.get("block_id"), "bbox": t.get("bbox")},
                         )
                     else:
