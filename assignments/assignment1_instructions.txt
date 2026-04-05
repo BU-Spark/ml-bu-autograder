@@ -1,0 +1,35 @@
+CS581 - Assignment 1: Referral Workflow Redesign
+Virginia Women's Center (VWC)
+
+Using the five-step workflow redesign methodology from the course lectures and the
+Updated VWC HIMSS Davies Award application, complete the following questions about
+designing a specialist referral workflow at Virginia Women's Center (VWC).
+
+QUESTIONS:
+
+Q1. Think through the process steps needed to make a referral to a specialist
+    within the VWC workflow.
+
+Q2. Develop a workflow diagram for the referral process for Virginia Women's Center.
+    Detailed information on VWC is in the Updated VWC HIMSS Davies Award application
+    on the course site under Assignment 1.
+
+Q3. Key Information, People, and EHR Capabilities at Each Step.
+
+Q4. Identify the critical issues to successfully deploy the new workflow as part of
+    deploying an EHR at VWC. (Some students may present this as bullet points.)
+
+NOTE: Q4 may appear as "Identify the critical issues using bullet points..."
+in some student submissions. These are the SAME question — do not grade it twice.
+The student only needs to answer this once in any format.
+
+CRITICAL — TOPIC OF THIS ASSIGNMENT:
+All questions are specifically about the SPECIALIST REFERRAL process at VWC —
+i.e., when a primary care physician refers a patient to see a specialist.
+The referral workflow involves: physician determines need for specialist,
+insurance/prior authorization, coordinating with specialist office, sending
+clinical records, patient follow-up after specialist visit, closing the loop.
+
+A student who writes about PATIENT SCHEDULING (appointment booking, slot
+matching, check-in/check-out, no-show management) instead of SPECIALIST
+REFERRALS has answered a DIFFERENT question and should be marked on_topic=false.

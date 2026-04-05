@@ -1,0 +1,1189 @@
+{
+  "summary": {
+    "total_submissions": 31,
+    "mean_gap_old": -2.193548387096774,
+    "mean_gap_new": -0.3225806451612903,
+    "improvement": 1.8709677419354838,
+    "improvement_pct": 85.29411764705883
+  },
+  "results": [
+    {
+      "student_id": 26,
+      "ai_score_old": 4.0,
+      "ai_score_new": 16.0,
+      "human_score": 16.0,
+      "gap_old": -12.0,
+      "gap_new": 0.0,
+      "risk": 0.7249999999999999,
+      "confidence": 1.0,
+      "needs_human_review": true,
+      "grade_result": {
+        "student_file": "student_response_1",
+        "criterion_scores": [
+          {
+            "criterion_id": "A",
+            "awarded_points": 8,
+            "justification": "Clear causal role and 2+ effects (workflow fit, waste removal, smoother flow, better care)."
+          },
+          {
+            "criterion_id": "B",
+            "awarded_points": 3,
+            "justification": "Identifies 3 issues: copying problems, waste, and workflow inefficiencies."
+          },
+          {
+            "criterion_id": "C",
+            "awarded_points": 2,
+            "justification": "'Copying old processes keeps problems' is a specific qualifier."
+          },
+          {
+            "criterion_id": "D",
+            "awarded_points": 3,
+            "justification": "Clear linkage: redesign \u2192 waste removal \u2192 smoother flow \u2192 better care."
+          }
+        ],
+        "total_points": 16,
+        "overall_feedback": "Excellent response with clear understanding of BPR's role and effects. Strong cause-effect reasoning and specific examples."
+      }
+    },
+    {
+      "student_id": 12,
+      "ai_score_old": 8.0,
+      "ai_score_new": 12.0,
+      "human_score": 14.0,
+      "gap_old": -6.0,
+      "gap_new": -2.0,
+      "risk": 0.3308333333333333,
+      "confidence": 0.7333333333333333,
+      "needs_human_review": false,
+      "grade_result": {
+        "student_file": "student_response_1",
+        "criterion_scores": [
+          {
+            "criterion_id": "A",
+            "awarded_points": 6,
+            "justification": "Causal role implied (improving processes for EHR use) with multiple effects like analytics, communication, and privacy."
+          },
+          {
+            "criterion_id": "B",
+            "awarded_points": 3,
+            "justification": "Identifies 3+ issues: data segregation, communication, privacy, and compatibility."
+          },
+          {
+            "criterion_id": "C",
+            "awarded_points": 1,
+            "justification": "Some specificity (e.g., fitness tracker data) but mostly generic explanations."
+          },
+          {
+            "criterion_id": "D",
+            "awarded_points": 2,
+            "justification": "Partial linkage shown, e.g., compatibility for lab/radiology results and privacy with AI use."
+          }
+        ],
+        "total_points": 12,
+        "overall_feedback": "Good understanding of BPR's role with multiple relevant issues identified. Some explanations lack depth or clear causal linkages."
+      }
+    },
+    {
+      "student_id": 24,
+      "ai_score_old": 10.0,
+      "ai_score_new": 13.0,
+      "human_score": 14.0,
+      "gap_old": -4.0,
+      "gap_new": -1.0,
+      "risk": 0.23645833333333333,
+      "confidence": 0.8333333333333333,
+      "needs_human_review": false,
+      "grade_result": {
+        "student_file": "student_response_13",
+        "criterion_scores": [
+          {
+            "criterion_id": "A",
+            "awarded_points": 6,
+            "justification": "Identifies causal role (correcting flaws) and mentions effects like cost reduction and patient care."
+          },
+          {
+            "criterion_id": "B",
+            "awarded_points": 3,
+            "justification": "Names 3+ issues: cost, staff optimization, regulatory standards."
+          },
+          {
+            "criterion_id": "C",
+            "awarded_points": 2,
+            "justification": "Specific qualifiers like 'wasteful activities' and 'nature of staff' show understanding."
+          },
+          {
+            "criterion_id": "D",
+            "awarded_points": 2,
+            "justification": "Partial linkage between BPR and addressing issues like cost and staff optimization."
+          }
+        ],
+        "total_points": 13,
+        "overall_feedback": "Good understanding of BPR's role in EHR implementation. Strong identification of issues but causal linkages could be more explicit."
+      }
+    },
+    {
+      "student_id": 27,
+      "ai_score_old": 12.0,
+      "ai_score_new": 16.0,
+      "human_score": 16.0,
+      "gap_old": -4.0,
+      "gap_new": 0.0,
+      "risk": 0.375,
+      "confidence": 1.0,
+      "needs_human_review": false,
+      "grade_result": {
+        "student_file": "student_response_1",
+        "criterion_scores": [
+          {
+            "criterion_id": "A",
+            "awarded_points": 8,
+            "justification": "Clear causal role (redesign for suitability) and 3+ effects (reduce errors, improve care, staff adaptation)."
+          },
+          {
+            "criterion_id": "B",
+            "awarded_points": 3,
+            "justification": "Identifies workflow issues, errors, and regulatory alignment as distinct problems."
+          },
+          {
+            "criterion_id": "C",
+            "awarded_points": 2,
+            "justification": "Specific qualifier: 'hard to transfer to EHR without modification' explains workflow inefficiency."
+          },
+          {
+            "criterion_id": "D",
+            "awarded_points": 3,
+            "justification": "Strong linkage: redesign \u2192 reduce errors, improve care, staff adaptation, regulatory compliance."
+          }
+        ],
+        "total_points": 16,
+        "overall_feedback": "Excellent response with clear reasoning and multiple effects identified. Strong understanding of BPR's role in EHR implementation."
+      }
+    },
+    {
+      "student_id": 10,
+      "ai_score_old": 12.0,
+      "ai_score_new": 7.0,
+      "human_score": 15.0,
+      "gap_old": -3.0,
+      "gap_new": -8.0,
+      "risk": 0.5577083333333333,
+      "confidence": 0.43333333333333335,
+      "needs_human_review": true,
+      "grade_result": {
+        "student_file": "student_response_13",
+        "criterion_scores": [
+          {
+            "criterion_id": "A",
+            "awarded_points": 4,
+            "justification": "Partial understanding; mentions BPR for managing complexity but lacks clear causal role or specific effects."
+          },
+          {
+            "criterion_id": "B",
+            "awarded_points": 1,
+            "justification": "Identifies one issue: managing complexity in workflows."
+          },
+          {
+            "criterion_id": "C",
+            "awarded_points": 1,
+            "justification": "Specific qualifier: 'controlling complexity in chaotic systems.'"
+          },
+          {
+            "criterion_id": "D",
+            "awarded_points": 1,
+            "justification": "Vague linkage; mentions BPR as a tool but lacks clear mechanism."
+          }
+        ],
+        "total_points": 7,
+        "overall_feedback": "The response shows some understanding of BPR's role in managing complexity but lacks depth and specific causal linkages to EHR implementation."
+      }
+    },
+    {
+      "student_id": 28,
+      "ai_score_old": 12.0,
+      "ai_score_new": 16.0,
+      "human_score": 15.0,
+      "gap_old": -3.0,
+      "gap_new": 1.0,
+      "risk": 0.375,
+      "confidence": 1.0,
+      "needs_human_review": false,
+      "grade_result": {
+        "student_file": "student_response_13",
+        "criterion_scores": [
+          {
+            "criterion_id": "A",
+            "awarded_points": 8,
+            "justification": "Clear causal role (aligning workflows to EHR) and multiple effects (eliminating unnecessary steps, aligning goals, improving workflow)."
+          },
+          {
+            "criterion_id": "B",
+            "awarded_points": 3,
+            "justification": "Identifies 3+ issues: workflow alignment, unnecessary steps, and goal alignment."
+          },
+          {
+            "criterion_id": "C",
+            "awarded_points": 2,
+            "justification": "Specific qualifier: unnecessary steps are eliminated to improve workflow."
+          },
+          {
+            "criterion_id": "D",
+            "awarded_points": 3,
+            "justification": "Strong linkage between BPR, workflow optimization, and achieving EHR goals."
+          }
+        ],
+        "total_points": 16,
+        "overall_feedback": "Excellent response with clear understanding of BPR's role in EHR implementation. Strong cause-effect reasoning and specific examples provided."
+      }
+    },
+    {
+      "student_id": 31,
+      "ai_score_old": 12.0,
+      "ai_score_new": 16.0,
+      "human_score": 15.0,
+      "gap_old": -3.0,
+      "gap_new": 1.0,
+      "risk": 0.375,
+      "confidence": 1.0,
+      "needs_human_review": false,
+      "grade_result": {
+        "student_file": "student_response_1",
+        "criterion_scores": [
+          {
+            "criterion_id": "A",
+            "awarded_points": 8,
+            "justification": "Clear causal role stated with 3+ effects: efficiency, error reduction, decision support, cost transition."
+          },
+          {
+            "criterion_id": "B",
+            "awarded_points": 3,
+            "justification": "Identifies 3+ issues: redundancy, efficiency, error risk, cost transition."
+          },
+          {
+            "criterion_id": "C",
+            "awarded_points": 2,
+            "justification": "Specific qualifier: 'minimizes risk of errors by standardizing processes.'"
+          },
+          {
+            "criterion_id": "D",
+            "awarded_points": 3,
+            "justification": "Clear linkage: BPR \u2192 standardization \u2192 error reduction, efficiency, smoother information flow."
+          }
+        ],
+        "total_points": 16,
+        "overall_feedback": "Excellent response with clear understanding of BPR's role in EHR implementation. Strong cause-effect reasoning and issue identification."
+      }
+    },
+    {
+      "student_id": 15,
+      "ai_score_old": 10.0,
+      "ai_score_new": 6.0,
+      "human_score": 12.0,
+      "gap_old": -2.0,
+      "gap_new": -6.0,
+      "risk": 0.5645833333333333,
+      "confidence": 0.3333333333333333,
+      "needs_human_review": true,
+      "grade_result": {
+        "student_file": "student_response_1",
+        "criterion_scores": [
+          {
+            "criterion_id": "A",
+            "awarded_points": 4,
+            "justification": "Partial understanding; mentions creating an improved system but lacks clear causal role or specific effects."
+          },
+          {
+            "criterion_id": "B",
+            "awarded_points": 1,
+            "justification": "Identifies 1 issue (need for improvement) but lacks additional relevant issues."
+          },
+          {
+            "criterion_id": "C",
+            "awarded_points": 0,
+            "justification": "No specific qualifier explaining why improvement matters."
+          },
+          {
+            "criterion_id": "D",
+            "awarded_points": 1,
+            "justification": "Vague linkage; mentions improvement but lacks clear mechanism connecting BPR to EHR benefits."
+          }
+        ],
+        "total_points": 6,
+        "overall_feedback": "The response shows partial understanding but lacks depth and specificity. Expand on causal roles and effects of BPR in EHR implementation."
+      }
+    },
+    {
+      "student_id": 11,
+      "ai_score_old": 12.0,
+      "ai_score_new": 14.0,
+      "human_score": 14.0,
+      "gap_old": -2.0,
+      "gap_new": 0.0,
+      "risk": 0.15375000000000003,
+      "confidence": 0.8999999999999999,
+      "needs_human_review": false,
+      "grade_result": {
+        "student_file": "student_response_1",
+        "criterion_scores": [
+          {
+            "criterion_id": "A",
+            "awarded_points": 6,
+            "justification": "States causal role (streamlining for EHR) and mentions two effects (reducing redundancy, improving patient outcomes)."
+          },
+          {
+            "criterion_id": "B",
+            "awarded_points": 3,
+            "justification": "Identifies 3 issues: workload reduction, redundancy, outdated steps."
+          },
+          {
+            "criterion_id": "C",
+            "awarded_points": 2,
+            "justification": "Provides specificity: 'redundancy/outdated steps' and 'consistent processes improve outcomes.'"
+          },
+          {
+            "criterion_id": "D",
+            "awarded_points": 3,
+            "justification": "Clear linkage: redesign \u2192 streamline \u2192 consistency \u2192 better outcomes."
+          }
+        ],
+        "total_points": 14,
+        "overall_feedback": "Strong understanding of BPR's role in EHR implementation with clear cause-effect reasoning. Could elaborate more on additional benefits like interoperability."
+      }
+    },
+    {
+      "student_id": 20,
+      "ai_score_old": 12.0,
+      "ai_score_new": 13.0,
+      "human_score": 14.0,
+      "gap_old": -2.0,
+      "gap_new": -1.0,
+      "risk": 0.14895833333333336,
+      "confidence": 0.8333333333333333,
+      "needs_human_review": false,
+      "grade_result": {
+        "student_file": "student_response_1",
+        "criterion_scores": [
+          {
+            "criterion_id": "A",
+            "awarded_points": 6,
+            "justification": "States causal role (improving EHR use) and 2+ effects (data access, communication, safety). Cause-effect reasoning is present but lacks clarity."
+          },
+          {
+            "criterion_id": "B",
+            "awarded_points": 3,
+            "justification": "Identifies 3+ issues: data access, duplicate orders, communication, and patient safety."
+          },
+          {
+            "criterion_id": "C",
+            "awarded_points": 2,
+            "justification": "Provides specific qualifiers, e.g., 'reduces duplicate orders' and 'alerts/reminders for critical results.'"
+          },
+          {
+            "criterion_id": "D",
+            "awarded_points": 2,
+            "justification": "Partial linkage between BPR and issues like data access and communication; lacks deeper mechanistic explanation."
+          }
+        ],
+        "total_points": 13,
+        "overall_feedback": "Good understanding of BPR's role in EHR implementation with clear examples. Strengthen causal reasoning and mechanistic linkage for full credit."
+      }
+    },
+    {
+      "student_id": 3,
+      "ai_score_old": 14.0,
+      "ai_score_new": 16.0,
+      "human_score": 16.0,
+      "gap_old": -2.0,
+      "gap_new": 0.0,
+      "risk": 0.2875,
+      "confidence": 1.0,
+      "needs_human_review": false,
+      "grade_result": {
+        "student_file": "student_response_1",
+        "criterion_scores": [
+          {
+            "criterion_id": "A",
+            "awarded_points": 8,
+            "justification": "Clear causal role with multiple effects: efficiency, waste reduction, patient outcomes, safety, and financial outcomes."
+          },
+          {
+            "criterion_id": "B",
+            "awarded_points": 3,
+            "justification": "Identifies 3+ issues: inefficiency, safety, regulatory compliance, and waste."
+          },
+          {
+            "criterion_id": "C",
+            "awarded_points": 2,
+            "justification": "Specific qualifiers provided, e.g., 'inefficient or unsafe' processes and 'better quality outcomes.'"
+          },
+          {
+            "criterion_id": "D",
+            "awarded_points": 3,
+            "justification": "Strong linkage between BPR, stakeholder involvement, and improved outcomes (efficiency, safety, patient care)."
+          }
+        ],
+        "total_points": 16,
+        "overall_feedback": "Excellent response demonstrating clear understanding of BPR's role in EHR implementation, with strong cause-effect reasoning and specific examples."
+      }
+    },
+    {
+      "student_id": 7,
+      "ai_score_old": 14.0,
+      "ai_score_new": 16.0,
+      "human_score": 16.0,
+      "gap_old": -2.0,
+      "gap_new": 0.0,
+      "risk": 0.2875,
+      "confidence": 1.0,
+      "needs_human_review": false,
+      "grade_result": {
+        "student_file": "student_response_1",
+        "criterion_scores": [
+          {
+            "criterion_id": "A",
+            "awarded_points": 8,
+            "justification": "Clear causal role stated with 3 effects: efficiency, reduced duplication, safer care."
+          },
+          {
+            "criterion_id": "B",
+            "awarded_points": 3,
+            "justification": "Identifies 3 issues: old workflows, duplication, staff adjustment."
+          },
+          {
+            "criterion_id": "C",
+            "awarded_points": 2,
+            "justification": "Specific qualifier: 'old habits don\u2019t fit well with digital records.'"
+          },
+          {
+            "criterion_id": "D",
+            "awarded_points": 3,
+            "justification": "Strong linkage: redesign \u2192 efficiency, duplication reduction, safer care."
+          }
+        ],
+        "total_points": 16,
+        "overall_feedback": "Excellent response with clear understanding of BPR's role in EHR implementation. Strong cause-effect reasoning and specific examples provided."
+      }
+    },
+    {
+      "student_id": 13,
+      "ai_score_old": 14.0,
+      "ai_score_new": 16.0,
+      "human_score": 16.0,
+      "gap_old": -2.0,
+      "gap_new": 0.0,
+      "risk": 0.2875,
+      "confidence": 1.0,
+      "needs_human_review": false,
+      "grade_result": {
+        "student_file": "student_response_13.json",
+        "criterion_scores": [
+          {
+            "criterion_id": "A",
+            "awarded_points": 8,
+            "justification": "Clear causal role and 3+ effects: workflow redesign, decision support, interoperability, and population health tools."
+          },
+          {
+            "criterion_id": "B",
+            "awarded_points": 3,
+            "justification": "Identifies 3+ issues: inefficiencies, redundant steps, staff role shifts, and workflow consistency."
+          },
+          {
+            "criterion_id": "C",
+            "awarded_points": 2,
+            "justification": "Specific qualifier: 'redundant manual steps must be removed' shows understanding of why inefficiencies matter."
+          },
+          {
+            "criterion_id": "D",
+            "awarded_points": 3,
+            "justification": "Strong linkage: redesign workflows \u2192 remove inefficiencies \u2192 maximize EHR features like decision support."
+          }
+        ],
+        "total_points": 16,
+        "overall_feedback": "Excellent response with clear understanding of BPR's role in EHR implementation and strong cause-effect reasoning."
+      }
+    },
+    {
+      "student_id": 14,
+      "ai_score_old": 14.0,
+      "ai_score_new": 16.0,
+      "human_score": 16.0,
+      "gap_old": -2.0,
+      "gap_new": 0.0,
+      "risk": 0.2875,
+      "confidence": 1.0,
+      "needs_human_review": false,
+      "grade_result": {
+        "student_file": "student_response_1",
+        "criterion_scores": [
+          {
+            "criterion_id": "A",
+            "awarded_points": 8,
+            "justification": "Clear causal role stated with effects: efficiency, adoption, interoperability, and regulatory compliance."
+          },
+          {
+            "criterion_id": "B",
+            "awarded_points": 3,
+            "justification": "Identifies 3+ issues: legacy workflows, stakeholder feedback, and regulatory requirements."
+          },
+          {
+            "criterion_id": "C",
+            "awarded_points": 2,
+            "justification": "Specific qualifier: 'legacy workflows' tied to efficiency and new goals."
+          },
+          {
+            "criterion_id": "D",
+            "awarded_points": 3,
+            "justification": "Strong linkage: BPR \u2192 stakeholder input \u2192 adoption; BPR \u2192 digitization \u2192 efficiency/interoperability."
+          }
+        ],
+        "total_points": 16,
+        "overall_feedback": "Excellent response with clear understanding of BPR's role in EHR implementation. Strong cause-effect reasoning and detailed examples."
+      }
+    },
+    {
+      "student_id": 18,
+      "ai_score_old": 14.0,
+      "ai_score_new": 16.0,
+      "human_score": 16.0,
+      "gap_old": -2.0,
+      "gap_new": 0.0,
+      "risk": 0.2875,
+      "confidence": 1.0,
+      "needs_human_review": false,
+      "grade_result": {
+        "student_file": "student_response_13",
+        "criterion_scores": [
+          {
+            "criterion_id": "A",
+            "awarded_points": 8,
+            "justification": "Clear causal role stated with 3+ effects: safety, efficiency, quality, data sharing, workflow alignment."
+          },
+          {
+            "criterion_id": "B",
+            "awarded_points": 3,
+            "justification": "Identifies 3+ issues: inefficiency, communication, data sharing, workflow alignment."
+          },
+          {
+            "criterion_id": "C",
+            "awarded_points": 2,
+            "justification": "Specific qualifiers like 'hidden factors' and 'timely data sharing' show understanding."
+          },
+          {
+            "criterion_id": "D",
+            "awarded_points": 3,
+            "justification": "Strong linkage between BPR, workflow redesign, and outcomes like efficiency and smooth information flow."
+          }
+        ],
+        "total_points": 16,
+        "overall_feedback": "Excellent response with clear causal reasoning, specific examples, and strong linkage to outcomes. Demonstrates deep understanding."
+      }
+    },
+    {
+      "student_id": 19,
+      "ai_score_old": 14.0,
+      "ai_score_new": 16.0,
+      "human_score": 16.0,
+      "gap_old": -2.0,
+      "gap_new": 0.0,
+      "risk": 0.2875,
+      "confidence": 1.0,
+      "needs_human_review": false,
+      "grade_result": {
+        "student_file": "student_response_1",
+        "criterion_scores": [
+          {
+            "criterion_id": "A",
+            "awarded_points": 8,
+            "justification": "Clear causal role (redesigns workflows) and 3+ effects (efficiency, safety, cost, better care)."
+          },
+          {
+            "criterion_id": "B",
+            "awarded_points": 3,
+            "justification": "Identifies 3+ issues: inefficiency, duplication, and errors."
+          },
+          {
+            "criterion_id": "C",
+            "awarded_points": 2,
+            "justification": "Specific qualifier: 'reducing errors and increasing patient safety' shows why consistency matters."
+          },
+          {
+            "criterion_id": "D",
+            "awarded_points": 3,
+            "justification": "Strong linkage: redesign \u2192 efficiency, safety, cost-effectiveness, better care."
+          }
+        ],
+        "total_points": 16,
+        "overall_feedback": "Excellent response with clear understanding of BPR's role and effects. Strong cause-effect reasoning and specific examples."
+      }
+    },
+    {
+      "student_id": 21,
+      "ai_score_old": 14.0,
+      "ai_score_new": 16.0,
+      "human_score": 16.0,
+      "gap_old": -2.0,
+      "gap_new": 0.0,
+      "risk": 0.2875,
+      "confidence": 1.0,
+      "needs_human_review": false,
+      "grade_result": {
+        "student_file": "student_response_1",
+        "criterion_scores": [
+          {
+            "criterion_id": "A",
+            "awarded_points": 8,
+            "justification": "Clear causal role with 2+ effects: modernizing workflows, decision support, and efficiency."
+          },
+          {
+            "criterion_id": "B",
+            "awarded_points": 3,
+            "justification": "Identifies 3+ issues: manual processes, bottlenecks, inefficiency."
+          },
+          {
+            "criterion_id": "C",
+            "awarded_points": 2,
+            "justification": "Specific qualifiers: manual ordering inefficiency, bottlenecks in workflow."
+          },
+          {
+            "criterion_id": "D",
+            "awarded_points": 3,
+            "justification": "Strong linkage: BPR \u2192 modern workflows \u2192 efficiency and decision support."
+          }
+        ],
+        "total_points": 16,
+        "overall_feedback": "Excellent response with clear understanding of BPR's role in modernizing workflows and improving efficiency. Strong cause-effect reasoning."
+      }
+    },
+    {
+      "student_id": 22,
+      "ai_score_old": 14.0,
+      "ai_score_new": 16.0,
+      "human_score": 16.0,
+      "gap_old": -2.0,
+      "gap_new": 0.0,
+      "risk": 0.2875,
+      "confidence": 1.0,
+      "needs_human_review": false,
+      "grade_result": {
+        "student_file": "student_response_1",
+        "criterion_scores": [
+          {
+            "criterion_id": "A",
+            "awarded_points": 8,
+            "justification": "Clear causal role with 3+ effects: efficiency, user adoption, reduced delays/overspending."
+          },
+          {
+            "criterion_id": "B",
+            "awarded_points": 3,
+            "justification": "Identifies 3+ issues: bottlenecks, redundancies, non-value tasks, user needs."
+          },
+          {
+            "criterion_id": "C",
+            "awarded_points": 2,
+            "justification": "Specific qualifier: 'avoiding post-implementation chaos' explains why structure matters."
+          },
+          {
+            "criterion_id": "D",
+            "awarded_points": 3,
+            "justification": "Strong linkage: BPR \u2192 bottlenecks/redundancies \u2192 flow \u2192 adoption/efficiency."
+          }
+        ],
+        "total_points": 16,
+        "overall_feedback": "Excellent response with clear understanding of BPR's role and multiple effects. Strong cause-effect reasoning and detailed examples."
+      }
+    },
+    {
+      "student_id": 23,
+      "ai_score_old": 14.0,
+      "ai_score_new": 16.0,
+      "human_score": 16.0,
+      "gap_old": -2.0,
+      "gap_new": 0.0,
+      "risk": 0.2875,
+      "confidence": 1.0,
+      "needs_human_review": false,
+      "grade_result": {
+        "student_file": "student_response_1",
+        "criterion_scores": [
+          {
+            "criterion_id": "A",
+            "awarded_points": 8,
+            "justification": "Clear causal role (workflow understanding) and 4+ effects (redundancy, accuracy, compliance, research). Strong cause-effect reasoning."
+          },
+          {
+            "criterion_id": "B",
+            "awarded_points": 3,
+            "justification": "Identifies 3+ issues: redundancy, workflow complexity, compliance, and training."
+          },
+          {
+            "criterion_id": "C",
+            "awarded_points": 2,
+            "justification": "Specific qualifiers include 'reducing redundant work' and 'compliance with HIPAA'."
+          },
+          {
+            "criterion_id": "D",
+            "awarded_points": 3,
+            "justification": "Clear linkage between BPR and addressing redundancy, compliance, and workflow optimization."
+          }
+        ],
+        "total_points": 16,
+        "overall_feedback": "Excellent response with clear understanding of BPR's role in EHR implementation. Strong cause-effect reasoning and specific examples provided."
+      }
+    },
+    {
+      "student_id": 25,
+      "ai_score_old": 14.0,
+      "ai_score_new": 12.0,
+      "human_score": 16.0,
+      "gap_old": -2.0,
+      "gap_new": -4.0,
+      "risk": 0.2316666666666667,
+      "confidence": 0.7666666666666666,
+      "needs_human_review": false,
+      "grade_result": {
+        "student_file": "student_response_1",
+        "criterion_scores": [
+          {
+            "criterion_id": "A",
+            "awarded_points": 6,
+            "justification": "Correct causal role stated, but lacks multiple distinct effects or benefits."
+          },
+          {
+            "criterion_id": "B",
+            "awarded_points": 2,
+            "justification": "Identifies 2 issues: task sequence changes and workflow incompatibility."
+          },
+          {
+            "criterion_id": "C",
+            "awarded_points": 2,
+            "justification": "Specific qualifier: 'current workflows will not work unchanged.'"
+          },
+          {
+            "criterion_id": "D",
+            "awarded_points": 2,
+            "justification": "Partial linkage: workflow redesign is implied but not fully developed."
+          }
+        ],
+        "total_points": 12,
+        "overall_feedback": "Good understanding of the need for BPR, but lacks detailed effects and stronger causal linkages."
+      }
+    },
+    {
+      "student_id": 30,
+      "ai_score_old": 14.0,
+      "ai_score_new": 16.0,
+      "human_score": 16.0,
+      "gap_old": -2.0,
+      "gap_new": 0.0,
+      "risk": 0.2875,
+      "confidence": 1.0,
+      "needs_human_review": false,
+      "grade_result": {
+        "student_file": "student_response_1",
+        "criterion_scores": [
+          {
+            "criterion_id": "A",
+            "awarded_points": 8,
+            "justification": "Clear causal role (workflow adaptation) and multiple effects (accuracy, smooth transition, compliance, efficiency). Strong cause-effect reasoning throughout."
+          },
+          {
+            "criterion_id": "B",
+            "awarded_points": 3,
+            "justification": "Identifies 3+ issues: workflow adaptation, automation challenges, and compliance."
+          },
+          {
+            "criterion_id": "C",
+            "awarded_points": 2,
+            "justification": "Specific qualifier: 'badly mapped process can cause problems and make people angry' shows understanding of consequences."
+          },
+          {
+            "criterion_id": "D",
+            "awarded_points": 3,
+            "justification": "Strong linkage between BPR, workflow adaptation, and outcomes like smooth transition and efficiency."
+          }
+        ],
+        "total_points": 16,
+        "overall_feedback": "Excellent response with clear understanding of BPR's role in EHR implementation. Strong causal reasoning and specific examples demonstrate depth of knowledge."
+      }
+    },
+    {
+      "student_id": 2,
+      "ai_score_old": 12.0,
+      "ai_score_new": 16.0,
+      "human_score": 13.0,
+      "gap_old": -1.0,
+      "gap_new": 3.0,
+      "risk": 0.375,
+      "confidence": 1.0,
+      "needs_human_review": false,
+      "grade_result": {
+        "student_file": "student_response_q13",
+        "criterion_scores": [
+          {
+            "criterion_id": "A",
+            "awarded_points": 8,
+            "justification": "Causal role stated clearly with 3+ effects: alignment, data integrity, efficiency, quality, and satisfaction."
+          },
+          {
+            "criterion_id": "B",
+            "awarded_points": 3,
+            "justification": "Identifies 3+ issues: workflow alignment, data integrity, efficiency, and privacy/security."
+          },
+          {
+            "criterion_id": "C",
+            "awarded_points": 2,
+            "justification": "Specific qualifier: 'data integrity for reliable clinical decision-making' demonstrates understanding."
+          },
+          {
+            "criterion_id": "D",
+            "awarded_points": 3,
+            "justification": "Clear linkage between BPR and issues like workflow alignment, data integrity, and efficiency."
+          }
+        ],
+        "total_points": 16,
+        "overall_feedback": "Excellent response with clear understanding of BPR's role and its benefits. Strong cause-effect reasoning and specific qualifiers provided."
+      }
+    },
+    {
+      "student_id": 6,
+      "ai_score_old": 14.0,
+      "ai_score_new": 16.0,
+      "human_score": 15.0,
+      "gap_old": -1.0,
+      "gap_new": 1.0,
+      "risk": 0.2875,
+      "confidence": 1.0,
+      "needs_human_review": false,
+      "grade_result": {
+        "student_file": "student_response_13",
+        "criterion_scores": [
+          {
+            "criterion_id": "A",
+            "awarded_points": 8,
+            "justification": "Clear causal role with 3+ effects: workflow redesign, reducing mistakes, improving compliance and care quality."
+          },
+          {
+            "criterion_id": "B",
+            "awarded_points": 3,
+            "justification": "Identifies 3+ issues: old processes, redundancy, and ineffective workflows."
+          },
+          {
+            "criterion_id": "C",
+            "awarded_points": 2,
+            "justification": "Specific qualifier: 'old processes may be ineffective or redundant' shows understanding of why BPR matters."
+          },
+          {
+            "criterion_id": "D",
+            "awarded_points": 3,
+            "justification": "Strong linkage: BPR \u2192 streamlined workflows \u2192 reduced mistakes, delays, and better EHR utilization."
+          }
+        ],
+        "total_points": 16,
+        "overall_feedback": "Excellent response with clear understanding of BPR's role in EHR implementation. Strong cause-effect reasoning and issue identification."
+      }
+    },
+    {
+      "student_id": 9,
+      "ai_score_old": 14.0,
+      "ai_score_new": 12.0,
+      "human_score": 15.0,
+      "gap_old": -1.0,
+      "gap_new": -3.0,
+      "risk": 0.2316666666666667,
+      "confidence": 0.7666666666666666,
+      "needs_human_review": false,
+      "grade_result": {
+        "student_file": "student_response_1",
+        "criterion_scores": [
+          {
+            "criterion_id": "A",
+            "awarded_points": 6,
+            "justification": "States causal role (structured assessment) and one clear effect (saves money, time, resources)."
+          },
+          {
+            "criterion_id": "B",
+            "awarded_points": 2,
+            "justification": "Identifies 2 relevant issues: gaps in current system and resource optimization."
+          },
+          {
+            "criterion_id": "C",
+            "awarded_points": 2,
+            "justification": "Specific qualifier: 'ensuring the system fulfills its purpose' shows understanding of why it matters."
+          },
+          {
+            "criterion_id": "D",
+            "awarded_points": 2,
+            "justification": "Partial linkage: structured assessment \u2192 identifying gaps \u2192 resource savings."
+          }
+        ],
+        "total_points": 12,
+        "overall_feedback": "Good understanding of BPR's role in EHR implementation. Could improve by naming more effects and strengthening causal linkages."
+      }
+    },
+    {
+      "student_id": 8,
+      "ai_score_old": 15.0,
+      "ai_score_new": 16.0,
+      "human_score": 16.0,
+      "gap_old": -1.0,
+      "gap_new": 0.0,
+      "risk": 0.24375000000000002,
+      "confidence": 1.0,
+      "needs_human_review": false,
+      "grade_result": {
+        "student_file": "student_response_13",
+        "criterion_scores": [
+          {
+            "criterion_id": "A",
+            "awarded_points": 8,
+            "justification": "Clear causal role (redesign workflows) and 3+ effects (efficiency, quality, safety). Strong cause-effect reasoning."
+          },
+          {
+            "criterion_id": "B",
+            "awarded_points": 3,
+            "justification": "Identifies 3+ issues: poor processes, workflow redesign, and organizational change."
+          },
+          {
+            "criterion_id": "C",
+            "awarded_points": 2,
+            "justification": "Specific qualifier: 'automating poor processes' explains why redesign is critical."
+          },
+          {
+            "criterion_id": "D",
+            "awarded_points": 3,
+            "justification": "Strong linkage between BPR, redesigned workflows, and improved outcomes (efficiency, quality, safety)."
+          }
+        ],
+        "total_points": 16,
+        "overall_feedback": "Excellent response with clear understanding of BPR's role in EHR implementation. Strong causal reasoning and specific examples."
+      }
+    },
+    {
+      "student_id": 16,
+      "ai_score_old": 15.0,
+      "ai_score_new": 16.0,
+      "human_score": 16.0,
+      "gap_old": -1.0,
+      "gap_new": 0.0,
+      "risk": 0.24375000000000002,
+      "confidence": 1.0,
+      "needs_human_review": false,
+      "grade_result": {
+        "student_file": "student_response_1",
+        "criterion_scores": [
+          {
+            "criterion_id": "A",
+            "awarded_points": 8,
+            "justification": "Clear causal role with 3+ effects: efficiency, error reduction, patient satisfaction."
+          },
+          {
+            "criterion_id": "B",
+            "awarded_points": 3,
+            "justification": "Identifies 3+ issues: redundancy, workflow alignment, standardized protocols."
+          },
+          {
+            "criterion_id": "C",
+            "awarded_points": 2,
+            "justification": "Specific qualifier: 'redundant steps' and 'aligns with EHR capabilities.'"
+          },
+          {
+            "criterion_id": "D",
+            "awarded_points": 3,
+            "justification": "Strong linkage: BPR \u2192 workflow redesign \u2192 efficiency, error reduction, satisfaction."
+          }
+        ],
+        "total_points": 16,
+        "overall_feedback": "Excellent response with clear understanding of BPR's role in EHR implementation. Strong causal reasoning and specific examples provided."
+      }
+    },
+    {
+      "student_id": 29,
+      "ai_score_old": 15.0,
+      "ai_score_new": 16.0,
+      "human_score": 16.0,
+      "gap_old": -1.0,
+      "gap_new": 0.0,
+      "risk": 0.24375000000000002,
+      "confidence": 1.0,
+      "needs_human_review": false,
+      "grade_result": {
+        "student_file": "student_response_q13",
+        "criterion_scores": [
+          {
+            "criterion_id": "A",
+            "awarded_points": 8,
+            "justification": "Clear causal role and 3+ effects (efficiency, error reduction, communication). Strong cause-effect reasoning."
+          },
+          {
+            "criterion_id": "B",
+            "awarded_points": 3,
+            "justification": "Identifies 3+ issues: inefficiencies, errors, communication gaps, staff buy-in."
+          },
+          {
+            "criterion_id": "C",
+            "awarded_points": 2,
+            "justification": "Specific qualifiers like 'eliminate inefficiencies' and 'reduce medical errors' show understanding."
+          },
+          {
+            "criterion_id": "D",
+            "awarded_points": 3,
+            "justification": "Strong linkage between BPR and how it addresses inefficiencies, errors, and staff adoption."
+          }
+        ],
+        "total_points": 16,
+        "overall_feedback": "Excellent response with clear understanding of BPR's role in EHR implementation. Strong causal reasoning and specific examples provided."
+      }
+    },
+    {
+      "student_id": 1,
+      "ai_score_old": 14.0,
+      "ai_score_new": 16.0,
+      "human_score": 14.0,
+      "gap_old": 0.0,
+      "gap_new": 2.0,
+      "risk": 0.2875,
+      "confidence": 1.0,
+      "needs_human_review": false,
+      "grade_result": {
+        "student_file": "student_response_1",
+        "criterion_scores": [
+          {
+            "criterion_id": "A",
+            "awarded_points": 8,
+            "justification": "Clear causal role (redesign workflows) and 3+ effects (reducing redundancies, improving care, efficiency, securing data)."
+          },
+          {
+            "criterion_id": "B",
+            "awarded_points": 3,
+            "justification": "Identifies 3+ issues: redundant processes, inefficiencies, and outdated workflows."
+          },
+          {
+            "criterion_id": "C",
+            "awarded_points": 2,
+            "justification": "Specific qualifier: 'same issues as older processes' explains why redesign is necessary."
+          },
+          {
+            "criterion_id": "D",
+            "awarded_points": 3,
+            "justification": "Clear linkage between redesigning workflows and achieving efficiency, better care, and data security."
+          }
+        ],
+        "total_points": 16,
+        "overall_feedback": "Excellent response. The student demonstrates clear understanding of BPR's role in EHR implementation with strong cause-effect reasoning and specific examples."
+      }
+    },
+    {
+      "student_id": 4,
+      "ai_score_old": 14.0,
+      "ai_score_new": 16.0,
+      "human_score": 14.0,
+      "gap_old": 0.0,
+      "gap_new": 2.0,
+      "risk": 0.2875,
+      "confidence": 1.0,
+      "needs_human_review": false,
+      "grade_result": {
+        "student_file": "student_response_1",
+        "criterion_scores": [
+          {
+            "criterion_id": "A",
+            "awarded_points": 8,
+            "justification": "Clear causal role (redesign workflows) and 3+ effects (redundancies, data accuracy, communication). Excellent cause-effect reasoning."
+          },
+          {
+            "criterion_id": "B",
+            "awarded_points": 3,
+            "justification": "Identifies 3+ issues: inefficiencies, redundancies, regulatory standards."
+          },
+          {
+            "criterion_id": "C",
+            "awarded_points": 2,
+            "justification": "Specific qualifier: 'Old paper-based systems have inefficient steps that don\u2019t work well electronically.'"
+          },
+          {
+            "criterion_id": "D",
+            "awarded_points": 3,
+            "justification": "Clear linkage: redesign \u2192 remove redundancies \u2192 improve accuracy/communication \u2192 better EHR adoption."
+          }
+        ],
+        "total_points": 16,
+        "overall_feedback": "Excellent response with clear understanding of BPR's role in EHR implementation. Strong cause-effect reasoning and specific examples provided."
+      }
+    },
+    {
+      "student_id": 17,
+      "ai_score_old": 14.0,
+      "ai_score_new": 16.0,
+      "human_score": 14.0,
+      "gap_old": 0.0,
+      "gap_new": 2.0,
+      "risk": 0.2875,
+      "confidence": 1.0,
+      "needs_human_review": false,
+      "grade_result": {
+        "student_file": "student_response_1",
+        "criterion_scores": [
+          {
+            "criterion_id": "A",
+            "awarded_points": 8,
+            "justification": "Clear causal role and 3+ effects: smoother workflow, staff support, cost/time savings."
+          },
+          {
+            "criterion_id": "B",
+            "awarded_points": 3,
+            "justification": "Identifies 3 issues: old processes don't fit, waste, smoother workflow."
+          },
+          {
+            "criterion_id": "C",
+            "awarded_points": 2,
+            "justification": "Specific qualifier: old processes lead to same problems."
+          },
+          {
+            "criterion_id": "D",
+            "awarded_points": 3,
+            "justification": "Clear linkage: re-engineering \u2192 better steps \u2192 smoother workflow \u2192 improved care."
+          }
+        ],
+        "total_points": 16,
+        "overall_feedback": "Excellent response with clear reasoning and multiple effects. Demonstrates strong understanding of BPR's role in EHR implementation."
+      }
+    },
+    {
+      "student_id": 5,
+      "ai_score_old": 14.0,
+      "ai_score_new": 16.0,
+      "human_score": 13.0,
+      "gap_old": 1.0,
+      "gap_new": 3.0,
+      "risk": 0.2875,
+      "confidence": 1.0,
+      "needs_human_review": false,
+      "grade_result": {
+        "student_file": "student_response_1",
+        "criterion_scores": [
+          {
+            "criterion_id": "A",
+            "awarded_points": 8,
+            "justification": "Clear causal role (align processes) and 2+ effects (error reduction, cost savings, staff adaptation)."
+          },
+          {
+            "criterion_id": "B",
+            "awarded_points": 3,
+            "justification": "Identifies 3 issues: process alignment, error reduction, and staff overwhelm."
+          },
+          {
+            "criterion_id": "C",
+            "awarded_points": 2,
+            "justification": "Specific qualifier: staff familiarity reduces stress and improves collaboration."
+          },
+          {
+            "criterion_id": "D",
+            "awarded_points": 3,
+            "justification": "Clear linkage: process alignment \u2192 error reduction \u2192 smoother adoption."
+          }
+        ],
+        "total_points": 16,
+        "overall_feedback": "Excellent response with clear understanding of BPR's role in EHR implementation. Strong cause-effect reasoning and specific examples."
+      }
+    }
+  ]
+}
