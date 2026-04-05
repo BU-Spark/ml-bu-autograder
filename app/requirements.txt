@@ -19,6 +19,8 @@ bs4==0.0.1
 notebook==7.3.3
 openpyxl==3.1.2
 pymupdf==1.25.5
+# MinerU extraction: optional. Install with: pip install -r requirements-mineru.txt
+# Set USE_MINERU=true to use. App works without it (default: PyMuPDF).
 azure-ai-inference==1.0.0b9
 cohere==5.15.0
 pydub==0.25.1
