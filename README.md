@@ -2,28 +2,11 @@
 
 Multimodal grading pipeline for student submissions using extraction + RAG + rubric-aware scoring.
 
-## Run MVP (Top Commands)
+## MVP Web App (Recommended Test Path)
 
-### Flask web app (primary)
-```bash
-cd app
-source .venv/bin/activate
-python scripts/web/app.py
-```
-Open: [http://localhost:5000](http://localhost:5000)
+This is the main path reviewers should use.
 
-### Streamlit app (`mvp_web`) (optional)
-```bash
-cd app
-source .venv/bin/activate
-streamlit run scripts/cli/mvp_web.py
-```
-
----
-
-## One-Time Setup
-
-### 1) Install requirements
+### 1) Install dependencies
 ```bash
 cd app
 python3 -m venv .venv
@@ -32,29 +15,29 @@ pip install -r requirements.txt
 ```
 
 ### 2) Configure API keys (`app/.env`)
+Create `app/.env` and add at least one provider key:
 ```env
-# Use one or more providers
 OPENAI_API_KEY=
 ANTHROPIC_API_KEY=
 GEMINI_API_KEY=
 # or GOOGLE_API_KEY=
 
-# Chroma embeddings: openai | google | default
-CHROMA_EMBEDDING_PROVIDER=default
-
 # Optional overrides
 AUTO_GRADER_RUBRIC_DIR=./data/library/rubrics
 AUTO_GRADER_LECTURE_CHUNKS=./outputs/final_phase1/lecture_chunks_hybrid.jsonl
+
+# Optional embedding config
+CHROMA_EMBEDDING_PROVIDER=default
 OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 GOOGLE_EMBEDDING_MODEL=gemini-embedding-001
 ```
 
-### 3) Prepare lecture chunks for RAG (required once)
-The web apps need `AUTO_GRADER_LECTURE_CHUNKS` pointing to a lecture `chunks.jsonl`.
+### 3) Prepare lecture chunks for RAG (one-time)
+`mvp_web` needs a lecture `chunks.jsonl` file.
 
-If you already have one, keep that path.
+If you already have one, point `AUTO_GRADER_LECTURE_CHUNKS` to it.
 
-If not, generate it:
+If not, generate lecture chunks once:
 ```bash
 cd app
 source .venv/bin/activate
@@ -72,28 +55,53 @@ Then set:
 AUTO_GRADER_LECTURE_CHUNKS=./outputs/final_phase1/lecture_bootstrap/describe_openai_gpt-4o-mini/chunks.jsonl
 ```
 
+### 4) Run `mvp_web`
+```bash
+cd app
+source .venv/bin/activate
+streamlit run scripts/cli/mvp_web.py
+```
+
+### 5) Use the UI in this order
+1. Upload student submission (`pdf`, `pptx`, or `xlsx`)
+2. Upload rubric and assignment (or choose preloaded files)
+3. Choose provider/model
+4. Click **Run Full Grading**
+
+Pipeline executed by the app:
+`extract -> describe -> index -> retrieve -> grade`
+
+Notes:
+- `mvp_web` builds a run-local Chroma DB per run.
+- Index/retrieve in `mvp_web` use local embedding mode by default to avoid OpenAI embedding permission failures.
+
 ---
 
-## What the MVP Does
-1. Upload student submission (`pdf`, `pptx`, `xlsx`)
-2. Upload/select rubric + assignment
-3. Extract structured content into chunks
-4. Describe images with selected model provider
-5. Index/retrieve lecture context from ChromaDB
-6. Grade against rubric and output evidence-backed score
-
-Core flow:
-`Upload -> Extract -> Describe -> Index -> Retrieve -> Grade`
+## Flask Web App (Alternative)
+```bash
+cd app
+source .venv/bin/activate
+python scripts/web/app.py
+```
+Open: [http://localhost:5000](http://localhost:5000)
 
 ---
 
-## Core Paths
-From `app/`:
+## Project Overview
+
+### What the system does
+1. Extracts text/tables/images from student files (`pdf`, `pptx`, `xlsx`, `html`)
+2. Uses selected vision model for image descriptions
+3. Retrieves lecture context via Chroma RAG
+4. Grades against rubric + assignment requirements
+5. Returns criterion-level evidence and overall score
+
+### Core paths (from `app/`)
 - Pipeline CLI: `scripts/cli/run_pipeline.py`
+- Streamlit MVP: `scripts/cli/mvp_web.py`
 - Flask app: `scripts/web/app.py`
-- Streamlit app: `scripts/cli/mvp_web.py`
 - Outputs root: `outputs/final_phase1`
-- Library folders:
+- Libraries:
   - `data/library/assignments`
   - `data/library/rubrics`
   - `data/library/quizzes`
@@ -166,14 +174,14 @@ python scripts/cli/run_pipeline.py \
 ---
 
 ## Troubleshooting
-- `*_API_KEY not set`: add the key to `app/.env`, restart app.
-- Chroma embedding permission issues: set `CHROMA_EMBEDDING_PROVIDER=default`.
+- `*_API_KEY not set`: add key to `app/.env`, then restart.
 - Missing lecture chunks: set `AUTO_GRADER_LECTURE_CHUNKS` to an existing `chunks.jsonl`.
-- OCR weak on scanned PDFs: install Tesseract and verify it is in PATH.
+- Chroma embedding permission issue: keep `CHROMA_EMBEDDING_PROVIDER=default`.
+- OCR weak on scanned PDFs: install Tesseract and ensure it is in PATH.
 
 ---
 
 ## Security
 - Never commit `.env`.
 - Never commit API keys.
-- Keep paths environment-driven and project-relative.
+- Keep all paths environment-driven and project-relative.
