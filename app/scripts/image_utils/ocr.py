@@ -16,7 +16,19 @@ class OCRResult:
     avg_conf: float
 
 
+def _tesseract_available() -> bool:
+    try:
+        pytesseract.get_tesseract_version()
+        return True
+    except Exception:
+        return False
+
+
 def compute_ocr(image_bytes: bytes) -> OCRResult:
+    if not _tesseract_available():
+        # Tesseract binary not installed — skip OCR gracefully instead of crashing
+        return OCRResult(text="", word_count=0, avg_conf=0.0)
+
     with Image.open(io.BytesIO(image_bytes)) as img:
         img = img.convert("RGB")
         data = pytesseract.image_to_data(img, output_type=pytesseract.Output.DICT)

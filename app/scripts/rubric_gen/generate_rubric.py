@@ -34,12 +34,7 @@ RUBRIC REQUIREMENTS:
     - A clear, descriptive name
     - A max_points value (integer, >0, all criteria must sum to 100)
     - 4-8 specific, measurable checklist items that a grader can evaluate as YES/PARTIAL/NO
-- Checklist items must be concrete and observable, evaluating SUBSTANCE and UNDERSTANDING — not format or presentation.
-  GOOD: "Student identifies at least two bottlenecks in the current workflow"
-  BAD:  "Swim lanes are correctly shown" / "Issues listed in bullet format" / "Diagram uses Visio"
-- Do NOT create checklist items based on format requirements (diagram style, file type, software tool, layout, bullet vs paragraph, number of slides/pages). Those are submission mechanics, not learning outcomes.
-- Do NOT reference specific tools (Visio, PowerPoint, Word) or visual conventions (swim lanes, arrows, boxes) in checklist items unless the assignment is explicitly about mastering that tool.
-- Each item must be gradable YES/PARTIAL/NO based on the conceptual content alone, even if the student used a completely different visual format.
+- Checklist items must be concrete and observable (e.g. "Swim lanes are correctly shown" not "Good diagram").
 - Do NOT include grade bands, point deductions, or scoring instructions — just criteria and checklist items.
 - Do NOT add a "Clarity and Quality" criterion unless the assignment explicitly mentions it.
 
@@ -62,12 +57,9 @@ Your task is to enhance an existing grading rubric based on the assignment instr
 
 ENHANCEMENT REQUIREMENTS:
 - Keep the same overall structure and total points (must equal 100).
-- Improve checklist items to be more specific and measurable, focusing on SUBSTANCE and UNDERSTANDING — not format or presentation.
-- Remove any checklist items that test format requirements (diagram style, file type, software tool used, layout, bullet vs paragraph, slide/page count). These are submission mechanics, not learning outcomes.
-- Do NOT reference specific tools (Visio, PowerPoint, Word) or visual conventions (swim lanes, arrows, boxes) unless the assignment is explicitly about mastering that tool.
-- Add missing checklist items that the assignment clearly requires but the rubric omits (conceptual coverage only).
+- Improve checklist items to be more specific and measurable.
+- Add missing checklist items that the assignment clearly requires but the rubric omits.
 - Remove vague or duplicate checklist items.
-- Each item must be gradable YES/PARTIAL/NO based on conceptual content alone, regardless of the visual format the student used.
 - Adjust max_points per criterion if the current distribution doesn't match the assignment emphasis.
 - Each criterion must have 4-8 checklist items.
 
@@ -149,10 +141,6 @@ def _call_anthropic(system: str, user: str, model: str, api_key: str) -> dict:
         messages=[{"role": "user", "content": user}],
     )
     raw = message.content[0].text.strip()
-    in_tok = message.usage.input_tokens
-    out_tok = message.usage.output_tokens
-    cost = (in_tok * 3.00 + out_tok * 15.00) / 1_000_000
-    print(f"[token usage] input={in_tok}  output={out_tok}  cost=${cost:.5f}")
     return _parse_json(raw)
 
 
