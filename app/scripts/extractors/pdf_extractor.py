@@ -65,13 +65,13 @@ def _get_docling_converter() -> "DocumentConverter":
 
 
 def _check_path_traversal(extract_root: Path, rel_path: str) -> None:
-    if not str((extract_root / rel_path).resolve()).startswith(str(extract_root.resolve())):
+    if not (extract_root / rel_path).resolve().is_relative_to(extract_root.resolve()):
         raise ValueError(f"rel_path escapes extract_root: {rel_path!r}")
 
 
 def _merge_img_stats(stats: dict, img_stats: dict) -> None:
     for key in ("images_seen", "images_kept", "images_filtered"):
-        stats[key] = img_stats[key]
+        stats[key] = stats.get(key, 0) + img_stats[key]
     if img_stats.get("issues"):
         stats["issues"].extend(img_stats["issues"])
 
@@ -237,10 +237,9 @@ def _extract_tables(pdf_path: Path, table_dir: Path) -> tuple[list[TableItem], l
     try:
         try:
             tables = camelot.read_pdf(str(pdf_path), pages="all", flavor="lattice")
+            if tables.n == 0:
+                tables = camelot.read_pdf(str(pdf_path), pages="all", flavor="stream")
         except Exception:
-            tables = camelot.read_pdf(str(pdf_path), pages="all", flavor="stream")
-
-        if tables.n == 0:
             tables = camelot.read_pdf(str(pdf_path), pages="all", flavor="stream")
 
         for i, table in enumerate(tables):
@@ -288,9 +287,14 @@ def _compute_ocr_with_optional_tiling(image_bytes: bytes, cfg: dict[str, Any]) -
     results = [compute_ocr(tile["bytes"]) for tile in tiles]
     texts = [r.text for r in results if r.text]
     words = sum(int(r.word_count) for r in results)
-    confs = [float(r.avg_conf) for r in results if r.avg_conf > 0]
     combined = clean_text(" ".join(texts))
-    avg_conf = round(sum(confs) / len(confs), 2) if confs else 0.0
+    # Weight confidence by word count so tiles with more words have more influence.
+    weighted_confs = [(r.avg_conf, r.word_count) for r in results if r.avg_conf > 0 and r.word_count > 0]
+    if weighted_confs:
+        total_w = sum(w for _, w in weighted_confs)
+        avg_conf = round(sum(c * w for c, w in weighted_confs) / total_w, 2)
+    else:
+        avg_conf = 0.0
     if not combined:
         return compute_ocr(image_bytes)
     return OCRResult(text=combined, word_count=words, avg_conf=avg_conf)
@@ -376,13 +380,9 @@ def extract_images_pdf(
                 caption_block_id: str | None = None
                 caption_distance: float | None = None
                 if rect is not None:
-                    caption_result = find_best_caption_for_image(
+                    caption_text = find_best_caption_for_image(
                         blocks_for_caption, rect, float(page_rect.width), cfg
                     )
-                    if isinstance(caption_result, tuple):
-                        caption_text, caption_block_id, caption_distance = caption_result
-                    else:
-                        caption_text = caption_result
 
                 ocr: OCRResult = _compute_ocr_with_optional_tiling(image_bytes, cfg)
                 image_path = extract_root / "images" / rel_path / f"page_{page_num:03d}_img_{img_i:03d}.{ext}"
@@ -621,6 +621,8 @@ def extract_pdf_docling(
                 continue
             formatted = f"[CODE] {text}"
         elif isinstance(item, (KeyValueItem, TextItem, ListItem)):
+            # All three expose .text and render as plain prose in RAG context.
+            # Non-form KeyValueItems reach here because FORM is already in _DOCLING_SKIP_LABELS.
             text = (item.text or "").strip()
             if len(text) < min_text_chars:
                 continue
@@ -653,7 +655,7 @@ def extract_pdf_docling(
     return ExtractedPDF(
         source_path=rel_path,
         file_type="pdf",
-        page_count=min(total_pages, max_pages) if total_pages else max_pages,
+        page_count=min(total_pages, max_pages) if total_pages else 0,
         text_blocks=text_blocks,
         images=images,
         tables=tables,
