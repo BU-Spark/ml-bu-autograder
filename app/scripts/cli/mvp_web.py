@@ -15,15 +15,32 @@ import streamlit as st
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 RUN_PIPELINE = PROJECT_ROOT / "scripts" / "cli" / "run_pipeline.py"
 DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "outputs" / "final_phase1"
-DEFAULT_LECTURE_CHUNKS = (
-    PROJECT_ROOT
-    / "outputs"
-    / "final_phase1"
-    / "run_01"
-    / "describe_openai_gpt-4o-2024-11-20_v2_semantic"
-    / "chunks.jsonl"
-)
-DEFAULT_RUBRIC_ROOT = PROJECT_ROOT / "rubrics"
+
+
+def _resolve_default_lecture_chunks() -> Path:
+    env_path = (os.getenv("AUTO_GRADER_LECTURE_CHUNKS") or "").strip()
+    if env_path:
+        return Path(env_path).expanduser()
+
+    candidates = [
+        PROJECT_ROOT / "outputs" / "final_phase1" / "lecture_chunks_hybrid.jsonl",
+        PROJECT_ROOT
+        / "outputs"
+        / "final_phase1"
+        / "run_01"
+        / "describe_openai_gpt-4o-2024-11-20_v2_semantic"
+        / "chunks.jsonl",
+    ]
+    for p in candidates:
+        if p.exists():
+            return p
+    return candidates[0]
+
+
+DEFAULT_LECTURE_CHUNKS = _resolve_default_lecture_chunks()
+DEFAULT_RUBRIC_ROOT = Path(
+    os.getenv("AUTO_GRADER_RUBRIC_DIR", str(PROJECT_ROOT / "data" / "library" / "rubrics"))
+).expanduser()
 
 MODEL_BY_PROVIDER = {
     "openai": "gpt-4o-2024-11-20",
@@ -197,9 +214,9 @@ def main() -> None:
         st.subheader("Student Submission")
         student_upload = st.file_uploader(
             "Upload Student Submission",
-            type=["pdf", "xlsx"],
+            type=["pdf", "pptx", "xlsx"],
             key="student_submission",
-            help="Supported formats: PDF (Assignment 1) and XLSX (Assignment 2).",
+            help="Supported formats: PDF, PPTX, XLSX",
         )
         st.markdown("</div>", unsafe_allow_html=True)
     with c2:
@@ -220,7 +237,7 @@ def main() -> None:
         return
 
     if student_upload is None:
-        st.error("Upload a student submission file (.pdf or .xlsx).")
+        st.error("Upload a student submission file (.pdf, .pptx, or .xlsx).")
         return
     if not lecture_chunks.exists():
         st.error(f"Lecture chunks file not found: {lecture_chunks}")

@@ -18,13 +18,7 @@ def write_json(path: Path, obj: dict[str, Any] | list[Any]) -> None:
 
 
 def write_per_file_json(per_file_root: Path, rel_path: str, payload: dict[str, Any]) -> Path:
-    rel = Path(rel_path)
-    if rel.is_absolute() or any(part == ".." for part in rel.parts):
-        raise ValueError("rel_path must be a safe relative path")
-    out_path = per_file_root / f"{rel}.extraction.json"
-    root = per_file_root.resolve()
-    if not out_path.resolve().is_relative_to(root):
-        raise ValueError("rel_path escapes per_file_root")
+    out_path = per_file_root / f"{rel_path}.extraction.json"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(payload, indent=2, ensure_ascii=True), encoding="utf-8")
     return out_path
