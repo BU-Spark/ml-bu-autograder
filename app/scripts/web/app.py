@@ -104,7 +104,7 @@ load_dotenv(PROJECT_ROOT / ".env", override=True)
 PROVIDERS = {
     "openai": {
         "label": "OpenAI GPT-4o",
-        "model": "gpt-4o-2024-11-20",
+        "model": "gpt-4o-mini",
         "color": "#10a37f",
         "icon": "openai",
     },
@@ -407,11 +407,11 @@ def api_grade():
     describe_provider = request.form.get("describe_provider", "openai")
     describe_model = request.form.get("describe_model") or PROVIDERS.get(
         describe_provider, {}
-    ).get("model", "gpt-4o-2024-11-20")
+    ).get("model", "gpt-4o-mini")
     grade_provider = request.form.get("grade_provider", "openai")
     grade_model = request.form.get("grade_model") or PROVIDERS.get(
         grade_provider, {}
-    ).get("model", "gpt-4o-2024-11-20")
+    ).get("model", "gpt-4o-mini")
 
     for provider_name in {describe_provider, grade_provider}:
         key_env_name = PROVIDER_API_KEY_ENV.get(provider_name)
@@ -592,7 +592,7 @@ def api_describe():
         return jsonify(success=False, error="Invalid student file type. Allowed: PDF, PPTX, XLSX."), 400
 
     provider = request.form.get("describe_provider", "openai")
-    model = request.form.get("describe_model") or PROVIDERS.get(provider, {}).get("model", "gpt-4o-2024-11-20")
+    model = request.form.get("describe_model") or PROVIDERS.get(provider, {}).get("model", "gpt-4o-mini")
 
     key_env_name = PROVIDER_API_KEY_ENV.get(provider)
     if key_env_name and not os.getenv(key_env_name):
@@ -661,7 +661,7 @@ def api_describe():
 @app.route("/api/grade-existing", methods=["POST"])
 def api_grade_existing():
     provider = request.form.get("provider", "openai")
-    model = request.form.get("model") or PROVIDERS.get(provider, {}).get("model", "gpt-4o-2024-11-20")
+    model = request.form.get("model") or PROVIDERS.get(provider, {}).get("model", "gpt-4o-mini")
     student_filter = (request.form.get("existing_student_path") or "").strip()
     chunks_jsonl_raw = (request.form.get("existing_chunks_jsonl") or "").strip()
     retrieval_jsonl_raw = (request.form.get("existing_retrieval_jsonl") or "").strip()

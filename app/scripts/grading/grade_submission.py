@@ -1226,7 +1226,7 @@ GRADING_PROVIDERS = {
 
 # Default models per provider
 DEFAULT_GRADING_MODELS = {
-    "openai": "gpt-4o-2024-11-20",
+    "openai": "gpt-4o-mini",
     "gemini": "gemini-2.5-flash",
     "anthropic": "claude-sonnet-4-6",
 }
@@ -1706,7 +1706,7 @@ def run_grading(
             print(f"WARNING: Failed to parse JSON rubric: {exc}")
     if not rubric_criteria and rubric_file and rubric_file.suffix.lower() == ".docx":
         rubric_criteria = extract_rubric_criteria_from_docx(rubric_file)
-    elif rubric_file and rubric_file.suffix.lower() == ".json":
+    elif not rubric_criteria and rubric_file and rubric_file.suffix.lower() == ".json":
         try:
             parsed = json.loads(rubric_text)
             raw_criteria = parsed.get("criteria", [])
@@ -1869,7 +1869,7 @@ def main() -> int:
     assignment_file = Path(args.assignment_file).expanduser().resolve() if args.assignment_file else None
 
     grading_provider = args.grading_provider
-    model = args.model or DEFAULT_GRADING_MODELS.get(grading_provider, "gpt-4o-2024-11-20")
+    model = args.model or DEFAULT_GRADING_MODELS.get(grading_provider, "gpt-4o-mini")
 
     run_grading(
         retrieval_jsonl=retrieval_jsonl,
