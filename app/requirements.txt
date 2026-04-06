@@ -19,6 +19,24 @@ bs4==0.0.1
 notebook==7.3.3
 openpyxl==3.1.2
 pymupdf==1.25.5
+# MinerU extraction: optional. Install with: pip install -r requirements-mineru.txt
+# Set USE_MINERU=true to use. App works without it (default: PyMuPDF).
 azure-ai-inference==1.0.0b9
 cohere==5.15.0
 pydub==0.25.1
+Pillow==10.4.0
+pytesseract==0.3.13
+python-docx==1.2.0
+anthropic==0.49.0
+
+# Multimodal extraction / grading pipeline under app/scripts
+pandas>=2.0.0
+pypdf>=4.0.0
+matplotlib>=3.8.0
+opencv-python-headless>=4.10.0
+pypdfium2>=4.30.0
+python-pptx>=1.0.2
+camelot-py[base]>=0.11.0
+python-dotenv>=1.0.0
+flask>=3.0.0
+beautifulsoup4>=4.12.0

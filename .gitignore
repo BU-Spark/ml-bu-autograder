@@ -1,6 +1,3 @@
-
-
-
 # Jetbrains Products
 # Covers JetBrains IDEs: IntelliJ, RubyMine, PhpStorm, AppCode, PyCharm, CLion, Android Studio, WebStorm and Rider
 # Reference: https://intellij-support.jetbrains.com/hc/en-us/articles/206544839
@@ -171,6 +168,8 @@ $RECYCLE.BIN/
 
 # venv
 venv
+.venv/
+env
 
 # __pycache__
 __pycache__/
@@ -179,18 +178,28 @@ __pycache__/
 /frontend/.next
 *.json
 .env
+.env.backend-frontend
 .ipynb_checkpoints
 app.log
 app/utils/test,py
 app/utils/legacy_vector_store.py
 test,py
 test,py copy
-env
 test.py
 cache
-.env.backend-frontend
 
-# pdf-extraction-tests
+# PDF extraction prototype scripts and generated outputs
+pdf-extraction-tests/
+
+# Eval generated outputs
+eval/presentation_graphs/
+eval_mineru_results.json
+eval_mineru_k15_results.json
+
+# Student data — never commit
+eval/fall 2025 cs 581 quiz and assignment data/
+.env.backend-frontend
 .venv/
-pdf-extraction-tests/output/
-pdf-extraction-tests/sample_pdfs/
+*.pyc
+outputs/
+Spring 2026/
