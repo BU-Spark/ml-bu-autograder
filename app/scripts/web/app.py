@@ -30,22 +30,19 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 RUN_PIPELINE = SCRIPTS_DIR / "cli" / "run_pipeline.py"
 OUTPUT_ROOT = PROJECT_ROOT / "outputs" / "final_phase1"
-DEFAULT_LECTURE_CHUNKS = (
-    # Hybrid lecture chunks: HTML text blocks + PDF image descriptions (best of both)
-    # HTML gives clean structured text; PDF image chunks add 91 AI-described diagrams/figures
-    # that HTML completely misses (all img alt tags are empty, image files not on disk).
-    OUTPUT_ROOT / "lecture_chunks_hybrid.jsonl"
-)
-DEFAULT_ASSIGNMENT = PROJECT_ROOT / "assignments" / "assignment1_instructions.txt"
-DEFAULT_RUBRIC_DIR = Path(
-    os.getenv("AUTO_GRADER_RUBRIC_DIR", "/Users/sai/Downloads/Spring 2026 2/Assignment Rubrics")
+DEFAULT_LECTURE_CHUNKS = Path(
+    os.getenv("AUTO_GRADER_LECTURE_CHUNKS", str(OUTPUT_ROOT / "lecture_chunks_hybrid.jsonl"))
 ).expanduser()
+DEFAULT_ASSIGNMENT = PROJECT_ROOT / "assignments" / "assignment1_instructions.txt"
 
 # Library dirs — professor uploads here once; files persist across sessions
 LIBRARY_DIR             = PROJECT_ROOT / "data" / "library"
 LIBRARY_ASSIGNMENTS_DIR = LIBRARY_DIR / "assignments"
 LIBRARY_QUIZZES_DIR     = LIBRARY_DIR / "quizzes"
 LIBRARY_RUBRICS_DIR     = LIBRARY_DIR / "rubrics"
+DEFAULT_RUBRIC_DIR = Path(
+    os.getenv("AUTO_GRADER_RUBRIC_DIR", str(LIBRARY_RUBRICS_DIR))
+).expanduser()
 
 # Shared Chroma DB for lecture content — built once, reused across all grading runs.
 # Separate DB paths per embedding provider so switching never corrupts an existing index.
