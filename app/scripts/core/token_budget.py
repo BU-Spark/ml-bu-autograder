@@ -28,6 +28,19 @@ MODEL_PRICING: dict[str, dict[str, float]] = {
         "cache_creation_input": 1.25,
         "cache_read_input": 0.10,
     },
+    # claude-haiku-4-5 and its dated alias — $1.00/$5.00 per 1M tokens
+    "claude-haiku-4-5": {
+        "input": 1.00,
+        "output": 5.00,
+        "cache_creation_input": 1.25,
+        "cache_read_input": 0.10,
+    },
+    "claude-haiku-4-5-20251001": {
+        "input": 1.00,
+        "output": 5.00,
+        "cache_creation_input": 1.25,
+        "cache_read_input": 0.10,
+    },
     "gpt-4o-2024-11-20": {
         "input": 2.50,
         "output": 10.00,
@@ -40,6 +53,10 @@ MODEL_PRICING: dict[str, dict[str, float]] = {
     "gemini-2.5-flash": {
         "input": 0.15,
         "output": 0.60,
+    },
+    "gemini-2.0-flash": {
+        "input": 0.10,
+        "output": 0.40,
     },
 }
 
