@@ -46,20 +46,12 @@ except ImportError:
 # reference    → bibliography entries, not gradeable content
 # page_header/footer → already excluded by default
 # checkbox_*/form/empty_value → form UI elements, no text value
-_DOCLING_SKIP_LABELS: set = set()
-if _DOCLING_AVAILABLE:
-    _DOCLING_SKIP_LABELS = {
-        DocItemLabel.PAGE_HEADER,
-        DocItemLabel.PAGE_FOOTER,
-        DocItemLabel.CAPTION,
-        DocItemLabel.FOOTNOTE,
-        DocItemLabel.DOCUMENT_INDEX,
-        DocItemLabel.REFERENCE,
-        DocItemLabel.CHECKBOX_SELECTED,
-        DocItemLabel.CHECKBOX_UNSELECTED,
-        DocItemLabel.FORM,
-        DocItemLabel.EMPTY_VALUE,
-    }
+_DOCLING_SKIP_LABELS: set = {
+    DocItemLabel.PAGE_HEADER, DocItemLabel.PAGE_FOOTER, DocItemLabel.CAPTION,
+    DocItemLabel.FOOTNOTE, DocItemLabel.DOCUMENT_INDEX, DocItemLabel.REFERENCE,
+    DocItemLabel.CHECKBOX_SELECTED, DocItemLabel.CHECKBOX_UNSELECTED,
+    DocItemLabel.FORM, DocItemLabel.EMPTY_VALUE,
+} if _DOCLING_AVAILABLE else set()
 
 # Cached converter so model weights are loaded once per process, not once per PDF.
 _docling_converter: "DocumentConverter | None" = None
@@ -70,6 +62,31 @@ def _get_docling_converter() -> "DocumentConverter":
     if _docling_converter is None:
         _docling_converter = DocumentConverter()
     return _docling_converter
+
+
+def _check_path_traversal(extract_root: Path, rel_path: str) -> None:
+    if not str((extract_root / rel_path).resolve()).startswith(str(extract_root.resolve())):
+        raise ValueError(f"rel_path escapes extract_root: {rel_path!r}")
+
+
+def _merge_img_stats(stats: dict, img_stats: dict) -> None:
+    for key in ("images_seen", "images_kept", "images_filtered"):
+        stats[key] = img_stats[key]
+    if img_stats.get("issues"):
+        stats["issues"].extend(img_stats["issues"])
+
+
+def _append_text_block(text_blocks: list, page_num: int, text: str, doc_order: int) -> None:
+    block_index = len(text_blocks)
+    text_blocks.append(TextBlock(
+        block_id=f"T{block_index + 1}",
+        page_number=page_num,
+        block_index=block_index,
+        bbox={"x0": 0.0, "y0": 0.0, "x1": 0.0, "y1": 0.0},
+        text=text,
+        sort_key=make_sort_key(page_num, block_index),
+        document_order=doc_order,
+    ))
 
 # Suppress noisy parser warnings from third-party PDF stack.
 for _logger_name in ("pdfminer", "camelot", "pypdf"):
@@ -145,14 +162,9 @@ def _pdf_text_blocks(page: Any, page_number: int) -> list[dict[str, Any]]:
         text = clean_text(str(text))
         if not text:
             continue
-        out.append(
-            {
-                "id": f"T{i+1}",
-                "page": page_number,
-                "bbox": {"x0": float(x0), "y0": float(y0), "x1": float(x1), "y1": float(y1)},
-                "text": text,
-            }
-        )
+        out.append({"id": f"T{i+1}", "page": page_number,
+                    "bbox": {"x0": float(x0), "y0": float(y0), "x1": float(x1), "y1": float(y1)},
+                    "text": text})
     out.sort(key=lambda t: (t["bbox"]["y0"], t["bbox"]["x0"]))
     return out
 
@@ -212,11 +224,7 @@ def _is_meaningful_table(df: Any) -> bool:
     if df is None or len(df) == 0:
         return False
     body = df.iloc[1:] if len(df) > 1 else df
-    non_empty_cells = 0
-    for v in body.values.flatten():
-        if normalize_cell(v):
-            non_empty_cells += 1
-    return non_empty_cells >= 3
+    return sum(1 for v in body.values.flatten() if normalize_cell(v)) >= 3
 
 
 def _extract_tables(pdf_path: Path, table_dir: Path) -> tuple[list[TableItem], list[str]]:
@@ -277,17 +285,10 @@ def _compute_ocr_with_optional_tiling(image_bytes: bytes, cfg: dict[str, Any]) -
         max_tiles=int(cfg.get("image_max_tiles", 9)),
     )
 
-    texts: list[str] = []
-    confs: list[float] = []
-    words = 0
-    for tile in tiles:
-        res = compute_ocr(tile["bytes"])
-        if res.text:
-            texts.append(res.text)
-        words += int(res.word_count)
-        if res.avg_conf > 0:
-            confs.append(float(res.avg_conf))
-
+    results = [compute_ocr(tile["bytes"]) for tile in tiles]
+    texts = [r.text for r in results if r.text]
+    words = sum(int(r.word_count) for r in results)
+    confs = [float(r.avg_conf) for r in results if r.avg_conf > 0]
     combined = clean_text(" ".join(texts))
     avg_conf = round(sum(confs) / len(confs), 2) if confs else 0.0
     if not combined:
@@ -322,13 +323,7 @@ def extract_images_pdf(
     if fitz is None:
         raise RuntimeError("PyMuPDF is not installed")
 
-    # Path traversal guard
-    try:
-        resolved = (extract_root / rel_path).resolve()
-        if not str(resolved).startswith(str(extract_root.resolve())):
-            raise ValueError(f"rel_path escapes extract_root: {rel_path!r}")
-    except ValueError:
-        raise
+    _check_path_traversal(extract_root, rel_path)
 
     images: list[ImageItem] = []
     stats: dict[str, Any] = {
@@ -350,11 +345,7 @@ def extract_images_pdf(
             if caption_blocks_by_page is not None:
                 blocks_for_caption = caption_blocks_by_page.get(page_num, [])
             else:
-                tblocks = _pdf_text_blocks(page, page_num)
-                blocks_for_caption = [
-                    {"id": b["id"], "page": b["page"], "bbox": b["bbox"], "text": b["text"]}
-                    for b in tblocks
-                ]
+                blocks_for_caption = _pdf_text_blocks(page, page_num)
 
             page_images = page.get_images(full=True)
             for img_i, img_info in enumerate(page_images, 1):
@@ -441,13 +432,7 @@ def extract_pdf(
     if fitz is None:
         raise RuntimeError("PyMuPDF is not installed")
 
-    # Path traversal guard
-    try:
-        resolved = (extract_root / rel_path).resolve()
-        if not str(resolved).startswith(str(extract_root.resolve())):
-            raise ValueError(f"rel_path escapes extract_root: {rel_path!r}")
-    except ValueError:
-        raise
+    _check_path_traversal(extract_root, rel_path)
 
     doc = fitz.open(str(file_path))
     text_blocks: list[TextBlock] = []
@@ -500,11 +485,7 @@ def extract_pdf(
         doc_order_start=doc_order,
         block_index_start=len(text_blocks),
     )
-    stats["images_seen"] = img_stats["images_seen"]
-    stats["images_kept"] = img_stats["images_kept"]
-    stats["images_filtered"] = img_stats["images_filtered"]
-    if img_stats.get("issues"):
-        stats["issues"].extend(img_stats["issues"])
+    _merge_img_stats(stats, img_stats)
 
     table_dir = extract_root / "tables" / rel_path
     tables, table_issues = _extract_tables(file_path, table_dir)
@@ -569,13 +550,7 @@ def extract_pdf_docling(
             "docling is not installed. Install it with: pip install docling"
         )
 
-    # Path traversal guard
-    try:
-        resolved = (extract_root / rel_path).resolve()
-        if not str(resolved).startswith(str(extract_root.resolve())):
-            raise ValueError(f"rel_path escapes extract_root: {rel_path!r}")
-    except ValueError:
-        raise
+    _check_path_traversal(extract_root, rel_path)
 
     max_pages = int(cfg.get("max_pdf_pages", 120))
     min_text_chars = int(cfg.get("min_text_chars", 30))
@@ -616,34 +591,12 @@ def extract_pdf_docling(
             text = (item.text or "").strip()
             if len(text) < min_text_chars // 2:  # titles can be short, use half threshold
                 continue
-            doc_order += 1
-            block_index = len(text_blocks)
-            text_blocks.append(TextBlock(
-                block_id=f"T{block_index + 1}",
-                page_number=page_num,
-                block_index=block_index,
-                bbox={"x0": 0.0, "y0": 0.0, "x1": 0.0, "y1": 0.0},
-                text=f"[TITLE] {text}",
-                sort_key=make_sort_key(page_num, block_index),
-                document_order=doc_order,
-            ))
-
+            formatted = f"[TITLE] {text}"
         elif isinstance(item, FormulaItem):
             text = (item.text or "").strip()
             if not text:  # formulas can be short (e.g. "E=mc²"), no min_text_chars
                 continue
-            doc_order += 1
-            block_index = len(text_blocks)
-            text_blocks.append(TextBlock(
-                block_id=f"T{block_index + 1}",
-                page_number=page_num,
-                block_index=block_index,
-                bbox={"x0": 0.0, "y0": 0.0, "x1": 0.0, "y1": 0.0},
-                text=f"[EQUATION] {text}",
-                sort_key=make_sort_key(page_num, block_index),
-                document_order=doc_order,
-            ))
-
+            formatted = f"[EQUATION] {text}"
         elif isinstance(item, DoclingTableItem):
             html = item.export_to_html(doc=docling_doc, add_caption=False)
             if not html or not html.strip():
@@ -661,54 +614,22 @@ def extract_pdf_docling(
                 table_text=html,
                 rows=[],
             ))
-
+            continue
         elif isinstance(item, CodeItem):
             text = (item.text or "").strip()
             if not text:  # code can be short, no min_text_chars
                 continue
-            doc_order += 1
-            block_index = len(text_blocks)
-            text_blocks.append(TextBlock(
-                block_id=f"T{block_index + 1}",
-                page_number=page_num,
-                block_index=block_index,
-                bbox={"x0": 0.0, "y0": 0.0, "x1": 0.0, "y1": 0.0},
-                text=f"[CODE] {text}",
-                sort_key=make_sort_key(page_num, block_index),
-                document_order=doc_order,
-            ))
-
-        elif isinstance(item, KeyValueItem):
+            formatted = f"[CODE] {text}"
+        elif isinstance(item, (KeyValueItem, TextItem, ListItem)):
             text = (item.text or "").strip()
             if len(text) < min_text_chars:
                 continue
-            doc_order += 1
-            block_index = len(text_blocks)
-            text_blocks.append(TextBlock(
-                block_id=f"T{block_index + 1}",
-                page_number=page_num,
-                block_index=block_index,
-                bbox={"x0": 0.0, "y0": 0.0, "x1": 0.0, "y1": 0.0},
-                text=text,
-                sort_key=make_sort_key(page_num, block_index),
-                document_order=doc_order,
-            ))
+            formatted = text
+        else:
+            continue
 
-        elif isinstance(item, (TextItem, ListItem)):
-            text = (item.text or "").strip()
-            if len(text) < min_text_chars:
-                continue
-            doc_order += 1
-            block_index = len(text_blocks)
-            text_blocks.append(TextBlock(
-                block_id=f"T{block_index + 1}",
-                page_number=page_num,
-                block_index=block_index,
-                bbox={"x0": 0.0, "y0": 0.0, "x1": 0.0, "y1": 0.0},
-                text=text,
-                sort_key=make_sort_key(page_num, block_index),
-                document_order=doc_order,
-            ))
+        doc_order += 1
+        _append_text_block(text_blocks, page_num, formatted, doc_order)
 
     # Use PyMuPDF for image extraction to preserve filtering, OCR, and caption scoring.
     # Docling text blocks have zero bboxes, so caption proximity scoring would be
@@ -720,11 +641,7 @@ def extract_pdf_docling(
         doc_order_start=doc_order,
         block_index_start=len(text_blocks),
     )
-    stats["images_seen"] = img_stats["images_seen"]
-    stats["images_kept"] = img_stats["images_kept"]
-    stats["images_filtered"] = img_stats["images_filtered"]
-    if img_stats.get("issues"):
-        stats["issues"].extend(img_stats["issues"])
+    _merge_img_stats(stats, img_stats)
 
     stats["text_blocks"] = len(text_blocks)
     stats["tables"] = len(tables)
