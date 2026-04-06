@@ -1855,7 +1855,7 @@ def run_grading(
     now = datetime.datetime.now(datetime.timezone.utc)
     log_entry = {
         "timestamp": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "run_id": f"{out_dir.name}_{now.strftime('%Y%m%dT%H%M%S')}",
+        "run_id": f"{out_dir.name}_{now.strftime('%Y%m%dT%H%M%S%f')}",
         "provider": grading_provider,
         "model": response["model"],
         "student_file": student_file,
@@ -1863,7 +1863,7 @@ def run_grading(
         "total_output_tokens": totals["total_output_tokens"],
         "cache_creation_tokens": totals["total_cache_creation_tokens"],
         "cache_read_tokens": totals["total_cache_read_tokens"],
-        "estimated_cost_usd": totals["total_estimated_cost_usd"],
+        "grading_call_cost_usd": totals["total_grading_call_cost_usd"],
     }
     out_dir.mkdir(parents=True, exist_ok=True)
     with open(out_dir / "token_usage.jsonl", "a", encoding="utf-8") as _log_f:
