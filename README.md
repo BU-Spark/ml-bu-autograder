@@ -1,64 +1,10 @@
 # BU Spark AI Auto Grader
 
-Unified multimodal grading pipeline for course submissions.
+Multimodal grading pipeline for student submissions using extraction + RAG + rubric-aware scoring.
 
-The project supports:
-- Extraction from `PDF`, `PPTX`, `XLSX`, `HTML`
-- Vision description with `OpenAI`, `Gemini`, or `Anthropic`
-- RAG retrieval with `ChromaDB`
-- Rubric-aware grading with evidence-backed scoring
-- Web app flow (upload -> extract -> describe -> retrieve -> grade)
+## Run MVP (Top Commands)
 
-## 1) Quick Start
-
-### Prerequisites
-- Python 3.10+
-- `pip`
-- Optional for OCR/table quality:
-  - Tesseract OCR installed and available in PATH
-  - Ghostscript (for Camelot PDF table extraction)
-
-### Setup
-```bash
-# from repo root
-cd app
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-Create `app/.env`:
-```env
-# Choose whichever providers you will use
-OPENAI_API_KEY=
-ANTHROPIC_API_KEY=
-GEMINI_API_KEY=
-# or GOOGLE_API_KEY=
-
-# Optional embedding provider for Chroma: openai | google | default
-CHROMA_EMBEDDING_PROVIDER=default
-
-# Optional embedding model overrides
-OPENAI_EMBEDDING_MODEL=text-embedding-3-small
-GOOGLE_EMBEDDING_MODEL=gemini-embedding-001
-
-# Optional library location overrides (no hardcoded machine paths needed)
-AUTO_GRADER_RUBRIC_DIR=./data/library/rubrics
-AUTO_GRADER_LECTURE_CHUNKS=./outputs/final_phase1/lecture_chunks_hybrid.jsonl
-```
-
-## 2) No Hardcoded Paths
-
-This codebase now uses environment-driven or project-relative paths only.
-
-Defaults (when env vars are not set):
-- Rubrics library: `app/data/library/rubrics`
-- Lecture chunks: `app/outputs/final_phase1/lecture_chunks_hybrid.jsonl`
-- Outputs root: `app/outputs/final_phase1`
-
-## 3) Web App Usage
-
-### Flask Web App
+### Flask web app (primary)
 ```bash
 cd app
 source .venv/bin/activate
@@ -66,27 +12,108 @@ python scripts/web/app.py
 ```
 Open: [http://localhost:5000](http://localhost:5000)
 
-### Streamlit MVP
+### Streamlit app (`mvp_web`) (optional)
 ```bash
 cd app
 source .venv/bin/activate
 streamlit run scripts/cli/mvp_web.py
 ```
 
-## 4) CLI Pipeline Usage
+---
 
-Run from `app/` for consistent paths.
+## One-Time Setup
+
+### 1) Install requirements
+```bash
+cd app
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 2) Configure API keys (`app/.env`)
+```env
+# Use one or more providers
+OPENAI_API_KEY=
+ANTHROPIC_API_KEY=
+GEMINI_API_KEY=
+# or GOOGLE_API_KEY=
+
+# Chroma embeddings: openai | google | default
+CHROMA_EMBEDDING_PROVIDER=default
+
+# Optional overrides
+AUTO_GRADER_RUBRIC_DIR=./data/library/rubrics
+AUTO_GRADER_LECTURE_CHUNKS=./outputs/final_phase1/lecture_chunks_hybrid.jsonl
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+GOOGLE_EMBEDDING_MODEL=gemini-embedding-001
+```
+
+### 3) Prepare lecture chunks for RAG (required once)
+The web apps need `AUTO_GRADER_LECTURE_CHUNKS` pointing to a lecture `chunks.jsonl`.
+
+If you already have one, keep that path.
+
+If not, generate it:
+```bash
+cd app
+source .venv/bin/activate
+python scripts/cli/run_pipeline.py \
+  --mode full \
+  --data-dir "<LECTURE_DATA_DIR>" \
+  --source-type lecture \
+  --output-root "outputs/final_phase1" \
+  --run-id "lecture_bootstrap" \
+  --vision-provider openai \
+  --vision-model "gpt-4o-mini"
+```
+Then set:
+```env
+AUTO_GRADER_LECTURE_CHUNKS=./outputs/final_phase1/lecture_bootstrap/describe_openai_gpt-4o-mini/chunks.jsonl
+```
+
+---
+
+## What the MVP Does
+1. Upload student submission (`pdf`, `pptx`, `xlsx`)
+2. Upload/select rubric + assignment
+3. Extract structured content into chunks
+4. Describe images with selected model provider
+5. Index/retrieve lecture context from ChromaDB
+6. Grade against rubric and output evidence-backed score
+
+Core flow:
+`Upload -> Extract -> Describe -> Index -> Retrieve -> Grade`
+
+---
+
+## Core Paths
+From `app/`:
+- Pipeline CLI: `scripts/cli/run_pipeline.py`
+- Flask app: `scripts/web/app.py`
+- Streamlit app: `scripts/cli/mvp_web.py`
+- Outputs root: `outputs/final_phase1`
+- Library folders:
+  - `data/library/assignments`
+  - `data/library/rubrics`
+  - `data/library/quizzes`
+
+No machine-specific hardcoded paths are required.
+
+---
+
+## CLI Reference
 
 ### Extract
 ```bash
 python scripts/cli/run_pipeline.py \
   --mode extract \
-  --data-dir "../Spring 2026" \
+  --data-dir "<DATA_DIR>" \
   --output-root "outputs/final_phase1" \
   --run-id "run_01"
 ```
 
-### Describe (vision)
+### Describe
 ```bash
 python scripts/cli/run_pipeline.py \
   --mode describe \
@@ -97,7 +124,7 @@ python scripts/cli/run_pipeline.py \
   --prompt-version "verbose_v2"
 ```
 
-### Index lecture chunks to Chroma
+### Index
 ```bash
 python scripts/cli/run_pipeline.py \
   --mode index \
@@ -106,7 +133,7 @@ python scripts/cli/run_pipeline.py \
   --chroma-collection "lecture_context_v1"
 ```
 
-### Retrieve lecture context for student chunks
+### Retrieve
 ```bash
 python scripts/cli/run_pipeline.py \
   --mode retrieve \
@@ -129,31 +156,24 @@ python scripts/cli/run_pipeline.py \
   --assignment-file "data/library/assignments/assignment_1.pdf"
 ```
 
-## 5) Supported Providers and Models
+---
 
+## Supported Providers
 - OpenAI: `gpt-4o-mini`, `gpt-4o-2024-11-20`
 - Anthropic: `claude-sonnet-4-6`, `claude-haiku-4-5`
 - Gemini: `gemini-2.5-flash`, `gemini-2.5-pro`
 
-## 6) Important Folders
+---
 
-Inside `app/`:
-- `scripts/`: extraction, vision, retrieval, grading, web
-- `data/library/assignments`: assignment files
-- `data/library/rubrics`: rubric files
-- `data/library/quizzes`: quiz files
-- `outputs/final_phase1`: run outputs (`extract`, `describe`, `retrieval`, `grading`)
-
-## 7) Common Troubleshooting
-
-- `*_API_KEY not set`: add key to `app/.env` and restart process.
+## Troubleshooting
+- `*_API_KEY not set`: add the key to `app/.env`, restart app.
 - Chroma embedding permission issues: set `CHROMA_EMBEDDING_PROVIDER=default`.
-- Missing lecture chunks file: set `AUTO_GRADER_LECTURE_CHUNKS` to a valid `chunks.jsonl`.
-- OCR weak on some PDFs: ensure Tesseract is installed and accessible.
+- Missing lecture chunks: set `AUTO_GRADER_LECTURE_CHUNKS` to an existing `chunks.jsonl`.
+- OCR weak on scanned PDFs: install Tesseract and verify it is in PATH.
 
-## 8) Security Notes
+---
 
-- Never commit `.env` or API keys.
-- Keep rubric/assignment paths project-relative or env-configured.
-- Review PR diffs for secrets before pushing.
-
+## Security
+- Never commit `.env`.
+- Never commit API keys.
+- Keep paths environment-driven and project-relative.
