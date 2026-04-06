@@ -193,8 +193,6 @@ pdf-extraction-tests/
 
 # Eval generated outputs
 eval/presentation_graphs/
-eval_mineru_results.json
-eval_mineru_k15_results.json
 
 # Student data — never commit
 eval/fall 2025 cs 581 quiz and assignment data/

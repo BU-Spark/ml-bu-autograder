@@ -1,7 +1,5 @@
 import base64
 import logging
-import shutil
-import tempfile
 from enum import Enum
 from io import BytesIO
 from pathlib import Path
@@ -10,40 +8,6 @@ from typing import Dict, List, Tuple, Any, Optional, Callable, Literal
 import fitz  # PyMuPDF
 from pydantic import BaseModel, field_validator  # Use pydantic BaseModel for DocumentChunk
 from pymupdf import FileDataError
-
-try:
-    from magic_pdf.integrations.rag.api import DataReader
-    from magic_pdf.integrations.rag.type import CategoryType
-    _MINERU_AVAILABLE = True
-except ImportError:
-    _MINERU_AVAILABLE = False
-
-# MinerU element type sets (only defined when MinerU is available, but safe to reference
-# as module-level constants used in from_pdf_mineru which guards on _MINERU_AVAILABLE)
-_MINERU_TEXT_CATS: set = set()
-_MINERU_IMAGE_CATS: set = set()
-_MINERU_LABELS: dict = {}
-
-if _MINERU_AVAILABLE:
-    _MINERU_TEXT_CATS = {
-        CategoryType.text, CategoryType.title,
-        CategoryType.table, CategoryType.table_body,
-        CategoryType.table_caption, CategoryType.table_footnote,
-        CategoryType.image_caption, CategoryType.interline_equation,
-    }
-    _MINERU_IMAGE_CATS = {CategoryType.image, CategoryType.image_body}
-    _MINERU_LABELS = {
-        CategoryType.text: "TEXT",
-        CategoryType.title: "TITLE",
-        CategoryType.table: "TABLE",
-        CategoryType.table_body: "TABLE",
-        CategoryType.table_caption: "TABLE_CAPTION",
-        CategoryType.table_footnote: "TABLE_CAPTION",
-        CategoryType.image_caption: "IMAGE_CAPTION",
-        CategoryType.interline_equation: "EQUATION",
-        CategoryType.image: "IMAGE",
-        CategoryType.image_body: "IMAGE",
-    }
 
 
 class DataType(Enum):
@@ -112,14 +76,12 @@ class DataType(Enum):
                         return member
         raise ValueError(f"'{value}' is not a valid DataType extension")
 
-    def get_to_doc_func(self, use_mineru: bool = False) -> "ToDocumentFunction":
+    def get_to_doc_func(self) -> "ToDocumentFunction":
         if self == DataType.PNG:
             return ToDocumentFunction(Document.from_png)
         elif self == DataType.JPEG:
             return ToDocumentFunction(Document.from_jpeg)
         elif self == DataType.PDF:
-            if use_mineru:
-                return ToDocumentFunction(Document.from_pdf_mineru)
             return ToDocumentFunction(Document.from_pdf)
         elif self == DataType.WORD_DOC:
             return ToDocumentFunction(Document.from_doc)
@@ -440,174 +402,11 @@ class Document:
 
         return cls(file_name=file_name, contents=contents)
 
-    @classmethod
-    def from_pdf_mineru(
-        cls,
-        file_name: str,
-        file_bytes: bytes,
-        do_splits: bool = True,
-        method: str = "auto",
-        min_image_bytes: int = 0,
-    ) -> Optional["Document"]:
-        """
-        Extracts structured content from a PDF using MinerU (magic-pdf), producing
-        typed chunks (TITLE, TEXT, TABLE, IMAGE, etc.) with linked captions.
-
-        Args:
-            file_name: Name of the PDF file (used as Document identifier).
-            file_bytes: Raw bytes of the PDF.
-            do_splits: If True, TEXT/TABLE chunks exceeding 500 words are split.
-            method: MinerU extraction method — "auto", "txt", or "ocr".
-            min_image_bytes: Skip image chunks smaller than this size in bytes.
-
-        Returns:
-            A Document with structured chunks, or None on error.
-
-        Raises:
-            ImportError: If magic_pdf is not installed.
-        """
-        if not _MINERU_AVAILABLE:
-            raise ImportError(
-                "magic_pdf is not installed. Install it with: pip install magic-pdf[full]"
-            )
-
-        tmp_path = None
-        work_dir = None
-        try:
-            # Write PDF bytes to a temp file MinerU can read
-            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-                tmp.write(file_bytes)
-                tmp_path = Path(tmp.name)
-
-            work_dir = Path(tempfile.mkdtemp())
-
-            rdr = DataReader(str(tmp_path), method=method, output_dir=str(work_dir))
-            doc_reader = rdr.get_document_result(0)
-            if doc_reader is None:
-                logging.error(f"MinerU returned no result for {file_name}")
-                return None
-
-            contents: Dict[int, DocumentChunk] = {}
-            chunk_id_counter = 0
-            split_len = 500
-            overlap = 50
-
-            for page_num_zero_based, page in enumerate(doc_reader):
-                page_num = page_num_zero_based + 1
-
-                # Build anno_id → node lookup
-                anno_id_to_node = {node.anno_id: node for node in page}
-
-                # Build image_anno_id → caption_text from relation map
-                caption_for_image: Dict[int, str] = {}
-                for rel in page.get_rel_map():
-                    src = anno_id_to_node.get(rel.source_anno_id)
-                    tgt = anno_id_to_node.get(rel.target_anno_id)
-                    if src is None or tgt is None:
-                        continue
-                    # Determine which node is the caption and which is the image
-                    if src.category_type == CategoryType.image_caption and tgt.category_type in _MINERU_IMAGE_CATS:
-                        caption_for_image[rel.target_anno_id] = src.text or ""
-                    elif tgt.category_type == CategoryType.image_caption and src.category_type in _MINERU_IMAGE_CATS:
-                        caption_for_image[rel.source_anno_id] = tgt.text or ""
-
-                for node in page:
-                    # Skip standalone caption nodes — attached to their image chunk
-                    if node.category_type == CategoryType.image_caption:
-                        continue
-
-                    if node.category_type in _MINERU_TEXT_CATS:
-                        # For TABLE nodes prefer HTML, then text
-                        if node.category_type in {CategoryType.table, CategoryType.table_body}:
-                            raw_text = node.html or node.text or ""
-                        else:
-                            raw_text = node.text or ""
-
-                        if not raw_text.strip():
-                            continue
-
-                        element_type = _MINERU_LABELS.get(node.category_type, "TEXT")
-
-                        if do_splits and node.category_type in {CategoryType.text, CategoryType.table,
-                                                                 CategoryType.table_body}:
-                            # Word-count chunking (same logic as from_pdf)
-                            words = raw_text.split()
-                            start = 0
-                            while start < len(words):
-                                end = min(start + split_len, len(words))
-                                chunk_text = " ".join(words[start:end])
-                                contents[chunk_id_counter] = DocumentChunk(
-                                    data_type=DataType.TEXT,
-                                    content=chunk_text.encode("utf-8"),
-                                    metadata={"page_num": [page_num], "element_type": element_type},
-                                )
-                                chunk_id_counter += 1
-                                next_start = start + split_len - overlap
-                                start = next_start if next_start > start else start + 1
-                        else:
-                            contents[chunk_id_counter] = DocumentChunk(
-                                data_type=DataType.TEXT,
-                                content=raw_text.encode("utf-8"),
-                                metadata={"page_num": [page_num], "element_type": element_type},
-                            )
-                            chunk_id_counter += 1
-
-                    elif node.category_type in _MINERU_IMAGE_CATS:
-                        if not node.image_path:
-                            continue
-
-                        img_file = Path(node.image_path)
-                        if not img_file.is_absolute():
-                            img_file = work_dir / img_file
-
-                        resolved_img = img_file.resolve()
-                        work_dir_resolved = work_dir.resolve()
-                        if not resolved_img.is_relative_to(work_dir_resolved):
-                            logging.warning(
-                                f"MinerU image path outside work_dir, skipping: {resolved_img}"
-                            )
-                            continue
-
-                        if not resolved_img.exists():
-                            logging.warning(f"MinerU image path not found: {resolved_img}")
-                            continue
-
-                        img_bytes = resolved_img.read_bytes()
-                        if len(img_bytes) < min_image_bytes:
-                            continue
-
-                        data_type = DataType.from_extension(resolved_img.suffix.lstrip(".").lower())
-                        if data_type is None:
-                            logging.warning(f"Skipping MinerU image with unknown extension: {resolved_img.suffix}")
-                            continue
-
-                        meta: Dict[str, Any] = {"page_num": [page_num], "element_type": "IMAGE"}
-                        if node.anno_id in caption_for_image:
-                            meta["caption"] = caption_for_image[node.anno_id]
-
-                        contents[chunk_id_counter] = DocumentChunk(
-                            data_type=data_type,
-                            content=img_bytes,
-                            metadata=meta,
-                        )
-                        chunk_id_counter += 1
-
-        except Exception as e:
-            logging.error(f"MinerU processing failed for {file_name}: {e}", exc_info=True)
-            return None
-        finally:
-            if tmp_path is not None:
-                tmp_path.unlink(missing_ok=True)
-            if work_dir is not None:
-                shutil.rmtree(work_dir, ignore_errors=True)
-
-        return cls(file_name=file_name, contents=contents)
-
     def to_markdown(self) -> str:
         """
         Renders document contents as a Markdown string.
 
-        MinerU-produced chunks use element_type metadata for semantic formatting.
+        Chunks with element_type metadata are formatted semantically.
         Legacy PyMuPDF chunks (no element_type) are rendered as plain paragraphs.
         Image chunks are represented as placeholder references.
         """

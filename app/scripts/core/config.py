@@ -14,6 +14,11 @@ SUPPORTED_EXTENSIONS = {".pdf", ".pptx", ".xlsx", ".html", ".htm"}
 
 
 DEFAULT_CONFIG: dict[str, Any] = {
+    # PDF extraction backend — PyMuPDF is the right default for student assignment PDFs
+    # (simple single-column text, fast). Set use_docling=True for course materials with
+    # complex layouts (multi-column lab reports, slides with dense figures/tables).
+    # Requires `pip install docling`. Can also be set via USE_DOCLING=true env var.
+    "use_docling": False,
     # image filtering (friend)
     "min_area": 30_000,
     "min_side": 80,
