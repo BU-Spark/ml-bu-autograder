@@ -5,6 +5,7 @@ grade_submission.py — Grade a student submission using retrieved lecture conte
 from __future__ import annotations
 
 import argparse
+import datetime
 import json
 import re
 import sys
@@ -17,6 +18,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from core.config import get_api_key, load_environment
+from core.token_budget import TokenTracker
 
 
 # ---------------------------------------------------------------------------
@@ -1188,6 +1190,12 @@ def call_anthropic(
     system: str,
     user: str,
 ) -> dict[str, Any]:
+    """Call the Anthropic Messages API and return ``{"result", "usage", "model"}``.
+
+    The ``usage`` dict includes ``cache_creation_input_tokens`` and
+    ``cache_read_input_tokens`` in addition to the standard input/output fields,
+    so prompt-cache costs are captured by ``TokenTracker`` when present.
+    """
     try:
         from anthropic import Anthropic
     except ImportError as exc:
@@ -1212,6 +1220,8 @@ def call_anthropic(
         "usage": {
             "input_tokens": int(getattr(usage_obj, "input_tokens", 0) or 0),
             "output_tokens": int(getattr(usage_obj, "output_tokens", 0) or 0),
+            "cache_creation_input_tokens": int(getattr(usage_obj, "cache_creation_input_tokens", 0) or 0),
+            "cache_read_input_tokens": int(getattr(usage_obj, "cache_read_input_tokens", 0) or 0),
         },
         "model": message.model,
     }
@@ -1646,6 +1656,15 @@ def run_grading(
     rubric_file: Path | None = None,
     assignment_file: Path | None = None,
 ) -> Path:
+    """Grade one student submission and write results to ``out_dir/grades.json``.
+
+    Token tracking is automatic: every provider call is recorded via
+    ``TokenTracker`` and the aggregated usage is written to both
+    ``out_dir/grades.json`` (under the ``token_usage`` key) and the
+    append-only log at ``out_dir/token_usage.jsonl``.
+
+    Returns the path to the written ``grades.json`` file.
+    """
     if grading_provider not in GRADING_PROVIDERS:
         raise RuntimeError(f"Unknown grading provider: {grading_provider}. Use: {list(GRADING_PROVIDERS.keys())}")
 
@@ -1725,7 +1744,9 @@ def run_grading(
             print(f"WARNING: Could not parse JSON rubric: {exc}")
     if not rubric_criteria:
         rubric_criteria = extract_rubric_criteria(rubric_text)
-    # AI fallback — when rubric is prose/free-text that regex parsers cannot handle
+    # AI fallback — when rubric is prose/free-text that regex parsers cannot handle.
+    # NOTE: token usage from this call is NOT captured in the tracker — reported cost
+    # will be understated when this path fires.
     if not rubric_criteria and rubric_text:
         print("INFO: Regex rubric parsers found no criteria — trying AI rubric extraction...")
         rubric_criteria = ai_extract_rubric_criteria(rubric_text, api_key, grading_provider)
@@ -1779,6 +1800,8 @@ def run_grading(
         max_student_chars=max_student_chars,
     )
 
+    tracker = TokenTracker()
+
     print(f"Calling {grading_provider} ({model}) ...")
     response = call_fn(
         model=model,
@@ -1786,6 +1809,7 @@ def run_grading(
         system=SYSTEM_PROMPT,
         user=user_msg,
     )
+    tracker.record("grading", response.get("model", model), response["usage"])
 
     usage = response["usage"]
     print(f"Tokens used — input: {usage['input_tokens']:,}  output: {usage['output_tokens']:,}")
@@ -1810,7 +1834,7 @@ def run_grading(
         "rubric_used_generic_defaults": not _rubric_from_file,
         "assignment_file": str(assignment_file) if assignment_file else None,
         "expected_sections": expected_sections,
-        "token_usage": usage,
+        "token_usage": tracker.to_dict(),
         **normalized,
     }
     raw_result = response.get("result", {})
@@ -1823,6 +1847,27 @@ def run_grading(
         raw_text = str(raw_result.get("raw_response", "")).strip()
         if raw_text:
             output["llm_raw_response"] = raw_text[:100000]
+
+    print(tracker.human_summary())
+
+    # Append one line to persistent token usage log.
+    totals = tracker.total_summary()
+    now = datetime.datetime.now(datetime.timezone.utc)
+    log_entry = {
+        "timestamp": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "run_id": f"{out_dir.name}_{now.strftime('%Y%m%dT%H%M%S')}",
+        "provider": grading_provider,
+        "model": response["model"],
+        "student_file": student_file,
+        "total_input_tokens": totals["total_input_tokens"],
+        "total_output_tokens": totals["total_output_tokens"],
+        "cache_creation_tokens": totals["total_cache_creation_tokens"],
+        "cache_read_tokens": totals["total_cache_read_tokens"],
+        "estimated_cost_usd": totals["total_estimated_cost_usd"],
+    }
+    out_dir.mkdir(parents=True, exist_ok=True)
+    with open(out_dir / "token_usage.jsonl", "a", encoding="utf-8") as _log_f:
+        _log_f.write(json.dumps(log_entry) + "\n")
 
     out_path = out_dir / "grades.json"
     write_json(out_path, output)
