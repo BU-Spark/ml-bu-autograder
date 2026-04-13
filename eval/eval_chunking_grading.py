@@ -16,42 +16,64 @@ import requests
 
 # ---------------------------------------------------------------------------
 # Few-shot calibration examples: real professor-graded student answers.
-# Each entry has bad / neutral / good tiers drawn from actual graded data.
+#
+# Data provenance and leakage status:
+#   quiz_1  — sourced from FALL 2024 semester (24fallmetcs581_m1 Quiz 1.xlsx,
+#             question 13). Evaluated on FALL 2025 data → zero overlap possible.
+#             Max score differs (14 vs 16) but conceptual depth anchoring holds.
+#   quiz_2  — sourced from FALL 2025 (same file as eval). Leakage guard in
+#             run_eval() removes any overlapping rows before grading. No older
+#             semester has the same RCM question.
+#   quiz_3  — sourced from FALL 2025 (same file as eval). Leakage guard applied.
+#             No older semester has the same PI requirements question.
+#   quiz_4  — sourced from FALL 2025 (same file as eval). Leakage guard applied.
+#             No older semester quiz data found for this question.
 # ---------------------------------------------------------------------------
 FEW_SHOT_EXAMPLES: dict[str, dict] = {
     "quiz_1": {
-        "max_points": 16,
+        # SOURCE: fall 2024 (24fallmetcs581_m1 Quiz 1.xlsx, question 13)
+        # LEAKAGE RISK: none — different semester from eval data (fall 2025)
+        "max_points": 14,  # fall 2024 scale; rubric anchoring is conceptual not absolute
         "question": "Why do we need to do Business Process Re-engineering as a part of implementing an EHR?",
         "bad": {
             "score": 12,
             "answer": (
-                "We need to do Business Process Re-engineering as a part of implementing an EHR to extract "
-                "the requirements necessities and criteria, for the creation of a new improved system that "
-                "will deliver better results than the previous"
+                "since BPR shows and indicates the currents data, it shows any errors, duplication or "
+                "discrepancies. This will help starting the EHR with clean and more efficient system and "
+                "reduce the errors. In addition, defining the process step by step and all the details "
+                "involved make it easier and faster to implement the EHR. while conducting BPR, areas of "
+                "improvment can easily be defined and solved before implementing EHR. Also, areas that can "
+                "improve patients communication and satisfaction can be determined and easily implemented "
+                "while establising the system. any extra steps can be defineds and removed to make health "
+                "care delivery faster. lastly, to have BPR will save effort, time and cost while "
+                "implementing EHR since it will make it easier to identify all cost that can be saved, "
+                "steps that can be removed and time that can be reducesd"
             ),
         },
         "neutral": {
-            "score": 14,
+            "score": 13,
             "answer": (
-                "There are many benefits of implementing business process re-engineering into EHR, for example.\n"
-                "1-Consistency across different physicians allows for the improvement of the quality of work if "
-                "they are in different offices or locations.\n"
-                "2-Allows physicians to have better access to patient data, which reduces duplicate orders and "
-                "tests which saves money and time.\n"
-                "3-It allows for better communication between different providers to try and come up with the "
-                "best plan of treatment for the patient.\n"
-                "4-Increases patient safety because it lowers mistakes that could happen by implementing alerts "
-                "and reminders about critical results."
+                "One benefit of an Enterprise Architecture (EA) is it manages complexity by organizing the "
+                "business' current investments and supports maximizing its returns. This is a benefit because "
+                "it makes use of its existing business and IT resources, which allows for reduced risk for "
+                "future investment. Mapping out the EA assists in making decisions regarding IT solutions and "
+                "infrastructure, and whether to buy, make, or out-source them."
             ),
         },
         "good": {
-            "score": 16,
+            "score": 14,
             "answer": (
-                "We do Business Process Re-engineering when implementing an EHR to make sure our workflows fit "
-                "the new system. If we only copy old processes, we might keep the same problems and it is "
-                "unnecessary. Business Process Re-engineering helps us look at each step, remove waste, and make "
-                "the flow of information smoother. This makes it easier for staff to use the EHR and helps "
-                "provide better care for patients."
+                "Performing a business re-engineering process and implementing EHR can reap many benefits for "
+                "the organization and the patients. Re-engineering is streamlining a current state to improve "
+                "the ease and efficiency. In order to provide the best care and service to patients, "
+                "organizations should make the business of healthcare as clear and concise as possible. "
+                "Implementing structured EHR models can save time and money, improve clinical outcomes, "
+                "foster trust and confidence in the system for patients and staff, and ensure transparency "
+                "throughout the healthcare organization. Outlining the steps needed to complete EHR processes "
+                "and involving the key players is essential to building a strong and enduring system. You need "
+                "to identify how things are being done currently, both in reality and perception, and then "
+                "develop clear, measurable, and accountable steps in an organized manner to incorporate into "
+                "the EHR."
             ),
         },
     },
