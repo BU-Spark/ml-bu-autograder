@@ -881,8 +881,32 @@ def run_eval(
 
     print("Loading eval data...")
     eval_rows = load_eval_data(excel_path, answer_col=answer_col, prof_col=prof_col, sheet_name=sheet_name)
+
+    # --- Data leakage guard ---
+    # Remove any eval rows whose answer text matches a few-shot calibration example.
+    # We compare the first 80 characters as a fingerprint (unique enough, avoids
+    # whitespace/encoding edge cases). This ensures the model never sees the correct
+    # score for an answer it was shown as a calibration example.
+    _aid_for_leak_check = assignment_id or _infer_assignment_id(rubric_path, excel_path)
+    _few_shot_fingerprints: set[str] = set()
+    if _aid_for_leak_check and _aid_for_leak_check in FEW_SHOT_EXAMPLES:
+        for tier in ("bad", "neutral", "good"):
+            ex_ans = FEW_SHOT_EXAMPLES[_aid_for_leak_check].get(tier, {}).get("answer", "")
+            if ex_ans:
+                _few_shot_fingerprints.add(ex_ans.strip()[:80])
+
+    if _few_shot_fingerprints:
+        before = len(eval_rows)
+        eval_rows = [
+            r for r in eval_rows
+            if r["answer"].strip()[:80] not in _few_shot_fingerprints
+        ]
+        removed = before - len(eval_rows)
+        if removed:
+            print(f"  Leakage guard: removed {removed} row(s) whose answer appears in few-shot examples.")
+
     eval_rows = eval_rows[:max_eval]
-    print(f"  {len(eval_rows)} rows")
+    print(f"  {len(eval_rows)} rows (clean, no overlap with few-shot examples)")
 
     print("Loading rubric...")
     rubric = rubric_text if rubric_text is not None else load_rubric(rubric_path)
