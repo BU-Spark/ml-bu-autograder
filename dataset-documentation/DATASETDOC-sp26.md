@@ -1,7 +1,7 @@
 # Dataset Documentation — GradeAI Pro
 **Semester:** Spring 2026  
 **Project:** GradeAI Pro — AI-Powered Automated Grading System  
-**GitHub Repository:** https://github.com/Chava-Sai/Final-AI-Auto_Grader  
+**GitHub Repository:** https://github.com/BU-Spark/ml-bu-autograder  
 **BU Spark! Project Folder:** *(link to Google Drive folder here)*  
 
 ---
@@ -16,7 +16,7 @@
 | **Team Members** | Sai Chava *(add all team members)* |
 | **Client / Stakeholder** | BU MET Faculty — *(Professor name)* |
 | **Project Manager / TPM** | *(Add PM/TPM name)* |
-| **GitHub Repo** | https://github.com/Chava-Sai/Final-AI-Auto_Grader |
+| **GitHub Repo** | https://github.com/BU-Spark/ml-bu-autograder |
 | **Google Drive** | *(Add link)* |
 
 ### Project Description
