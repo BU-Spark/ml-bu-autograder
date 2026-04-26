@@ -1761,12 +1761,18 @@ def run_grading(
         if expected_sections:
             print(f"Expected sections (from student text — not cached): {expected_sections}")
 
+    enable_cache = grading_provider == "anthropic"
+    # When caching is off (OpenAI/Gemini), include the student-derived fallback in
+    # the system prompt for richer grading guidance.  When caching is on, restrict
+    # block2 to assignment-derived sections so it stays byte-identical across
+    # students in the same run (otherwise the cache misses every call).
+    sections_for_system = expected_sections if not enable_cache else assignment_sections
     system_blocks = build_system_blocks(
         rubric_text=rubric_text,
         rubric_criteria=rubric_criteria,
         assignment_text=assignment_text,
-        expected_sections=assignment_sections,
-        enable_cache=(grading_provider == "anthropic"),
+        expected_sections=sections_for_system,
+        enable_cache=enable_cache,
     )
     user_msg = build_user_message(
         student_text=student_text,
