@@ -2,20 +2,16 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+SCRIPTS_DIR = Path(__file__).resolve().parents[1]
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
 
-def read_jsonl(path: Path) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    with path.open("r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            rows.append(json.loads(line))
-    return rows
+from core.io import read_jsonl
 
 
 def filter_chunks_by_source_type(chunks: list[dict[str, Any]], source_type: str) -> list[dict[str, Any]]:
@@ -86,23 +82,21 @@ def retrieve_lecture_context_for_student_chunks(
 ) -> dict[str, Any]:
     try:
         import chromadb
-        from chromadb.utils import embedding_functions
     except Exception as exc:
         raise RuntimeError(f"chromadb import failed: {exc}") from exc
+
+    # Use the same embedding function as indexing so query vectors match.
+    import sys
+    from pathlib import Path as _Path
+    _scripts = str(_Path(__file__).resolve().parents[1])
+    if _scripts not in sys.path:
+        sys.path.insert(0, _scripts)
+    from storage.chroma_store import _build_embedding_function
 
     student_chunks = filter_chunks_by_source_type(read_jsonl(student_chunks_jsonl), student_source_type)
     client = chromadb.PersistentClient(path=chroma_path)
 
-    embed_fn = None
-    api_key = os.getenv("OPENAI_API_KEY")
-    use_openai = str(os.getenv("CHROMA_USE_OPENAI_EMBEDDINGS", "0")).strip().lower() in {"1", "true", "yes"}
-    if api_key and use_openai:
-        model_name = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
-        embed_fn = embedding_functions.OpenAIEmbeddingFunction(
-            model_name=model_name,
-            api_key=api_key,
-        )
-
+    embed_fn = _build_embedding_function()
     if embed_fn is not None:
         collection = client.get_or_create_collection(name=chroma_collection, embedding_function=embed_fn)
     else:
@@ -117,7 +111,26 @@ def retrieve_lecture_context_for_student_chunks(
             if not query_text:
                 continue
 
-            q = collection.query(query_texts=[query_text], n_results=int(top_k))
+            q = collection.query(
+                query_texts=[query_text],
+                n_results=int(top_k),
+                include=["documents", "metadatas", "distances"],
+            )
+            # Filter poor matches: Chroma L2 distance >1.5 is typically unrelated content.
+            # distance ~0 = identical, ~0.8 = good match, ~1.2 = loosely related, >1.5 = noise
+            MAX_DISTANCE = 1.5
+            if q.get("distances") and q["distances"][0]:
+                distances = q["distances"][0]
+                docs = (q.get("documents") or [[]])[0]
+                metas = (q.get("metadatas") or [[]])[0]
+                ids = (q.get("ids") or [[]])[0]
+                keep = [i for i, d in enumerate(distances) if d <= MAX_DISTANCE]
+                q = {
+                    "documents": [[docs[i] for i in keep]],
+                    "metadatas": [[metas[i] for i in keep]],
+                    "distances": [[distances[i] for i in keep]],
+                    "ids": [[ids[i] for i in keep]],
+                }
             item = RetrievalItem(
                 student_chunk_id=str(c.get("id", "")),
                 student_source_path=str(md.get("source_path", "")),

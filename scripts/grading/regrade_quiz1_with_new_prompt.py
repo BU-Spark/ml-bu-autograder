@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
 Test Quiz 1 BPR Grading with New Prompt
-========================================
 Re-grades all 31 Quiz 1 submissions using the new specialized prompt that
 prioritizes conceptual understanding and includes the instructor's calibration.
 
@@ -343,36 +342,27 @@ def compute_confidence(grade_result: dict[str, Any]) -> float:
 
 def compute_review_risk(
     grade_result: dict[str, Any],
-    old_ai: float | None = None,
-    new_ai: float | None = None,
+    old_ai: float,
+    new_ai: float,
     human_score: float | None = None,
 ) -> float:
-    """
-    Compute a risk score for whether human review is needed.
-    
-    Signals:
-      - Confidence: Strength of criterion scoring (50%)
-      - Completeness: How well rubric coverage (30%)
-      - Edge penalty: Extreme scores (<= 4 or >= 15) (flat +0.2)
-    
-    Note: Drift signal (old_ai vs new_ai) omitted for deployment compatibility.
-    """
+    """Compute a risk score for whether human review is needed."""
     if not grade_result:
         return 1.0
 
     confidence = compute_confidence(grade_result)
+    delta = abs(new_ai - old_ai) / 8.0
 
     scores = {c["criterion_id"]: float(c.get("awarded_points", 0)) for c in grade_result.get("criterion_scores", [])}
     total_points = scores.get("A", 0) + scores.get("B", 0) + scores.get("C", 0) + scores.get("D", 0)
     normalized_total = min(total_points / 16.0, 1.0)
 
     edge_risk = 0.0
-    if new_ai is not None and (new_ai <= 4 or new_ai >= 15):
+    if new_ai <= 4 or new_ai >= 15:
         edge_risk = 0.2
 
-    # Mix signals: weak confidence + low completeness + edge extremes
-    # (Drift omitted for production deployment where old_ai unavailable)
-    risk = (1.0 - confidence) * 0.50 + (1.0 - normalized_total) * 0.30 + edge_risk
+    # Mix signals: weak confidence + departure from baseline + low total score
+    risk = (1.0 - confidence) * 0.35 + delta * 0.35 + (1.0 - normalized_total) * 0.25 + edge_risk
     return max(0.0, min(risk, 1.0))
 
 

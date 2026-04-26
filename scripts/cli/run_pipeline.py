@@ -22,6 +22,8 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument("--data-dir", help="Input root directory for extract/full")
+    parser.add_argument("--source-type", default=None, choices=["lecture", "student"],
+                        help="Force source_type for all chunks (overrides path inference)")
     parser.add_argument("--output-root", default="outputs/final_phase1", help="Root output directory")
     parser.add_argument("--run-id", default=None, help="Run id; default timestamp")
 
@@ -49,6 +51,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--student-path", default=None, help="Filter to one student source path substring")
     parser.add_argument("--rubric-file", default=None, help="Optional rubric text file for grading")
     parser.add_argument("--assignment-file", default=None, help="Text file with the actual assignment instructions/questions for grading")
+    parser.add_argument(
+        "--few-shot-file",
+        default=None,
+        help="Optional .txt/.md: few-shot exemplars appended to grader system prompt (or set AUTO_GRADER_FEW_SHOT_FILE)",
+    )
     parser.add_argument("--grading-provider", default="openai", choices=["openai", "gemini", "anthropic"],
                         help="LLM provider for grading (openai, gemini, anthropic)")
     parser.add_argument("--grading-model", default=None, help="Model name for grading (default: provider default)")
@@ -155,6 +162,7 @@ def main() -> int:
             chroma_batch_size=args.chroma_batch_size,
             vision_input_cost_per_1m=args.vision_input_cost_per_1m,
             vision_output_cost_per_1m=args.vision_output_cost_per_1m,
+            source_type_override=args.source_type,
         )
         print(f"Describe complete: {describe_dir / 'summary.json'}")
         print(f"Generated chunks: {summary.get('chunk_count')}")
@@ -183,6 +191,7 @@ def main() -> int:
             chroma_batch_size=args.chroma_batch_size,
             vision_input_cost_per_1m=args.vision_input_cost_per_1m,
             vision_output_cost_per_1m=args.vision_output_cost_per_1m,
+            source_type_override=args.source_type,
         )
         print(f"Full run complete under: {run_root}")
         print(f"Extracted files: {manifest.get('processed_file_count')} / {manifest.get('file_count')}")
@@ -265,6 +274,7 @@ def main() -> int:
         out_dir = run_root / "grading"
         rubric_file = Path(args.rubric_file).expanduser().resolve() if args.rubric_file else None
         assignment_file = Path(args.assignment_file).expanduser().resolve() if args.assignment_file else None
+        few_shot_file = Path(args.few_shot_file).expanduser().resolve() if args.few_shot_file else None
         grading_provider = args.grading_provider
         grading_model = args.grading_model or DEFAULT_GRADING_MODELS.get(grading_provider, "gpt-4o-2024-11-20")
         out_path = run_grading(
@@ -278,6 +288,7 @@ def main() -> int:
             max_student_chars=int(args.max_student_chars),
             rubric_file=rubric_file,
             assignment_file=assignment_file,
+            few_shot_file=few_shot_file,
         )
         print(f"Grading written: {out_path}")
         return 0

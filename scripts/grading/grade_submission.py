@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -17,32 +18,23 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from core.config import get_api_key, load_environment
-
-
-# ---------------------------------------------------------------------------
-# I/O helpers
-# ---------------------------------------------------------------------------
-
-def read_jsonl(path: Path) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    with path.open("r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                rows.append(json.loads(line))
-    return rows
-
-
-def write_json(path: Path, obj: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(obj, indent=2, ensure_ascii=False), encoding="utf-8")
+from core.io import read_jsonl, write_json
 
 
 def anonymize_label(text: str) -> str:
-    """Remove quality hints such as 'good example' / 'bad example' from labels."""
+    """Remove quality hints from filenames/labels to ensure blind grading."""
     t = str(text or "")
+    # Good/bad example labels
     t = re.sub(r"(?i)\bgood\s+example\b", "example", t)
     t = re.sub(r"(?i)\bbad\s+example\b", "example", t)
+    # Solution / answer key / exemplar / reference hints
+    # Use (?<![A-Za-z0-9]) to match even after underscores (underscores are \w so \b doesn't work)
+    t = re.sub(
+        r"(?i)(?<![A-Za-z0-9])(solution|answer[_\s-]?key|exemplar|model[_\s-]?answer"
+        r"|reference[_\s-]?answer|instructor[_\s-]?example|sample[_\s-]?answer)(?![A-Za-z0-9])",
+        "submission",
+        t,
+    )
     return re.sub(r"\s+", " ", t).strip()
 
 
@@ -234,11 +226,26 @@ DEFAULT_RUBRIC_CRITERIA: list[dict[str, Any]] = [
 
 
 SYSTEM_PROMPT = """\
-You are an expert grader for a graduate-level Health Informatics course.
+You are an expert grader for a graduate-level university course.
 
 BLIND GRADING:
 - Ignore filename/folder labels such as "good example" or "bad example".
 - Grade only the submission content against the assignment instructions and rubric.
+
+PROFESSOR MINDSET — READ THIS FIRST:
+  You are grading like a supportive university professor, NOT a strict examiner or auditor.
+  Professors reward demonstrated understanding and genuine effort. They give benefit of the
+  doubt on borderline cases, round up for strong work, and only penalise clear, significant
+  failures — not missing minor details or imperfect phrasing.
+
+  DEDUCTION-BASED APPROACH (Option D):
+  - Start every criterion at FULL CREDIT.
+  - Only deduct points when there is specific, unambiguous evidence that a required element
+    is completely and unmistakably absent from the submission.
+  - Minor gaps, imperfect wording, missing fine detail, or one weak sentence do NOT warrant
+    a deduction unless the rubric explicitly flags that specific detail as mandatory.
+  - A strong submission that covers all major points earns full or near-full credit, even
+    if every minor sub-item is not spelled out perfectly.
 
 GRADING METHOD — FOLLOW EXACTLY FOR EACH CRITERION:
 
@@ -248,29 +255,56 @@ Step 1 — Identify checklist items:
   If no ☐ items exist, use your holistic judgment to estimate checklist_pct.
 
 Step 2 — Evaluate each ☐ item against the student submission:
-  YES     = clearly demonstrated with evidence
-  PARTIAL = partially addressed or implied
-  NO      = missing, incorrect, or not mentioned
+  YES     = demonstrated — concept present, even if phrasing differs from the rubric wording.
+            Use YES when the student clearly addresses the concept in any form.
+            Give YES for any reasonable interpretation under which the student addressed the item.
+  PARTIAL = any attempt, partial mention, implied coverage, or related concept present.
+            Give PARTIAL if the student shows ANY awareness of the concept even if brief or incomplete.
+            When uncertain between YES and PARTIAL → choose YES.
+            When uncertain between PARTIAL and NO → choose PARTIAL.
+  NO      = completely absent — zero reference, no attempt, not even implied anywhere in the submission.
+            Reserve NO only when you are 100% certain the concept is genuinely missing.
+            If you can find ANY related idea, sentence, or concept → use PARTIAL, not NO.
+
+  GRADUATE STUDENT STANDARD — CRITICAL:
+  - These are graduate-level professional students. They often use different terminology
+    than the rubric but demonstrate the same understanding. Judge SUBSTANCE, not wording.
+  - A passing reference or one-sentence mention = PARTIAL (not NO).
+  - Incorrect but relevant attempt = PARTIAL (not NO).
+  - Only use NO when the concept is genuinely absent from the entire submission.
+
+  CALIBRATION GUIDE (use these anchors):
+  - Student covers all items adequately (no deep detail needed) → checklist_pct ~95–98%
+  - Student covers 85% of items well, rest partially → checklist_pct ~90–93%
+  - Student covers most items well, misses 1–2 entirely → checklist_pct ~83–87%
+  - Student covers about 70% of items → checklist_pct ~68–73%
+  - Only drop below 60% if the student clearly missed the majority of items
+  - Do NOT penalise for phrasing, style, diagram format choice, or missing minor details
+  - A student who clearly understands the topic and addresses all major points → ≥93%
 
 Step 3 — Compute checklist_pct:
-  checklist_pct = (yes_count + 0.5 × partial_count) / total_items × 100
+  checklist_pct = (yes_count + 0.67 × partial_count) / total_items × 100
 
 Step 4 — Apply GRADE BAND TABLE to get awarded_points:
-  95–100% → multiply max_points by 1.000
-  90–94%  → multiply max_points by 0.933
-  85–89%  → multiply max_points by 0.900
-  80–84%  → multiply max_points by 0.833
-  75–79%  → multiply max_points by 0.800
-  70–74%  → multiply max_points by 0.733
-  65–69%  → multiply max_points by 0.700
-  60–64%  → multiply max_points by 0.633
-  55–59%  → multiply max_points by 0.600
-  below 55% → multiply max_points by 0.500
+  90–100% → multiply max_points by 1.000
+  83–89%  → multiply max_points by 0.967
+  76–82%  → multiply max_points by 0.900
+  68–75%  → multiply max_points by 0.750
+  60–67%  → multiply max_points by 0.700
+  52–59%  → multiply max_points by 0.633
+  44–51%  → multiply max_points by 0.567
+  below 44% → multiply max_points by 0.500
 
   Round awarded_points to nearest 0.5.
 
 IMPORTANT RULES:
 - Images, diagrams, and tables in the submission ARE valid evidence — reference them as [IMAGE Page N] or [TABLE Page N].
+- Structured tables that map workflow steps to data, people, EHR features, or process stages are a VALID form of workflow representation. When a student uses tables instead of a visual swim-lane diagram, apply these equivalencies for checklist evaluation:
+  • "Swim lanes shown" → PARTIAL/YES if table has a "Who is Involved" or "People" column organized per process step
+  • "Decision points / Y/N flags shown" → PARTIAL if the text or table describes conditional steps, approval gates, or alternative paths
+  • "Branching shown" → PARTIAL if multiple process paths or conditional outcomes are described in text or table rows
+  • "Process steps listed" → YES if table rows clearly enumerate workflow steps in order
+  Do NOT mark all diagram-specific items as NO just because there is no visual diagram — use the PARTIAL grade for items that are implied or represented in tabular form.
 - Do NOT deduct for items not explicitly in the rubric or assignment.
 - Do NOT assign the same score to every criterion — differentiate based on evidence quality.
 - missing_items must name specific ☐ checklist items that were NO or missing.
@@ -310,29 +344,92 @@ Return ONLY valid JSON:
 }
 """
 
+# Optional file (or env) appends in-context exemplars to reduce human–model score error (e.g. lower MSE vs human).
+FEW_SHOT_ENV = "AUTO_GRADER_FEW_SHOT_FILE"
+_FEW_SHOT_MAX_CHARS = 16_000
+
+
+def _resolve_few_shot_file(explicit: Path | None) -> Path | None:
+    """Prefer explicit --few-shot-file; else AUTO_GRADER_FEW_SHOT_FILE in .env."""
+    if explicit is not None:
+        p = explicit.expanduser().resolve()
+        if p.is_file():
+            return p
+        print(f"WARNING: --few-shot-file not found or not a file: {p}", file=sys.stderr)
+    raw = os.getenv(FEW_SHOT_ENV, "").strip()
+    if not raw:
+        return None
+    p = Path(raw).expanduser().resolve()
+    if p.is_file():
+        return p
+    print(f"WARNING: {FEW_SHOT_ENV} not found or not a file: {p}", file=sys.stderr)
+    return None
+
+
+def _load_few_shot_exemplars(path: Path) -> str:
+    t = read_text_file(path)
+    if not t:
+        return ""
+    if len(t) > _FEW_SHOT_MAX_CHARS:
+        print(
+            f"WARNING: Few-shot file truncated from {len(t):,} to {_FEW_SHOT_MAX_CHARS:,} chars.",
+            file=sys.stderr,
+        )
+        return t[:_FEW_SHOT_MAX_CHARS]
+    return t
+
+
+def build_system_prompt_with_few_shot(base: str, few_shot_exemplars: str) -> str:
+    fs = (few_shot_exemplars or "").strip()
+    if not fs:
+        return base
+    return (
+        base
+        + "\n\n=== FEW-SHOT EXEMPLARS (calibration) ===\n"
+        "The following examples illustrate how to apply the rubric and YES/PARTIAL/NO judgments. "
+        "Match this scoring spirit; the rubric and student submission in the user message remain authoritative.\n\n"
+        + fs
+    )
+
 
 def detect_expected_sections(text: str) -> list[str]:
     """
-    Detect numbered sections like:
-      1. ...       Q1. ...
-      2) ...       Q2. ...
-      Section 3 ...
-    Returns stable IDs: ["Q1", "Q2", ...]
+    Detect numbered or lettered sections like:
+      1. ...   Q1. ...   1) ...   Section 1: ...
+      Part A:  Part A.   Part A)
+      Question 1:  Q1:
+    Returns stable IDs: ["Q1", "Q2", ...] or ["PA", "PB", ...]
     """
-    # Match both plain numbers (1. 2)) and Q-prefixed (Q1. Q2.)
-    matches = re.findall(
-        r"(?im)^\s*(?:section\s+)?(?:Q)?([1-9][0-9]?)\s*[\.\)]\s+",
-        text or "",
-    )
-    ordered_unique: list[int] = []
-    seen: set[int] = set()
-    for m in matches:
-        n = int(m)
-        if n not in seen:
-            seen.add(n)
-            ordered_unique.append(n)
-    ordered_unique.sort()
-    return [f"Q{n}" for n in ordered_unique]
+    t = text or ""
+    results: list[str] = []
+    seen: set[str] = set()
+
+    def _add(sid: str) -> None:
+        sid = sid.upper()
+        if sid not in seen:
+            seen.add(sid)
+            results.append(sid)
+
+    # Numeric sections: "1.", "1)", "Q1.", "Q1)", "Section 1", "Question 1", with optional colon
+    for m in re.finditer(
+        r"(?im)^\s*(?:section|question|q)?\s*([1-9][0-9]?)\s*[\.\)\:]\s*\S",
+        t,
+    ):
+        _add(f"Q{m.group(1)}")
+
+    # Lettered parts: "Part A", "Part A:", "Part A.", "Part A)"
+    for m in re.finditer(
+        r"(?im)^\s*(?:part|section)\s+([A-Fa-f])\s*[\.\)\:\s]",
+        t,
+    ):
+        _add(f"P{m.group(1).upper()}")
+
+    # Sort numeric IDs by number, letter IDs alphabetically
+    numeric = sorted([s for s in results if s.startswith("Q") and s[1:].isdigit()],
+                     key=lambda x: int(x[1:]))
+    alpha = sorted([s for s in results if s.startswith("P")])
+    other = [s for s in results if s not in numeric and s not in alpha]
+    return numeric + alpha + other
 
 
 def _clean_ws(text: str) -> str:
@@ -427,14 +524,17 @@ def extract_rubric_criteria(rubric_text: str) -> list[dict[str, Any]]:
                     "max_points": float(pts),
                 }
             )
-            break
+            # Do NOT break — a line can have multiple criteria (e.g. "A (30 pts) or B (20 pts)")
 
-    # Keep usable rubric: typical assignment has 3-8 criteria; total usually ~100.
     if not parsed:
         return []
     total = sum(float(c["max_points"]) for c in parsed)
-    if total < 60 or total > 140:
-        # likely parsing noise, better fallback to default criteria.
+    if total <= 0 or total > 1000:
+        print(
+            f"WARNING: Rubric total {total} pts is outside expected range (0–1000). "
+            "Falling back to default criteria. Check rubric formatting.",
+            file=__import__("sys").stderr,
+        )
         return []
     return parsed
 
@@ -566,8 +666,8 @@ def extract_rubric_criteria_from_docx(path: Path) -> list[dict[str, Any]]:
                     point_candidates.append(int(m.group(1)))
 
             if point_candidates:
-                max_points = max([p for p in point_candidates if 0 < p <= 100], default=0)
-                if max_points <= 0 or max_points == 100:
+                max_points = max([p for p in point_candidates if 0 < p <= 500], default=0)
+                if max_points <= 0:
                     continue
 
                 cname = _normalize_name(raw_cells[0] if raw_cells else name_cell)
@@ -578,10 +678,15 @@ def extract_rubric_criteria_from_docx(path: Path) -> list[dict[str, Any]]:
                     continue
                 seen.add(key)
 
-                # Extract checklist items: prefer the feedback/criteria column (last col),
-                # then fall back to scanning all cells.
-                feedback_col = raw_cells[-1] if len(raw_cells) > 1 else ""
-                checklist_items = _extract_checklist_items_from_text(feedback_col)
+                # Extract checklist items: try each column from longest to shortest
+                # (longest text column most likely contains the criteria/feedback).
+                # Fall back to scanning all cells if nothing found in any single column.
+                checklist_items: list[str] = []
+                col_candidates = sorted(raw_cells, key=len, reverse=True)
+                for col_text in col_candidates:
+                    checklist_items = _extract_checklist_items_from_text(col_text)
+                    if checklist_items:
+                        break
                 if not checklist_items:
                     full_row_raw = "\n".join(raw_cells)
                     checklist_items = _extract_checklist_items_from_text(full_row_raw)
@@ -611,9 +716,108 @@ def extract_rubric_criteria_from_docx(path: Path) -> list[dict[str, Any]]:
                     criteria[current_criterion_idx]["checklist_items"] = existing
 
     total = sum(float(c["max_points"]) for c in criteria)
-    if not criteria or total < 60 or total > 140:
+    if not criteria or total <= 0 or total > 1000:
+        if criteria:
+            print(
+                f"WARNING: Rubric table total {total} pts is outside expected range (0–1000). "
+                "Falling back to default criteria. Check rubric formatting.",
+                file=__import__("sys").stderr,
+            )
         return []
     return criteria
+
+
+def ai_extract_rubric_criteria(
+    rubric_text: str,
+    api_key: str,
+    provider: str = "anthropic",
+) -> list[dict[str, Any]]:
+    """
+    Use an AI model to extract rubric criteria from free-form rubric text.
+    Called as a fallback when regex-based parsers fail (prose rubrics, non-table formats).
+    Uses a fast/cheap model (haiku / gpt-4o-mini) — not the main grading model.
+    """
+    if not rubric_text or not api_key:
+        return []
+
+    RUBRIC_SYSTEM = (
+        "You are a rubric parser. Read the rubric and return ONLY a valid JSON array — "
+        "no markdown fences, no explanation. Each element must have exactly these keys:\n"
+        '  "criterion_id": "C1", "C2", etc.\n'
+        '  "criterion_name": short snake_case name\n'
+        '  "max_points": number (integer or float)\n'
+        '  "checklist_items": list of strings — specific requirements to check for\n'
+        "Rules: extract ALL criteria with their EXACT point values from the rubric. "
+        "Do NOT invent criteria. Make sure all max_points sum to the rubric total."
+    )
+    prompt = f"Extract all grading criteria from this rubric:\n\n{rubric_text[:6000]}"
+
+    raw = ""
+    try:
+        if provider == "anthropic":
+            from anthropic import Anthropic as _Anthropic
+            _client = _Anthropic(api_key=api_key)
+            _msg = _client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=1024,
+                temperature=0,
+                system=RUBRIC_SYSTEM,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            raw = _msg.content[0].text.strip()
+        elif provider == "openai":
+            import openai as _openai
+            _client = _openai.OpenAI(api_key=api_key)
+            _resp = _client.chat.completions.create(
+                model="gpt-4o-mini",
+                max_tokens=1024,
+                temperature=0,
+                messages=[
+                    {"role": "system", "content": RUBRIC_SYSTEM},
+                    {"role": "user", "content": prompt},
+                ],
+            )
+            raw = _resp.choices[0].message.content.strip()
+        else:
+            return []
+    except Exception as exc:
+        print(f"WARNING: AI rubric parsing failed ({provider}): {exc}")
+        return []
+
+    try:
+        # Strip markdown fences if the model wrapped the output
+        cleaned = re.sub(r"^```[a-z]*\n?", "", raw, flags=re.IGNORECASE)
+        cleaned = re.sub(r"\n?```$", "", cleaned, flags=re.IGNORECASE).strip()
+        data = json.loads(cleaned)
+        if isinstance(data, dict):
+            data = data.get("criteria", data.get("rubric_criteria", []))
+        if not isinstance(data, list):
+            return []
+        criteria: list[dict[str, Any]] = []
+        for i, c in enumerate(data):
+            if not isinstance(c, dict):
+                continue
+            try:
+                pts = float(c.get("max_points", 0))
+            except Exception:
+                continue
+            if pts <= 0:
+                continue
+            name = str(c.get("criterion_name", f"criterion_{i+1}")).strip()
+            criteria.append({
+                "criterion_id": str(c.get("criterion_id", f"C{i+1}")),
+                "criterion_name": name,
+                "max_points": pts,
+                "checklist_items": [str(x) for x in (c.get("checklist_items") or []) if x],
+            })
+        total = sum(c["max_points"] for c in criteria)
+        if not criteria or total <= 0:
+            return []
+        print(f"AI rubric parsing ({provider}): {len(criteria)} criteria, {total:.0f} total pts")
+        return criteria
+    except Exception as exc:
+        print(f"WARNING: Failed to parse AI rubric extraction response: {exc}\nRaw: {raw[:300]}")
+        return []
 
 
 def build_user_message(
@@ -626,9 +830,18 @@ def build_user_message(
     expected_sections: list[str],
     max_student_chars: int,
 ) -> str:
-    student_excerpt = student_text[:max_student_chars]
+    # If submission exceeds limit, keep the first 70% and last 30% so both
+    # the introduction AND the conclusion sections are always visible to the grader.
     if len(student_text) > max_student_chars:
-        student_excerpt += "\n\n[... content truncated ...]"
+        head = int(max_student_chars * 0.70)
+        tail = max_student_chars - head
+        student_excerpt = (
+            student_text[:head]
+            + f"\n\n[... {len(student_text) - max_student_chars:,} chars omitted — middle section ...]\n\n"
+            + student_text[-tail:]
+        )
+    else:
+        student_excerpt = student_text
 
     if expected_sections:
         sections_line = f"Expected sections: {', '.join(expected_sections)}."
@@ -1043,9 +1256,9 @@ GRADING_PROVIDERS = {
 
 # Default models per provider
 DEFAULT_GRADING_MODELS = {
-    "openai": "gpt-4o-2024-11-20",
+    "openai": "gpt-4o-mini",
     "gemini": "gemini-2.5-flash",
-    "anthropic": "claude-sonnet-4-20250514",
+    "anthropic": "claude-sonnet-4-6",
 }
 
 
@@ -1083,19 +1296,24 @@ def _evidence_match_count(evidence_refs: list[str], student_text: str) -> int:
     st_tokens = set(st.split())
     hits = 0
     for ref in evidence_refs:
+        # Image/table references like "[IMAGE Page 3]" or "[TABLE Page 2]" are always valid
+        ref_stripped = ref.strip()
+        if re.match(r"(?i)^\[(image|table|figure|diagram|chart|slide)", ref_stripped):
+            hits += 1
+            continue
         token = _normalize_student_text_for_match(ref)
-        if len(token) < 10:
+        if len(token) < 8:
             continue
         if token in st:
             hits += 1
             continue
-        # Fuzzy fallback: token overlap (handles punctuation/quote variations).
-        ref_tokens = [t for t in token.split() if len(t) >= 4]
-        if len(ref_tokens) < 3:
+        # Fuzzy fallback: relaxed token overlap (was 3+/50%, now 2+/35%)
+        ref_tokens = [t for t in token.split() if len(t) >= 3]
+        if len(ref_tokens) < 2:
             continue
         overlap = sum(1 for t in set(ref_tokens) if t in st_tokens)
         ratio = overlap / max(1, len(set(ref_tokens)))
-        if overlap >= 3 and ratio >= 0.5:
+        if overlap >= 2 and ratio >= 0.35:
             hits += 1
     return hits
 
@@ -1108,18 +1326,20 @@ def _assignment_requires_workflow_diagram(assignment_text: str) -> bool:
 def _student_has_diagram_evidence(student_text: str, student_chunks: list[dict[str, Any]]) -> bool:
     """
     Return True if the student likely submitted a workflow diagram.
-    Checks two signals:
+    Checks three signals:
     1. Any image chunk in the describe output (diagram as image/figure in PDF).
-    2. Diagram-related keywords in student text (BPMN terms, figure refs, swimlane, etc.).
+    2. Any table chunk — structured tables with process steps are valid workflow representations.
+    3. Diagram-related keywords in student text (BPMN terms, figure refs, swimlane, etc.).
     """
     # 1. Any image-type chunk present
+    # 2. Any table chunk — tables describing process steps count as workflow evidence
     for c in student_chunks:
         md = c.get("metadata", {}) or {}
         ctype = str(md.get("content_type", "")).lower()
-        if "image" in ctype:
+        if "image" in ctype or "table" in ctype:
             return True
 
-    # 2. Text keywords indicating a diagram was described or referenced
+    # 3. Text keywords indicating a diagram or structured workflow was described/referenced
     t = _normalize_student_text_for_match(student_text)
     diagram_keywords = [
         "swim lane", "swimlane", "swim-lane",
@@ -1133,22 +1353,31 @@ def _student_has_diagram_evidence(student_text: str, student_chunks: list[dict[s
         "bpmn", "uml diagram",
         "the diagram", "in the diagram", "refer to diagram",
         "step 1", "step 2", "step 3",  # numbered workflow steps
+        "[table page",  # table reference markers from PDF/PPTX extraction
+        "process step", "workflow step",
     ]
     return any(kw in t for kw in diagram_keywords)
 
 
 def _snap_to_grade_band(checklist_pct: float, max_points: float) -> float:
-    """Convert a checklist satisfaction percentage to awarded points via the rubric grade band table."""
+    """Convert a checklist satisfaction percentage to awarded points via the rubric grade band table.
+
+    NOTE (Option A+D leniency calibration — 2026-03-29):
+    Bands shifted upward to match professor-style grading.  Full credit now awarded at ≥90%
+    (was ≥95%), and all lower bands carry higher multipliers than before.  This makes the
+    post-processing step consistent with the SYSTEM_PROMPT grade band table shown to the model.
+    To revert to the strict version (pre-Option-A+D), restore the old BANDS list and the
+    matching SYSTEM_PROMPT section.
+    """
+    # ── Option A+D bands (kept until Option C few-shot calibration replaces them) ──
     BANDS = [
-        (95, 1.000),
-        (90, 0.933),
-        (85, 0.900),
-        (80, 0.833),
-        (75, 0.800),
-        (70, 0.733),
-        (65, 0.700),
-        (60, 0.633),
-        (55, 0.600),
+        (90, 1.000),
+        (83, 0.967),
+        (76, 0.900),
+        (68, 0.750),
+        (60, 0.700),
+        (52, 0.633),
+        (44, 0.567),
         (0,  0.500),
     ]
     for threshold, multiplier in BANDS:
@@ -1279,13 +1508,22 @@ def normalize_grade_result(
         evidence_hits = _evidence_match_count(evidence_refs, student_text)
 
         # Anti-hallucination guard: cap criterion at 60% of max when no evidence found.
-        # Skip this cap for image-heavy submissions — evidence may be in diagrams/tables, not text.
-        has_image_chunks = any(
-            "image" in str(c.get("metadata", {}).get("content_type", "")).lower()
+        # Skip for: image/table chunks, PPTX shape-based diagrams (layout summary text),
+        # or any submission where the text itself describes visual/diagram content.
+        has_image_or_table_chunks = any(
+            ("image" in str(c.get("metadata", {}).get("content_type", "")).lower()
+             or "table" in str(c.get("metadata", {}).get("content_type", "")).lower())
             for c in student_chunks
         )
+        # PPTX shape-only diagrams produce layout summary text blocks — detect them
+        has_pptx_diagram_summary = (
+            "workflow diagram" in student_text.lower()
+            or "flowchart" in student_text.lower()
+            or "decision point" in student_text.lower()
+            or "process step" in student_text.lower()
+        )
         no_evidence_cap_applied = False
-        if evidence_hits == 0 and not has_image_chunks and not grade_band_snapped:
+        if evidence_hits == 0 and not has_image_or_table_chunks and not has_pptx_diagram_summary and not grade_band_snapped:
             cap_val = round(max_points * 0.60, 2)
             if awarded > cap_val:
                 awarded = cap_val
@@ -1327,8 +1565,10 @@ def normalize_grade_result(
                 )
 
     # Deterministic scoring
+    total_max_pts = round(sum(float(c.get("max_points", 0)) for c in rubric_criteria), 2) or 100.0
     raw_total = round(sum(score_breakdown.values()), 2)
     final_score = raw_total
+    pre_cap_score = raw_total  # preserve original for audit trail
     policy_caps: list[str] = []
 
     # Cap for missing required workflow diagram deliverable.
@@ -1339,6 +1579,8 @@ def normalize_grade_result(
                 policy_caps.append("missing_required_workflow_diagram_cap_78")
 
     # Cap for missing assignment sections.
+    # Only fires when 2+ sections are missing or 3+ are partial — a single missing/partial
+    # section may reflect grader strictness rather than a genuine structural omission.
     if expected_sections:
         sec_map = {str(s.get("section_id", "")).upper(): str(s.get("status", "")) for s in section_coverage}
         missing_count = 0
@@ -1349,9 +1591,9 @@ def normalize_grade_result(
                 missing_count += 1
             elif st == "partial":
                 partial_count += 1
-        if missing_count > 0 or partial_count > 1:
-            # deterministic conservative cap
-            section_cap = max(55.0, 100.0 - (missing_count * 15.0) - (partial_count * 6.0))
+        if missing_count > 1 or partial_count > 3:
+            # Softer deterministic cap: 10% per missing section, 3% per partial of total max.
+            section_cap = max(total_max_pts * 0.65, total_max_pts - (missing_count * total_max_pts * 0.10) - (partial_count * total_max_pts * 0.03))
             if final_score > section_cap:
                 final_score = round(section_cap, 2)
                 policy_caps.append(
@@ -1368,7 +1610,9 @@ def normalize_grade_result(
 
     return {
         "student_file": str(result.get("student_file", student_file)).strip() or student_file,
-        "overall_score": round(max(0.0, min(100.0, final_score)), 2),
+        "overall_score": round(max(0.0, min(total_max_pts, final_score)), 2),
+        "total_max_points": total_max_pts,
+        "pre_cap_score": round(pre_cap_score, 2),   # score before any policy cap — for transparency
         "overall_feedback": overall_feedback,
         "score_breakdown": score_breakdown,
         "criterion_details": criterion_details,
@@ -1405,7 +1649,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--model", default=None, help="Model name (default: provider's default model)")
     parser.add_argument("--max-lecture-chars", type=int, default=12000)
-    parser.add_argument("--max-student-chars", type=int, default=20000)
+    parser.add_argument("--max-student-chars", type=int, default=40000)
     parser.add_argument(
         "--rubric-file",
         default=None,
@@ -1415,6 +1659,12 @@ def parse_args() -> argparse.Namespace:
         "--assignment-file",
         default=None,
         help="Text file with the actual assignment instructions/questions.",
+    )
+    parser.add_argument(
+        "--few-shot-file",
+        default=None,
+        help=f"Optional .txt/.md with few-shot exemplars appended to the system prompt "
+        f"(reduces grader vs human error). Or set env {FEW_SHOT_ENV}.",
     )
     return parser.parse_args()
 
@@ -1431,6 +1681,7 @@ def run_grading(
     max_student_chars: int,
     rubric_file: Path | None = None,
     assignment_file: Path | None = None,
+    few_shot_file: Path | None = None,
 ) -> Path:
     if grading_provider not in GRADING_PROVIDERS:
         raise RuntimeError(f"Unknown grading provider: {grading_provider}. Use: {list(GRADING_PROVIDERS.keys())}")
@@ -1470,10 +1721,51 @@ def run_grading(
     if rubric_file and not rubric_text:
         print(f"WARNING: rubric file not found/empty: {rubric_file}")
     rubric_criteria: list[dict[str, Any]] = []
-    if rubric_file and rubric_file.suffix.lower() == ".docx":
+    if rubric_file and rubric_file.suffix.lower() == ".json":
+        # Generated rubric JSON — parse directly so criteria names and points are exact.
+        try:
+            import json as _json_mod
+            rubric_data = _json_mod.loads(rubric_file.read_text(encoding="utf-8"))
+            raw_criteria = rubric_data.get("criteria", [])
+            if raw_criteria:
+                rubric_criteria = [
+                    {
+                        "criterion_id": f"C{i + 1}",
+                        "criterion_name": c.get("criterion_name", f"Criterion {i + 1}"),
+                        "max_points": float(c.get("max_points", 0)),
+                        "checklist_items": c.get("checklist_items", []),
+                    }
+                    for i, c in enumerate(raw_criteria)
+                ]
+                print(f"JSON rubric loaded: {len(rubric_criteria)} criteria, "
+                      f"{sum(c['max_points'] for c in rubric_criteria):.0f} total pts")
+        except Exception as exc:
+            print(f"WARNING: Failed to parse JSON rubric: {exc}")
+    if not rubric_criteria and rubric_file and rubric_file.suffix.lower() == ".docx":
         rubric_criteria = extract_rubric_criteria_from_docx(rubric_file)
+    elif not rubric_criteria and rubric_file and rubric_file.suffix.lower() == ".json":
+        try:
+            parsed = json.loads(rubric_text)
+            raw_criteria = parsed.get("criteria", [])
+            for idx, c in enumerate(raw_criteria, 1):
+                name = str(c.get("criterion_name", "")).strip()
+                pts = float(c.get("max_points", 0))
+                items = [str(i).strip() for i in c.get("checklist_items", []) if str(i).strip()]
+                if name and pts > 0 and items:
+                    rubric_criteria.append({
+                        "criterion_id": f"C{idx}",
+                        "criterion_name": name,
+                        "max_points": pts,
+                        "checklist_items": items,
+                    })
+        except Exception as exc:
+            print(f"WARNING: Could not parse JSON rubric: {exc}")
     if not rubric_criteria:
         rubric_criteria = extract_rubric_criteria(rubric_text)
+    # AI fallback — when rubric is prose/free-text that regex parsers cannot handle
+    if not rubric_criteria and rubric_text:
+        print("INFO: Regex rubric parsers found no criteria — trying AI rubric extraction...")
+        rubric_criteria = ai_extract_rubric_criteria(rubric_text, api_key, grading_provider)
     _rubric_from_file = bool(rubric_criteria)  # True if successfully parsed from actual rubric
     if not rubric_criteria:
         rubric_criteria = list(DEFAULT_RUBRIC_CRITERIA)
@@ -1513,6 +1805,12 @@ def run_grading(
         if expected_sections:
             print(f"Expected sections (from student text): {expected_sections}")
 
+    few_shot_path = _resolve_few_shot_file(few_shot_file)
+    few_shot_text = _load_few_shot_exemplars(few_shot_path) if few_shot_path else ""
+    system_prompt = build_system_prompt_with_few_shot(SYSTEM_PROMPT, few_shot_text)
+    if few_shot_path:
+        print(f"Few-shot exemplars loaded: {len(few_shot_text):,} chars from {few_shot_path}")
+
     user_msg = build_user_message(
         student_text=student_text,
         lecture_context=lecture_context,
@@ -1528,7 +1826,7 @@ def run_grading(
     response = call_fn(
         model=model,
         api_key=api_key,
-        system=SYSTEM_PROMPT,
+        system=system_prompt,
         user=user_msg,
     )
 
@@ -1554,6 +1852,7 @@ def run_grading(
         "rubric_criteria": rubric_criteria,
         "rubric_used_generic_defaults": not _rubric_from_file,
         "assignment_file": str(assignment_file) if assignment_file else None,
+        "few_shot_file": str(few_shot_path) if few_shot_path else None,
         "expected_sections": expected_sections,
         "token_usage": usage,
         **normalized,
@@ -1612,9 +1911,10 @@ def main() -> int:
     out_dir = Path(args.out_dir).expanduser().resolve() if args.out_dir else retrieval_jsonl.parent
     rubric_file = Path(args.rubric_file).expanduser().resolve() if args.rubric_file else None
     assignment_file = Path(args.assignment_file).expanduser().resolve() if args.assignment_file else None
+    few_shot_file = Path(args.few_shot_file).expanduser().resolve() if args.few_shot_file else None
 
     grading_provider = args.grading_provider
-    model = args.model or DEFAULT_GRADING_MODELS.get(grading_provider, "gpt-4o-2024-11-20")
+    model = args.model or DEFAULT_GRADING_MODELS.get(grading_provider, "gpt-4o-mini")
 
     run_grading(
         retrieval_jsonl=retrieval_jsonl,
@@ -1627,6 +1927,7 @@ def main() -> int:
         max_student_chars=int(args.max_student_chars),
         rubric_file=rubric_file,
         assignment_file=assignment_file,
+        few_shot_file=few_shot_file,
     )
     return 0
 
