@@ -1688,9 +1688,36 @@ def run_grading(
     if not rubric_criteria:
         rubric_criteria = extract_rubric_criteria(rubric_text)
     # AI fallback — when rubric is prose/free-text that regex parsers cannot handle.
+    # The parser provider is chosen independently of the grading provider because
+    # ai_extract_rubric_criteria only supports anthropic/openai (not gemini).
     if not rubric_criteria and rubric_text:
-        print("INFO: Regex rubric parsers found no criteria — trying AI rubric extraction...")
-        rubric_criteria = ai_extract_rubric_criteria(rubric_text, api_key, grading_provider)
+        if grading_provider in ("anthropic", "openai"):
+            parser_provider = grading_provider
+            parser_api_key = api_key
+        elif get_api_key("anthropic"):
+            parser_provider = "anthropic"
+            parser_api_key = get_api_key("anthropic")
+        elif get_api_key("openai"):
+            parser_provider = "openai"
+            parser_api_key = get_api_key("openai")
+        else:
+            parser_provider = None
+            parser_api_key = None
+
+        if parser_provider:
+            print(
+                f"INFO: Regex rubric parsers found no criteria — trying AI rubric "
+                f"extraction via {parser_provider}..."
+            )
+            rubric_criteria = ai_extract_rubric_criteria(
+                rubric_text, parser_api_key, parser_provider,
+            )
+        else:
+            print(
+                "INFO: Regex rubric parsers found no criteria, and AI rubric extraction "
+                "is unavailable (set ANTHROPIC_API_KEY or OPENAI_API_KEY to enable). "
+                "Falling back to default criteria."
+            )
     _rubric_from_file = bool(rubric_criteria)  # True if successfully parsed from actual rubric
     if not rubric_criteria:
         rubric_criteria = list(DEFAULT_RUBRIC_CRITERIA)
