@@ -2,16 +2,13 @@
 Unit tests for app/utils/bytes_to_doc_util.py
 
 Covers:
-- DocumentChunk metadata with new element_type / caption fields
-- DataType.get_to_doc_func routing (use_mineru flag)
+- DocumentChunk metadata with element_type / caption fields
+- DataType.get_to_doc_func routing
 - Document.to_markdown() — all element types + legacy PyMuPDF chunks
 - Document.from_pdf() — regression using a minimal in-memory PDF
-- Document.from_pdf_mineru() — happy path and error path via mocked DataReader
 """
 
 import io
-import tempfile
-from pathlib import Path
 from typing import Dict
 from unittest.mock import MagicMock, patch
 
@@ -22,7 +19,6 @@ from app.utils.bytes_to_doc_util import (
     DataType,
     Document,
     DocumentChunk,
-    _MINERU_AVAILABLE,
 )
 
 
@@ -90,14 +86,6 @@ class TestGetToDocFunc:
     def test_pdf_default_returns_from_pdf(self):
         func = DataType.PDF.get_to_doc_func()
         assert func._call_func_.__func__ is Document.from_pdf.__func__
-
-    def test_pdf_use_mineru_returns_from_pdf_mineru(self):
-        func = DataType.PDF.get_to_doc_func(use_mineru=True)
-        assert func._call_func_.__func__ is Document.from_pdf_mineru.__func__
-
-    def test_non_pdf_unaffected_by_use_mineru(self):
-        func = DataType.PNG.get_to_doc_func(use_mineru=True)
-        assert func._call_func_.__func__ is Document.from_png.__func__
 
     def test_all_non_pdf_types_route_correctly(self):
         expected = {
@@ -221,239 +209,3 @@ class TestFromPdf:
                 assert "element_type" not in chunk.metadata
 
 
-# ---------------------------------------------------------------------------
-# Document.from_pdf_mineru() — mocked DataReader
-# ---------------------------------------------------------------------------
-
-def _make_mock_page(nodes, relations=None):
-    """Build a mock RagPageReader-like object.
-
-    The code iterates the page twice (once for anno_id lookup, once for processing),
-    so __iter__ must return a fresh iterator on each call.
-    """
-    page = MagicMock()
-    page.__iter__ = MagicMock(side_effect=lambda: iter(nodes))
-    page.get_rel_map.return_value = relations or []
-    return page
-
-
-def _make_mock_node(category_type, text=None, image_path=None, anno_id=-1,
-                    html=None, latex=None):
-    node = MagicMock()
-    node.category_type = category_type
-    node.text = text
-    node.image_path = image_path
-    node.anno_id = anno_id
-    node.html = html
-    node.latex = latex
-    return node
-
-
-@pytest.mark.skipif(not _MINERU_AVAILABLE, reason="magic_pdf not installed")
-class TestFromPdfMineru:
-
-    def _patch_datareader(self, pages):
-        """Return a context manager that patches DataReader to yield `pages`."""
-        doc_reader = MagicMock()
-        doc_reader.__iter__ = MagicMock(return_value=iter(pages))
-
-        mock_rdr = MagicMock()
-        mock_rdr.get_document_result.return_value = doc_reader
-
-        return patch("app.utils.bytes_to_doc_util.DataReader", return_value=mock_rdr)
-
-    def test_returns_document_on_success(self):
-        from magic_pdf.integrations.rag.type import CategoryType
-
-        node = _make_mock_node(CategoryType.text, text="Hello MinerU", anno_id=1)
-        page = _make_mock_page([node])
-
-        with self._patch_datareader([page]):
-            doc = Document.from_pdf_mineru("test.pdf", _make_minimal_pdf())
-
-        assert doc is not None
-        assert doc.file_name == "test.pdf"
-
-    def test_text_chunk_has_element_type(self):
-        from magic_pdf.integrations.rag.type import CategoryType
-
-        node = _make_mock_node(CategoryType.text, text="Body text", anno_id=1)
-        page = _make_mock_page([node])
-
-        with self._patch_datareader([page]):
-            doc = Document.from_pdf_mineru("test.pdf", _make_minimal_pdf())
-
-        text_chunks = [c for c in doc.contents.values() if c.data_type == DataType.TEXT]
-        assert len(text_chunks) == 1
-        assert text_chunks[0].metadata["element_type"] == "TEXT"
-
-    def test_title_chunk_element_type(self):
-        from magic_pdf.integrations.rag.type import CategoryType
-
-        node = _make_mock_node(CategoryType.title, text="Slide Title", anno_id=1)
-        page = _make_mock_page([node])
-
-        with self._patch_datareader([page]):
-            doc = Document.from_pdf_mineru("test.pdf", _make_minimal_pdf())
-
-        text_chunks = [c for c in doc.contents.values() if c.data_type == DataType.TEXT]
-        assert text_chunks[0].metadata["element_type"] == "TITLE"
-
-    def test_table_uses_html_over_text(self):
-        from magic_pdf.integrations.rag.type import CategoryType
-
-        node = _make_mock_node(
-            CategoryType.table,
-            text="fallback text",
-            html="<table><tr><td>cell</td></tr></table>",
-            anno_id=1,
-        )
-        page = _make_mock_page([node])
-
-        with self._patch_datareader([page]):
-            doc = Document.from_pdf_mineru("test.pdf", _make_minimal_pdf())
-
-        text_chunks = [c for c in doc.contents.values() if c.data_type == DataType.TEXT]
-        assert "<table>" in text_chunks[0].get_as_string()
-
-    def test_image_caption_node_skipped_as_standalone(self):
-        from magic_pdf.integrations.rag.type import CategoryType
-
-        caption_node = _make_mock_node(CategoryType.image_caption, text="Fig 1", anno_id=2)
-        page = _make_mock_page([caption_node])
-
-        with self._patch_datareader([page]):
-            doc = Document.from_pdf_mineru("test.pdf", _make_minimal_pdf())
-
-        assert len(doc.contents) == 0
-
-    def test_image_chunk_with_caption_attached(self, tmp_path):
-        from magic_pdf.integrations.rag.type import CategoryType
-
-        # Write a real PNG file to disk so image_path resolution works
-        img_file = tmp_path / "img.png"
-        img_file.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 100)
-
-        img_node = _make_mock_node(CategoryType.image, image_path=str(img_file), anno_id=10)
-        cap_node = _make_mock_node(CategoryType.image_caption, text="Figure 1", anno_id=11)
-
-        rel = MagicMock()
-        rel.source_anno_id = 11  # caption → image
-        rel.target_anno_id = 10
-
-        page = _make_mock_page([img_node, cap_node], relations=[rel])
-
-        with self._patch_datareader([page]):
-            doc = Document.from_pdf_mineru("test.pdf", _make_minimal_pdf())
-
-        img_chunks = [c for c in doc.contents.values() if c.data_type.is_image()]
-        assert len(img_chunks) == 1
-        assert img_chunks[0].metadata.get("caption") == "Figure 1"
-
-    def test_image_min_bytes_filter(self, tmp_path):
-        from magic_pdf.integrations.rag.type import CategoryType
-
-        img_file = tmp_path / "small.png"
-        img_file.write_bytes(b"\x89PNG\r\n\x1a\n")  # tiny
-
-        node = _make_mock_node(CategoryType.image, image_path=str(img_file), anno_id=1)
-        page = _make_mock_page([node])
-
-        with self._patch_datareader([page]):
-            doc = Document.from_pdf_mineru("test.pdf", _make_minimal_pdf(), min_image_bytes=1000)
-
-        img_chunks = [c for c in doc.contents.values() if c.data_type.is_image()]
-        assert len(img_chunks) == 0
-
-    def test_returns_none_when_datareader_returns_none(self):
-        mock_rdr = MagicMock()
-        mock_rdr.get_document_result.return_value = None
-
-        with patch("app.utils.bytes_to_doc_util.DataReader", return_value=mock_rdr):
-            doc = Document.from_pdf_mineru("test.pdf", _make_minimal_pdf())
-
-        assert doc is None
-
-    def test_empty_text_node_skipped(self):
-        from magic_pdf.integrations.rag.type import CategoryType
-
-        node = _make_mock_node(CategoryType.text, text="   ", anno_id=1)
-        page = _make_mock_page([node])
-
-        with self._patch_datareader([page]):
-            doc = Document.from_pdf_mineru("test.pdf", _make_minimal_pdf())
-
-        assert len(doc.contents) == 0
-
-    def test_none_text_node_skipped(self):
-        from magic_pdf.integrations.rag.type import CategoryType
-
-        node = _make_mock_node(CategoryType.text, text=None, anno_id=1)
-        page = _make_mock_page([node])
-
-        with self._patch_datareader([page]):
-            doc = Document.from_pdf_mineru("test.pdf", _make_minimal_pdf())
-
-        assert len(doc.contents) == 0
-
-    def test_long_text_is_split_when_do_splits_true(self):
-        from magic_pdf.integrations.rag.type import CategoryType
-
-        long_text = " ".join(["word"] * 1100)
-        node = _make_mock_node(CategoryType.text, text=long_text, anno_id=1)
-        page = _make_mock_page([node])
-
-        with self._patch_datareader([page]):
-            doc = Document.from_pdf_mineru("test.pdf", _make_minimal_pdf(), do_splits=True)
-
-        text_chunks = [c for c in doc.contents.values() if c.data_type == DataType.TEXT]
-        assert len(text_chunks) > 1
-
-    def test_long_text_not_split_when_do_splits_false(self):
-        from magic_pdf.integrations.rag.type import CategoryType
-
-        long_text = " ".join(["word"] * 1100)
-        node = _make_mock_node(CategoryType.text, text=long_text, anno_id=1)
-        page = _make_mock_page([node])
-
-        with self._patch_datareader([page]):
-            doc = Document.from_pdf_mineru("test.pdf", _make_minimal_pdf(), do_splits=False)
-
-        text_chunks = [c for c in doc.contents.values() if c.data_type == DataType.TEXT]
-        assert len(text_chunks) == 1
-
-    def test_temp_files_cleaned_up_on_success(self):
-        from magic_pdf.integrations.rag.type import CategoryType
-
-        node = _make_mock_node(CategoryType.text, text="hi", anno_id=1)
-        page = _make_mock_page([node])
-
-        created_paths = []
-
-        original_ntf = tempfile.NamedTemporaryFile
-        original_mkdtemp = tempfile.mkdtemp
-
-        def tracking_ntf(*args, **kwargs):
-            f = original_ntf(*args, **kwargs)
-            created_paths.append(Path(f.name))
-            return f
-
-        def tracking_mkdtemp(*args, **kwargs):
-            d = original_mkdtemp(*args, **kwargs)
-            created_paths.append(Path(d))
-            return d
-
-        with self._patch_datareader([page]):
-            with patch("tempfile.NamedTemporaryFile", side_effect=tracking_ntf):
-                with patch("tempfile.mkdtemp", side_effect=tracking_mkdtemp):
-                    Document.from_pdf_mineru("test.pdf", _make_minimal_pdf())
-
-        for p in created_paths:
-            assert not p.exists(), f"Temp path not cleaned up: {p}"
-
-
-@pytest.mark.skipif(_MINERU_AVAILABLE, reason="magic_pdf IS installed — skip unavailability test")
-class TestFromPdfMineruUnavailable:
-    def test_raises_import_error_when_mineru_missing(self):
-        with pytest.raises(ImportError, match="magic_pdf"):
-            Document.from_pdf_mineru("test.pdf", b"%PDF")

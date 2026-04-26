@@ -1547,8 +1547,15 @@ function renderResults(grades, extraData){
   document.getElementById('studentFileName').textContent = grades.student_file || 'Unknown';
   document.getElementById('metaModel').textContent = '🤖 ' + (grades.grading_model || '—');
   const tu = grades.token_usage || {};
+  const totalTokens = (tu.total_input_tokens||0)
+    + (tu.total_output_tokens||0)
+    + (tu.total_cache_creation_tokens||0)
+    + (tu.total_cache_read_tokens||0);
+  const costUsd = tu.total_grading_call_cost_usd != null
+    ? ' · $' + Number(tu.total_grading_call_cost_usd).toFixed(4)
+    : '';
   document.getElementById('metaTokens').textContent =
-    '📊 ' + ((tu.input_tokens||0)+(tu.output_tokens||0)).toLocaleString() + ' tokens';
+    '📊 ' + totalTokens.toLocaleString() + ' tokens' + costUsd;
   const conf = grades.confidence;
   document.getElementById('metaConfidence').textContent =
     '🎯 ' + (conf != null ? (conf*100).toFixed(0)+'% confidence' : '—');

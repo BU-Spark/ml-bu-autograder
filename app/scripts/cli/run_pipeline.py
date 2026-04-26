@@ -57,6 +57,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-lecture-chars", type=int, default=12000)
     parser.add_argument("--max-student-chars", type=int, default=20000)
 
+    # PDF extraction backend
+    parser.add_argument(
+        "--use-docling", action="store_true", default=None,
+        help="Use Docling for PDF extraction instead of PyMuPDF. Better for complex layouts "
+             "(multi-column reports, slides with figures/tables). Requires `pip install docling`.",
+    )
+
     # Config overrides
     parser.add_argument("--max-pdf-pages", type=int)
     parser.add_argument("--max-sheet-rows", type=int)
@@ -88,6 +95,7 @@ def default_run_id() -> str:
 
 def build_overrides(args: argparse.Namespace) -> dict[str, object]:
     override_keys = [
+        "use_docling",
         "max_pdf_pages",
         "max_sheet_rows",
         "max_sheet_cols",

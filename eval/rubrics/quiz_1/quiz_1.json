@@ -1,0 +1,40 @@
+{
+  "semester": "spring2025",
+  "course_id": "quiz_1",
+  "assignment_id": "quiz_1",
+  "grading_flags": [
+    "ORIGINALITY",
+    "IGNORE_SPELLINGS",
+    "IGNORE_GRAMMAR"
+  ],
+  "overall_instructor_guidelines": "Maximum of 16 points. Do NOT use sentence count or answer length as a scoring factor \u2014 evaluate conceptual accuracy, completeness, and relevance only. Prioritize awarding points for clear, correct high-level conceptual understanding of why Business Process Re-engineering (BPR) is required for EHR implementation. Supplementary details and examples increase score only after core understanding is satisfied. If you suspect plagiarism or that the work is not the student's original writing (despite the instruction to write in their own words), flag the submission using the ORIGINALITY flag in the LMS, add a one-sentence rationale, notify course staff within 48 hours, and do not finalize a reduced score without instructor review. Minor spelling and grammar errors should be ignored (do not deduct points).",
+  "sub_rubrics": [
+    {
+      "question_index": 0,
+      "max_points": 16.0,
+      "instructor_guideline": "Primary scoring priorities and explicit partial-credit rules:\n\n- Gate/Cap Rule: High-level conceptual understanding is primary. If the core conceptual understanding criterion (Criterion A) is scored as Poor/0\u20131, cap the overall possible score for that response at 6/16 to prevent a high raw score based only on listings. If Criterion A is at least Adequate (>=4), award remaining points per other criteria.\n\n- Do not use sentence count or answer length when assigning points. Evaluate only the ideas and their correctness, relevance, and linkage.\n\n- Double-counting rule (operational): Naming an issue counts toward identification points. Award linkage points only if the response provides an explicit causal/mechanistic phrase (a verb or clause indicating how BPR addresses the issue). If a phrase both names and contains a causal verb (e.g., 'redesigning workflows reduces duplicate data entry, improving data quality'), it can earn both identification and linkage credit because the explanation goes beyond a label.\n\n- Comment template for graders (use when not full credit): 'Core: X/8 (brief reason); Issues: Y/3 (N issues named); Specificity: Z/2 (qualifier present or not); Linkage: W/3 (clear/mechanistic links). Total = T/16.' Use one- or two-phrase justification only; this keeps consistency and limits grader burden.\n\n- Plagiarism procedure: If you suspect non-original work, flag with ORIGINALITY in the LMS, add one-sentence rationale (e.g., 'Text matches external source X'), notify course staff/instructor within 48 hours, and do not finalize a reduced score until instructor review. Do not deduct points for minor wording similarities without instructor confirmation.\n\n- Examples/Exemplars (brief):\n  * Strong core answer (8): 'BPR redesigns workflows and data flows so the EHR can be used effectively; this improves interoperability and decision-making and reduces redundant processes that increase costs.'\n  * Borderline identification vs linkage: 'Workflow inefficiency' (identification only) vs 'Redesigning clinician workflows reduces duplicate documentation, improving data quality and speeding decisions' (identification + linkage).",
+      "grading_criteria": [
+        {
+          "criteria_id": "core_conceptual_understanding",
+          "criteria": "Core conceptual understanding (8 points) \u2014 Primary factor. Measures whether the student states the causal/functional role of BPR for EHR implementation (e.g., redesigning workflows and data flows so the EHR can be used effectively; enabling interoperability; improving decision-making/adoption; addressing regulatory and business-model drivers). Scoring anchors:\n- 8 points (Excellent): Clear, accurate statement of BPR's causal/functional role AND mentions two or more distinct effects/benefits (e.g., interoperability, decision support, reduced redundancy, ROI). Language shows cause-effect (not just listing).\n- 6 points (Good): Correct causal role stated and at least one clear effect/benefit mentioned, but missing a second effect or slightly vague.\n- 4 points (Adequate): Partial/mostly-correct conceptual statement that captures BPR importance but is either vague about the causal mechanism or contains a minor inaccuracy.\n- 2 points (Minimal): Mentions BPR is 'important' with only generic justification, lacking clear causal linkage.\n- 0\u20131 points (Poor): Incorrect, irrelevant, or missing conceptual explanation.",
+          "points": 8.0
+        },
+        {
+          "criteria_id": "identify_distinct_issues_count",
+          "criteria": "Identification \u2014 number of distinct, relevant issues/processes named (3 points). Award based on count and basic relevance:\n- 3 points: Student names 3 or more distinct, relevant issues (examples: workflow inefficiencies, redundancy/duplicate documentation, lack of interoperability, misalignment with mission/strategy, regulatory/payment constraints, procurement/technology constraints).\n- 2 points: Student names 2 relevant issues.\n- 1 point: Student names 1 relevant issue.\n- 0 points: No relevant issues named or only irrelevant/incorrect items.",
+          "points": 3.0
+        },
+        {
+          "criteria_id": "identify_specificity_relevance",
+          "criteria": "Identification \u2014 specificity and relevance of at least one named issue (2 points). Measures whether the student adds a short qualifier/clarifier that shows understanding of why the issue matters (e.g., 'workflow inefficiency leading to duplicate data entry and clinician delay', 'lack of interoperability causing incomplete patient records across settings'). Scoring:\n- 2 points: At least one named issue includes a specific qualifier or demonstrated relevance to EHR goals (explicit impact, stakeholder, or context).\n- 1 point: Issues are named but explanations are generic or only somewhat connected.\n- 0 points: No specificity; purely list-like labels with no context or relevance.",
+          "points": 2.0
+        },
+        {
+          "criteria_id": "link_issues_to_benefits_mechanisms",
+          "criteria": "Linkage to benefits/mechanisms (3 points). Measures whether the student connects identified issues to how BPR addresses them with concrete causal wording:\n- 3 points: Provides clear causal/mechanistic linkage for two or more issues OR a strong, specific linkage for one issue (e.g., 'reducing redundancy lowers maintenance costs and improves data quality, enabling better analytics').\n- 2 points: Provides a clear linkage for one issue.\n- 1 point: Provides vague or partial linkage(s) that imply but do not state mechanisms.\n- 0 points: No linkage or incorrect linkage.\n\nOperational note: If an answer names an issue and immediately includes a causal verb/clause (e.g., '...so that...', '...leading to...'), that counts as a linkage; otherwise award identification only.",
+          "points": 3.0
+        }
+      ]
+    }
+  ]
+}

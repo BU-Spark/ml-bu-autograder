@@ -369,6 +369,9 @@ def extract_rubric_criteria(rubric_text: str) -> list[dict[str, Any]]:
             return True
         if "learning objective" in low:
             return True
+        # "☐Other: _____" placeholder form fields (with or without checkbox glyph)
+        if re.match(r"^\W*other\s*[:.]?\s*_+\s*$", low):
+            return True
         if re.search(r"\b\d{2}\s*-\s*\d{2}\b", low):
             return True
         if re.search(r"\b\d{2}\s*-\s*100\b", low):
@@ -382,7 +385,9 @@ def extract_rubric_criteria(rubric_text: str) -> list[dict[str, Any]]:
     for idx, line in enumerate(lines):
         for m in re.finditer(r"\((\d{1,3})\s*points?\)", line, flags=re.IGNORECASE):
             pts = int(m.group(1))
-            if pts <= 0 or pts > 100:
+            # Match the DOCX parser's upper bound (500) so single-criterion rubrics
+            # worth >100 pts are not silently dropped by the text parser.
+            if pts <= 0 or pts > 500:
                 continue
 
             left = _clean_ws(line[: m.start()])
@@ -394,6 +399,10 @@ def extract_rubric_criteria(rubric_text: str) -> list[dict[str, Any]]:
                     prev = _clean_ws(lines[j])
                     if not prev:
                         continue
+                    # Checkbox lines (☐ / ☑) are feedback items from the PREVIOUS
+                    # criterion; stop walking when we hit one.
+                    if re.match(r"^\s*[☐☑]", prev):
+                        break
                     if _is_grade_or_noise_line(prev):
                         continue
                     # stop at very broad section dividers
@@ -427,14 +436,17 @@ def extract_rubric_criteria(rubric_text: str) -> list[dict[str, Any]]:
                     "max_points": float(pts),
                 }
             )
-            break
+            # Do NOT break — a line can have multiple criteria (e.g. "A (30 pts) or B (20 pts)")
 
-    # Keep usable rubric: typical assignment has 3-8 criteria; total usually ~100.
     if not parsed:
         return []
     total = sum(float(c["max_points"]) for c in parsed)
-    if total < 60 or total > 140:
-        # likely parsing noise, better fallback to default criteria.
+    if total <= 0 or total > 1000:
+        print(
+            f"WARNING: Rubric total {total} pts is outside expected range (0–1000). "
+            "Falling back to default criteria. Check rubric formatting.",
+            file=sys.stderr,
+        )
         return []
     return parsed
 
@@ -566,8 +578,8 @@ def extract_rubric_criteria_from_docx(path: Path) -> list[dict[str, Any]]:
                     point_candidates.append(int(m.group(1)))
 
             if point_candidates:
-                max_points = max([p for p in point_candidates if 0 < p <= 100], default=0)
-                if max_points <= 0 or max_points == 100:
+                max_points = max([p for p in point_candidates if 0 < p <= 500], default=0)
+                if max_points <= 0:
                     continue
 
                 cname = _normalize_name(raw_cells[0] if raw_cells else name_cell)
@@ -578,10 +590,15 @@ def extract_rubric_criteria_from_docx(path: Path) -> list[dict[str, Any]]:
                     continue
                 seen.add(key)
 
-                # Extract checklist items: prefer the feedback/criteria column (last col),
-                # then fall back to scanning all cells.
-                feedback_col = raw_cells[-1] if len(raw_cells) > 1 else ""
-                checklist_items = _extract_checklist_items_from_text(feedback_col)
+                # Extract checklist items: try each column from longest to shortest
+                # (longest text column most likely contains the criteria/feedback).
+                # Fall back to scanning all cells if nothing found in any single column.
+                checklist_items: list[str] = []
+                col_candidates = sorted(raw_cells, key=len, reverse=True)
+                for col_text in col_candidates:
+                    checklist_items = _extract_checklist_items_from_text(col_text)
+                    if checklist_items:
+                        break
                 if not checklist_items:
                     full_row_raw = "\n".join(raw_cells)
                     checklist_items = _extract_checklist_items_from_text(full_row_raw)
@@ -611,24 +628,157 @@ def extract_rubric_criteria_from_docx(path: Path) -> list[dict[str, Any]]:
                     criteria[current_criterion_idx]["checklist_items"] = existing
 
     total = sum(float(c["max_points"]) for c in criteria)
-    if not criteria or total < 60 or total > 140:
+    if not criteria or total <= 0 or total > 1000:
+        if criteria:
+            print(
+                f"WARNING: Rubric table total {total} pts is outside expected range (0–1000). "
+                "Falling back to default criteria. Check rubric formatting.",
+                file=sys.stderr,
+            )
         return []
     return criteria
 
 
-def build_user_message(
-    student_text: str,
-    lecture_context: str,
-    student_file: str,
+def ai_extract_rubric_criteria(
+    rubric_text: str,
+    api_key: str,
+    provider: str = "anthropic",
+) -> list[dict[str, Any]]:
+    """Use a fast LLM to extract criteria from a free-form rubric (haiku / gpt-4o-mini).
+
+    Called as a fallback when the regex-based parsers fail (prose rubrics).
+    """
+    if not rubric_text or not api_key:
+        return []
+
+    RUBRIC_SYSTEM = (
+        "You are a rubric parser. Read the rubric and return ONLY a valid JSON array — "
+        "no markdown fences, no explanation. Each element must have exactly these keys:\n"
+        '  "criterion_id": "C1", "C2", etc.\n'
+        '  "criterion_name": short snake_case name\n'
+        '  "max_points": number (integer or float)\n'
+        '  "checklist_items": list of strings — specific requirements to check for\n'
+        "Rules: extract ALL criteria with their EXACT point values from the rubric. "
+        "Do NOT invent criteria. Make sure all max_points sum to the rubric total."
+    )
+    if len(rubric_text) > 6000:
+        print(
+            f"WARNING: AI rubric extractor truncating rubric from {len(rubric_text)} to 6000 chars — "
+            "later criteria may be missed."
+        )
+    prompt = f"Extract all grading criteria from this rubric:\n\n{rubric_text[:6000]}"
+
+    raw = ""
+    try:
+        if provider == "anthropic":
+            from anthropic import Anthropic as _Anthropic
+            _client = _Anthropic(api_key=api_key)
+            _msg = _client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=1024,
+                temperature=0,
+                system=RUBRIC_SYSTEM,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            raw = _msg.content[0].text.strip()
+        elif provider == "openai":
+            import openai as _openai
+            _client = _openai.OpenAI(api_key=api_key)
+            _resp = _client.chat.completions.create(
+                model="gpt-4o-mini",
+                max_tokens=1024,
+                temperature=0,
+                messages=[
+                    {"role": "system", "content": RUBRIC_SYSTEM},
+                    {"role": "user", "content": prompt},
+                ],
+            )
+            raw = _resp.choices[0].message.content.strip()
+        else:
+            print(
+                f"WARNING: ai_extract_rubric_criteria does not support provider '{provider}' — "
+                "returning no criteria. Supported providers: anthropic, openai."
+            )
+            return []
+    except Exception as exc:
+        print(f"WARNING: AI rubric parsing failed ({provider}): {exc}")
+        return []
+
+    try:
+        cleaned = re.sub(r"^```[a-z]*\n?", "", raw, flags=re.IGNORECASE)
+        cleaned = re.sub(r"\n?```$", "", cleaned, flags=re.IGNORECASE).strip()
+        data = json.loads(cleaned)
+        if isinstance(data, dict):
+            data = data.get("criteria", data.get("rubric_criteria", []))
+        if not isinstance(data, list):
+            return []
+        criteria: list[dict[str, Any]] = []
+        for i, c in enumerate(data):
+            if not isinstance(c, dict):
+                continue
+            try:
+                pts = float(c.get("max_points", 0))
+            except Exception:
+                continue
+            if pts <= 0:
+                continue
+            name = str(c.get("criterion_name", f"criterion_{i+1}")).strip()
+            criteria.append({
+                "criterion_id": str(c.get("criterion_id", f"C{i+1}")),
+                "criterion_name": name,
+                "max_points": pts,
+                "checklist_items": [str(x) for x in (c.get("checklist_items") or []) if x],
+            })
+        total = sum(c["max_points"] for c in criteria)
+        if not criteria or total <= 0:
+            return []
+        if total > 1000:
+            print(
+                f"WARNING: AI rubric extraction produced implausible total ({total:.0f} pts > 1000) — "
+                "discarding and falling back."
+            )
+            return []
+        print(f"AI rubric parsing ({provider}): {len(criteria)} criteria, {total:.0f} total pts")
+        return criteria
+    except Exception as exc:
+        print(f"WARNING: Failed to parse AI rubric extraction response: {exc}\nRaw: {raw[:300]}")
+        return []
+
+
+def flatten_system_blocks(blocks: list[dict[str, Any]]) -> str:
+    """Collapse text-type system blocks into a plain string for OpenAI/Gemini providers.
+
+    Only blocks with ``type == "text"`` are included. Any other type, or a missing
+    type field, raises ValueError so callers cannot silently lose system content.
+    """
+    parts = []
+    for b in blocks:
+        btype = b.get("type")
+        if btype == "text":
+            parts.append(b["text"])
+        else:
+            raise ValueError(
+                f"flatten_system_blocks: block missing 'type' or has unsupported type '{btype}' "
+                "for non-Anthropic provider"
+            )
+    return "\n\n".join(parts)
+
+
+def build_system_blocks(
+    *,
     rubric_text: str,
     rubric_criteria: list[dict[str, Any]],
     assignment_text: str,
     expected_sections: list[str],
-    max_student_chars: int,
-) -> str:
-    student_excerpt = student_text[:max_student_chars]
-    if len(student_text) > max_student_chars:
-        student_excerpt += "\n\n[... content truncated ...]"
+    enable_cache: bool = False,
+) -> list[dict[str, Any]]:
+    """Build structured system content blocks with optional Anthropic prompt caching.
+
+    When ``enable_cache=True`` (Anthropic only), a single ``cache_control`` breakpoint is
+    placed on block2 — the outermost stable boundary. This caches block1+block2 as one
+    prefix. Block1 has no breakpoint to avoid a redundant intermediate cache write.
+    """
+    block1: dict[str, Any] = {"type": "text", "text": SYSTEM_PROMPT}
 
     if expected_sections:
         sections_line = f"Expected sections: {', '.join(expected_sections)}."
@@ -637,16 +787,36 @@ def build_user_message(
     else:
         sections_line = "No assignment instructions provided; infer expected sections from submission."
 
-    return (
-        f"STUDENT FILE: {student_file}\n\n"
+    context_text = (
         "=== ASSIGNMENT INSTRUCTIONS (grade these questions) ===\n"
-        f"{assignment_text or '(No assignment instructions provided — infer questions from student submission)'}\n\n"
+        f"{assignment_text or '(No assignment instructions provided)'}\n\n"
         "=== EXPECTED SECTIONS ===\n"
         f"{sections_line}\n\n"
         "=== RUBRIC CRITERIA (authoritative scoring dimensions) ===\n"
         f"{json.dumps(rubric_criteria, ensure_ascii=True, indent=2)}\n\n"
         "=== RUBRIC ===\n"
-        f"{rubric_text or '(No rubric provided)'}\n\n"
+        f"{rubric_text or '(No rubric provided)'}"
+    )
+
+    block2: dict[str, Any] = {"type": "text", "text": context_text}
+    if enable_cache:
+        block2["cache_control"] = {"type": "ephemeral"}
+
+    return [block1, block2]
+
+
+def build_user_message(
+    student_text: str,
+    lecture_context: str,
+    student_file: str,
+    max_student_chars: int,
+) -> str:
+    student_excerpt = student_text[:max_student_chars]
+    if len(student_text) > max_student_chars:
+        student_excerpt += "\n\n[... content truncated ...]"
+
+    return (
+        f"STUDENT FILE: {student_file}\n\n"
         "=== LECTURE CONTEXT ===\n"
         f"{lecture_context}\n\n"
         "=== STUDENT SUBMISSION ===\n"
@@ -689,9 +859,19 @@ def read_text_file(path: Path | None) -> str:
         except Exception:
             return ""
 
-    # PDF
+    # PDF — PyMuPDF handles tables/multi-column better than pypdf; pypdf is the fallback.
     if suffix == ".pdf":
-        # Prefer pypdf (already in requirements)
+        try:
+            import fitz  # PyMuPDF
+            with fitz.open(str(path)) as doc:
+                parts = []
+                for page in doc:
+                    t = (page.get_text() or "").strip()
+                    if t:
+                        parts.append(t)
+            return "\n\n".join(parts).strip()
+        except Exception as exc:
+            print(f"INFO: PyMuPDF could not parse {path.name} ({exc}); falling back to pypdf.")
         try:
             from pypdf import PdfReader
             reader = PdfReader(str(path))
@@ -701,7 +881,8 @@ def read_text_file(path: Path | None) -> str:
                 if t:
                     parts.append(t)
             return "\n\n".join(parts).strip()
-        except Exception:
+        except Exception as exc:
+            print(f"WARNING: pypdf also failed on {path.name}: {exc}")
             return ""
 
     # Fallback binary/text read
@@ -716,13 +897,16 @@ def call_openai(
     *,
     model: str,
     api_key: str,
-    system: str,
+    system: str | list[dict[str, Any]],
     user: str,
 ) -> dict[str, Any]:
     try:
         import openai
     except ImportError as exc:
         raise RuntimeError("openai package not installed. Run: pip install openai") from exc
+
+    if isinstance(system, list):
+        system = flatten_system_blocks(system)
 
     client = openai.OpenAI(api_key=api_key)
     response = client.chat.completions.create(
@@ -823,12 +1007,15 @@ def call_gemini(
     *,
     model: str,
     api_key: str,
-    system: str,
+    system: str | list[dict[str, Any]],
     user: str,
 ) -> dict[str, Any]:
     import urllib.error
     import urllib.parse
     import urllib.request
+
+    if isinstance(system, list):
+        system = flatten_system_blocks(system)
 
     model_candidates = _gemini_model_candidates(model)
     available_models = _gemini_list_models(api_key)
@@ -1002,9 +1189,14 @@ def call_anthropic(
     *,
     model: str,
     api_key: str,
-    system: str,
+    system: str | list[dict[str, Any]],
     user: str,
 ) -> dict[str, Any]:
+    """Call the Anthropic Messages API and return ``{"result", "usage", "model"}``.
+
+    The ``system`` parameter accepts either a plain string or a list of content blocks.
+    Passing blocks with ``cache_control`` enables Anthropic prompt caching.
+    """
     try:
         from anthropic import Anthropic
     except ImportError as exc:
@@ -1029,6 +1221,8 @@ def call_anthropic(
         "usage": {
             "input_tokens": int(getattr(usage_obj, "input_tokens", 0) or 0),
             "output_tokens": int(getattr(usage_obj, "output_tokens", 0) or 0),
+            "cache_creation_input_tokens": int(getattr(usage_obj, "cache_creation_input_tokens", 0) or 0),
+            "cache_read_input_tokens": int(getattr(usage_obj, "cache_read_input_tokens", 0) or 0),
         },
         "model": message.model,
     }
@@ -1470,10 +1664,60 @@ def run_grading(
     if rubric_file and not rubric_text:
         print(f"WARNING: rubric file not found/empty: {rubric_file}")
     rubric_criteria: list[dict[str, Any]] = []
-    if rubric_file and rubric_file.suffix.lower() == ".docx":
+    if rubric_file and rubric_file.suffix.lower() == ".json":
+        # Generated rubric JSON — parse directly so criteria names and points are exact.
+        try:
+            rubric_data = json.loads(rubric_file.read_text(encoding="utf-8"))
+            raw_criteria = rubric_data.get("criteria", [])
+            if raw_criteria:
+                rubric_criteria = [
+                    {
+                        "criterion_id": f"C{i + 1}",
+                        "criterion_name": c.get("criterion_name", f"Criterion {i + 1}"),
+                        "max_points": float(c.get("max_points", 0)),
+                        "checklist_items": c.get("checklist_items", []),
+                    }
+                    for i, c in enumerate(raw_criteria)
+                ]
+                print(f"JSON rubric loaded: {len(rubric_criteria)} criteria, "
+                      f"{sum(c['max_points'] for c in rubric_criteria):.0f} total pts")
+        except Exception as exc:
+            print(f"WARNING: Failed to parse JSON rubric: {exc}")
+    elif rubric_file and rubric_file.suffix.lower() == ".docx":
         rubric_criteria = extract_rubric_criteria_from_docx(rubric_file)
     if not rubric_criteria:
         rubric_criteria = extract_rubric_criteria(rubric_text)
+    # AI fallback — when rubric is prose/free-text that regex parsers cannot handle.
+    # The parser provider is chosen independently of the grading provider because
+    # ai_extract_rubric_criteria only supports anthropic/openai (not gemini).
+    if not rubric_criteria and rubric_text:
+        if grading_provider in ("anthropic", "openai"):
+            parser_provider = grading_provider
+            parser_api_key = api_key
+        elif get_api_key("anthropic"):
+            parser_provider = "anthropic"
+            parser_api_key = get_api_key("anthropic")
+        elif get_api_key("openai"):
+            parser_provider = "openai"
+            parser_api_key = get_api_key("openai")
+        else:
+            parser_provider = None
+            parser_api_key = None
+
+        if parser_provider:
+            print(
+                f"INFO: Regex rubric parsers found no criteria — trying AI rubric "
+                f"extraction via {parser_provider}..."
+            )
+            rubric_criteria = ai_extract_rubric_criteria(
+                rubric_text, parser_api_key, parser_provider,
+            )
+        else:
+            print(
+                "INFO: Regex rubric parsers found no criteria, and AI rubric extraction "
+                "is unavailable (set ANTHROPIC_API_KEY or OPENAI_API_KEY to enable). "
+                "Falling back to default criteria."
+            )
     _rubric_from_file = bool(rubric_criteria)  # True if successfully parsed from actual rubric
     if not rubric_criteria:
         rubric_criteria = list(DEFAULT_RUBRIC_CRITERIA)
@@ -1498,29 +1742,42 @@ def run_grading(
     # Prefer sections from assignment instructions (authoritative) over student text.
     # This ensures that even if a student's text has no numbered headings, the
     # grader uses the actual assignment questions (Q1-Q4) as the grading template.
+    # Sections derived from the assignment are stable across students, so they are
+    # safe to embed in the cached system block. Sections derived from a student's
+    # own text vary per student and would invalidate the cache on every call —
+    # those are kept out of the cached block and used only for downstream coverage.
     if assignment_text:
-        expected_sections = detect_expected_sections(assignment_text)
-        if expected_sections:
-            print(f"Expected sections (from assignment): {expected_sections}")
+        assignment_sections = detect_expected_sections(assignment_text)
+        if assignment_sections:
+            print(f"Expected sections (from assignment): {assignment_sections}")
         else:
             print("WARNING: Could not detect section IDs from assignment file.")
     else:
-        expected_sections = []
+        assignment_sections = []
 
-    # Fall back to student text detection only if no assignment sections found.
+    expected_sections = assignment_sections
     if not expected_sections:
         expected_sections = detect_expected_sections(student_text)
         if expected_sections:
-            print(f"Expected sections (from student text): {expected_sections}")
+            print(f"Expected sections (from student text — not cached): {expected_sections}")
 
+    enable_cache = grading_provider == "anthropic"
+    # When caching is off (OpenAI/Gemini), include the student-derived fallback in
+    # the system prompt for richer grading guidance.  When caching is on, restrict
+    # block2 to assignment-derived sections so it stays byte-identical across
+    # students in the same run (otherwise the cache misses every call).
+    sections_for_system = expected_sections if not enable_cache else assignment_sections
+    system_blocks = build_system_blocks(
+        rubric_text=rubric_text,
+        rubric_criteria=rubric_criteria,
+        assignment_text=assignment_text,
+        expected_sections=sections_for_system,
+        enable_cache=enable_cache,
+    )
     user_msg = build_user_message(
         student_text=student_text,
         lecture_context=lecture_context,
         student_file=student_file_for_model,
-        rubric_text=rubric_text,
-        rubric_criteria=rubric_criteria,
-        assignment_text=assignment_text,
-        expected_sections=expected_sections,
         max_student_chars=max_student_chars,
     )
 
@@ -1528,12 +1785,15 @@ def run_grading(
     response = call_fn(
         model=model,
         api_key=api_key,
-        system=SYSTEM_PROMPT,
+        system=system_blocks,
         user=user_msg,
     )
 
     usage = response["usage"]
-    print(f"Tokens used — input: {usage['input_tokens']:,}  output: {usage['output_tokens']:,}")
+    cache_read = usage.get("cache_read_input_tokens", 0)
+    cache_write = usage.get("cache_creation_input_tokens", 0)
+    cache_info = f"  cache_write: {cache_write:,}  cache_read: {cache_read:,}" if (cache_read or cache_write) else ""
+    print(f"Tokens used — input: {usage['input_tokens']:,}  output: {usage['output_tokens']:,}{cache_info}")
 
     normalized = normalize_grade_result(
         response["result"],
