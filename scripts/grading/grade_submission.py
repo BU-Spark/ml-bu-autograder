@@ -466,6 +466,9 @@ def extract_rubric_criteria(rubric_text: str) -> list[dict[str, Any]]:
             return True
         if "learning objective" in low:
             return True
+        # "☐Other: _____" placeholder form fields (with or without checkbox glyph)
+        if re.match(r"^\W*other\s*[:.]?\s*_+\s*$", low):
+            return True
         if re.search(r"\b\d{2}\s*-\s*\d{2}\b", low):
             return True
         if re.search(r"\b\d{2}\s*-\s*100\b", low):
@@ -479,7 +482,9 @@ def extract_rubric_criteria(rubric_text: str) -> list[dict[str, Any]]:
     for idx, line in enumerate(lines):
         for m in re.finditer(r"\((\d{1,3})\s*points?\)", line, flags=re.IGNORECASE):
             pts = int(m.group(1))
-            if pts <= 0 or pts > 100:
+            # Match the DOCX parser's upper bound (500) so single-criterion rubrics
+            # worth >100 pts are not silently dropped by the text parser.
+            if pts <= 0 or pts > 500:
                 continue
 
             left = _clean_ws(line[: m.start()])
@@ -491,6 +496,10 @@ def extract_rubric_criteria(rubric_text: str) -> list[dict[str, Any]]:
                     prev = _clean_ws(lines[j])
                     if not prev:
                         continue
+                    # Checkbox lines (☐ / ☑) are feedback items from the PREVIOUS
+                    # criterion; stop walking when we hit one.
+                    if re.match(r"^\s*[☐☑]", prev):
+                        break
                     if _is_grade_or_noise_line(prev):
                         continue
                     # stop at very broad section dividers
@@ -732,10 +741,9 @@ def ai_extract_rubric_criteria(
     api_key: str,
     provider: str = "anthropic",
 ) -> list[dict[str, Any]]:
-    """
-    Use an AI model to extract rubric criteria from free-form rubric text.
-    Called as a fallback when regex-based parsers fail (prose rubrics, non-table formats).
-    Uses a fast/cheap model (haiku / gpt-4o-mini) — not the main grading model.
+    """Use a fast LLM to extract criteria from a free-form rubric (haiku / gpt-4o-mini).
+
+    Called as a fallback when the regex-based parsers fail (prose rubrics).
     """
     if not rubric_text or not api_key:
         return []
@@ -958,9 +966,19 @@ def read_text_file(path: Path | None) -> str:
         except Exception:
             return ""
 
-    # PDF
+    # PDF — PyMuPDF handles tables/multi-column better than pypdf; pypdf is the fallback.
     if suffix == ".pdf":
-        # Prefer pypdf (already in requirements)
+        try:
+            import fitz  # PyMuPDF
+            with fitz.open(str(path)) as doc:
+                parts = []
+                for page in doc:
+                    t = (page.get_text() or "").strip()
+                    if t:
+                        parts.append(t)
+            return "\n\n".join(parts).strip()
+        except Exception as exc:
+            print(f"INFO: PyMuPDF could not parse {path.name} ({exc}); falling back to pypdf.")
         try:
             from pypdf import PdfReader
             reader = PdfReader(str(path))
@@ -970,7 +988,8 @@ def read_text_file(path: Path | None) -> str:
                 if t:
                     parts.append(t)
             return "\n\n".join(parts).strip()
-        except Exception:
+        except Exception as exc:
+            print(f"WARNING: pypdf also failed on {path.name}: {exc}")
             return ""
 
     # Fallback binary/text read
@@ -985,13 +1004,16 @@ def call_openai(
     *,
     model: str,
     api_key: str,
-    system: str,
+    system: str | list[dict[str, Any]],
     user: str,
 ) -> dict[str, Any]:
     try:
         import openai
     except ImportError as exc:
         raise RuntimeError("openai package not installed. Run: pip install openai") from exc
+
+    if isinstance(system, list):
+        system = flatten_system_blocks(system)
 
     client = openai.OpenAI(api_key=api_key)
     response = client.chat.completions.create(
@@ -1092,12 +1114,15 @@ def call_gemini(
     *,
     model: str,
     api_key: str,
-    system: str,
+    system: str | list[dict[str, Any]],
     user: str,
 ) -> dict[str, Any]:
     import urllib.error
     import urllib.parse
     import urllib.request
+
+    if isinstance(system, list):
+        system = flatten_system_blocks(system)
 
     model_candidates = _gemini_model_candidates(model)
     available_models = _gemini_list_models(api_key)
@@ -1271,9 +1296,14 @@ def call_anthropic(
     *,
     model: str,
     api_key: str,
-    system: str,
+    system: str | list[dict[str, Any]],
     user: str,
 ) -> dict[str, Any]:
+    """Call the Anthropic Messages API and return ``{"result", "usage", "model"}``.
+
+    The ``system`` parameter accepts either a plain string or a list of content blocks.
+    Passing blocks with ``cache_control`` enables Anthropic prompt caching.
+    """
     try:
         from anthropic import Anthropic
     except ImportError as exc:
@@ -1298,6 +1328,8 @@ def call_anthropic(
         "usage": {
             "input_tokens": int(getattr(usage_obj, "input_tokens", 0) or 0),
             "output_tokens": int(getattr(usage_obj, "output_tokens", 0) or 0),
+            "cache_creation_input_tokens": int(getattr(usage_obj, "cache_creation_input_tokens", 0) or 0),
+            "cache_read_input_tokens": int(getattr(usage_obj, "cache_read_input_tokens", 0) or 0),
         },
         "model": message.model,
     }
@@ -1872,28 +1904,31 @@ def run_grading(
     # Prefer sections from assignment instructions (authoritative) over student text.
     # This ensures that even if a student's text has no numbered headings, the
     # grader uses the actual assignment questions (Q1-Q4) as the grading template.
+    # Sections derived from the assignment are stable across students, so they are
+    # safe to embed in the cached system block. Sections derived from a student's
+    # own text vary per student and would invalidate the cache on every call —
+    # those are kept out of the cached block and used only for downstream coverage.
     if assignment_text:
-        expected_sections = detect_expected_sections(assignment_text)
-        if expected_sections:
-            print(f"Expected sections (from assignment): {expected_sections}")
+        assignment_sections = detect_expected_sections(assignment_text)
+        if assignment_sections:
+            print(f"Expected sections (from assignment): {assignment_sections}")
         else:
             print("WARNING: Could not detect section IDs from assignment file.")
     else:
-        expected_sections = []
+        assignment_sections = []
 
-    # Fall back to student text detection only if no assignment sections found.
+    expected_sections = assignment_sections
     if not expected_sections:
         expected_sections = detect_expected_sections(student_text)
         if expected_sections:
-            print(f"Expected sections (from student text): {expected_sections}")
+            print(f"Expected sections (from student text — not cached): {expected_sections}")
 
     enable_cache = grading_provider == "anthropic"
-    # When caching is off (OpenAI/Gemini), include the student-derived fallback sections in
-    # the system prompt for richer guidance. When caching is on, restrict block2 to
-    # assignment-derived sections so it stays byte-identical across students in the same run.
-    sections_for_system = expected_sections if not enable_cache else (
-        detect_expected_sections(assignment_text) if assignment_text else []
-    )
+    # When caching is off (OpenAI/Gemini), include the student-derived fallback in
+    # the system prompt for richer grading guidance.  When caching is on, restrict
+    # block2 to assignment-derived sections so it stays byte-identical across
+    # students in the same run (otherwise the cache misses every call).
+    sections_for_system = expected_sections if not enable_cache else assignment_sections
 
     # Few-shot exemplars: append to block1 text so they are cached alongside the base prompt.
     few_shot_path = _resolve_few_shot_file(few_shot_file)

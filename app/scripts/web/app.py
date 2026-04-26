@@ -1,24 +1,16 @@
 #!/usr/bin/env python3
 """
-app.py  —  Flask web application for the AI Auto Grader.
+app.py — Flask application factory for the AI Auto Grader.
 
 Run:
-    cd "Final AI Auto Grader"
     python scripts/web/app.py
 
 Then open:  http://localhost:5000
 """
 from __future__ import annotations
 
-import csv
-import io
-import json
 import os
-import re
-import subprocess
 import sys
-import uuid
-from datetime import datetime
 from pathlib import Path
 
 from flask import Flask, render_template, request, jsonify, Response, send_file
@@ -1805,353 +1797,38 @@ def _build_grade_pdf(FPDF, grades: dict, run_id: str) -> Path | None:
             f"Describe: {ctx.get('describe_provider','')}/{ctx.get('describe_model','')}   |   "
             f"Grade: {ctx.get('grade_provider','')}/{ctx.get('grade_model','')}"
         )
-        _row(7, ctx_line, fill=True, border=1)
-        pdf.ln(4)
-
-    # ── Overall Feedback ──
-    pdf.set_text_color(0, 0, 0)
-    pdf.set_font("Helvetica", "B", 11)
-    _row(8, "Overall Feedback")
-    pdf.set_font("Helvetica", "", 9)
-    _mcell(5, feedback or "N/A")
-    pdf.ln(4)
-
-    # ── Section Coverage ──
-    if section_cov:
-        pdf.set_font("Helvetica", "B", 11)
-        _row(8, "Section Coverage")
-        pdf.set_font("Helvetica", "", 9)
-        STATUS_COLORS = {"addressed": (34,197,94), "partial": (245,158,11), "missing": (239,68,68)}
-        for s in section_cov:
-            sid    = _safe_ascii(str(s.get("section_id", "")))
-            status = str(s.get("status", "")).lower()
-            cr, cg, cb = STATUS_COLORS.get(status, (148, 163, 184))
-            pdf.set_fill_color(cr, cg, cb)
-            pdf.set_text_color(255, 255, 255)
-            pdf.cell(60, 6, f"  {sid}: {status}", fill=True, border=0)
-            pdf.set_text_color(0, 0, 0)
-            pdf.ln(7)
-        pdf.ln(3)
-
-    # ── Score Breakdown table ──
-    if criteria:
-        pdf.set_font("Helvetica", "B", 11)
-        _row(8, "Score Breakdown")
-        # Header row
-        pdf.set_fill_color(30, 27, 75)
-        pdf.set_text_color(255, 255, 255)
-        pdf.set_font("Helvetica", "B", 8.5)
-        pdf.cell(105, 7, "  Criterion", fill=True, border=0)
-        pdf.cell(25,  7, "Awarded",    fill=True, border=0, align="C")
-        pdf.cell(20,  7, "Max",        fill=True, border=0, align="C")
-        pdf.cell(40,  7, "Score %",    fill=True, border=0, align="C")
-        pdf.ln(7)
-        pdf.set_font("Helvetica", "", 8.5)
-        for i, c in enumerate(criteria):
-            awarded  = c.get("awarded_points", 0)
-            max_pts  = c.get("max_points", 0)
-            pct      = f"{round(awarded/max_pts*100)}%" if max_pts else "?"
-            cname    = _safe_ascii(str(c.get("criterion_name", ""))[:52])
-            row_fill = (248, 249, 251) if i % 2 == 0 else (255, 255, 255)
-            pdf.set_fill_color(*row_fill)
-            pdf.set_text_color(30, 41, 59)
-            pdf.cell(105, 6, f"  {cname}", fill=True, border="B")
-            pdf.cell(25,  6, str(awarded), fill=True, border="B", align="C")
-            pdf.cell(20,  6, str(max_pts), fill=True, border="B", align="C")
-            pdf.cell(40,  6, pct,          fill=True, border="B", align="C")
-            pdf.ln(6)
-        pdf.ln(6)
-
-    # ── Criterion Evidence Details ──
-    if criteria:
-        pdf.set_font("Helvetica", "B", 11)
-        _row(8, "Criterion Evidence Details")
-        pdf.ln(2)
-        for i, c in enumerate(criteria):
-            cr, cg, cb = CRIT_COLORS[i % len(CRIT_COLORS)]
-            pdf.set_fill_color(cr, cg, cb)
-            pdf.set_text_color(255, 255, 255)
-            pdf.set_font("Helvetica", "B", 9.5)
-            cname   = _safe_ascii(str(c.get("criterion_name", ""))[:60])
-            awarded = c.get("awarded_points", 0)
-            max_pts = c.get("max_points", 0)
-            _row(7, f"  {cname}   [{awarded} / {max_pts} pts]", fill=True)
-            pdf.set_text_color(30, 41, 59)
-            pdf.set_fill_color(250, 251, 252)
-            # Justification
-            just = str(c.get("justification", "")).strip()
-            if just:
-                pdf.set_font("Helvetica", "B", 8)
-                _row(5, "  Justification:", fill=True)
-                pdf.set_font("Helvetica", "", 8)
-                _mcell(4.5, "    " + just, fill=True)
-            # Evidence refs
-            evidence = [_safe_ascii(e) for e in (c.get("evidence_refs") or [])[:4] if e]
-            if evidence:
-                pdf.set_font("Helvetica", "B", 8)
-                _row(5, "  Evidence:", fill=True)
-                pdf.set_font("Helvetica", "", 8)
-                for ev in evidence:
-                    _mcell(4.5, f"    * {ev}", fill=True)
-            # Missing items
-            missing = [_safe_ascii(m) for m in (c.get("missing_items") or [])[:4] if m]
-            if missing:
-                pdf.set_font("Helvetica", "B", 8)
-                _row(5, "  Missing / Gaps:", fill=True)
-                pdf.set_font("Helvetica", "", 8)
-                for m in missing:
-                    _mcell(4.5, f"    * {m}", fill=True)
-            pdf.ln(4)
-
-    # ── Footer ──
-    pdf.set_y(-14)
-    pdf.set_font("Helvetica", "I", 7.5)
-    pdf.set_text_color(148, 163, 184)
-    pdf.cell(0, 6, _safe_ascii(f"Generated by GradeAI Pro  |  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"),
-             align="C")
-
-    # ── Save & update FIFO index ──
-    safe_name = re.sub(r"[^\w\-]", "_", student)[:40]
-    pdf_filename = f"{run_id}_{safe_name}.pdf"
-    pdf_path = REPORTS_DIR / pdf_filename
-    try:
-        pdf.output(str(pdf_path))
-    except Exception:
-        return None
-
-    # Load / update index
-    try:
-        index: list[dict] = json.loads(REPORTS_INDEX.read_text()) if REPORTS_INDEX.exists() else []
-    except Exception:
-        index = []
-
-    index.insert(0, {
-        "run_id":    run_id,
-        "filename":  pdf_filename,
-        "student":   student,
-        "score":     score,
-        "total_max": int(total_max),
-        "timestamp": datetime.now().isoformat(),
-    })
-    # Evict oldest beyond MAX_REPORTS
-    while len(index) > MAX_REPORTS:
-        old = index.pop()
-        old_path = REPORTS_DIR / old["filename"]
-        if old_path.exists():
-            try:
-                old_path.unlink()
-            except Exception:
-                pass
-
-    REPORTS_INDEX.write_text(json.dumps(index, indent=2), encoding="utf-8")
-    return pdf_path
-
-
-@app.route("/api/reports")
-def api_reports():
-    """List the last MAX_REPORTS PDF grade reports (FIFO queue)."""
-    if not REPORTS_INDEX.exists():
-        return jsonify(reports=[])
-    try:
-        index = json.loads(REPORTS_INDEX.read_text())
-    except Exception:
-        return jsonify(reports=[])
-    # Only return entries whose file still exists
-    valid = [e for e in index if (REPORTS_DIR / e["filename"]).exists()]
-    return jsonify(reports=valid)
-
-
-@app.route("/api/reports/<filename>")
-def api_serve_report(filename):
-    """Serve a PDF grade report for download."""
-    if not re.match(r'^[\w\-]+\.pdf$', filename):
-        return "Invalid filename", 400
-    path = REPORTS_DIR / filename
-    if not path.exists():
-        return "Report not found", 404
-    return send_file(str(path), mimetype="application/pdf",
-                     as_attachment=True, download_name=filename)
-
-
-@app.route("/api/grade-quiz-batch", methods=["POST"])
-def api_grade_quiz_batch():
-    """Grade all students in a quiz Excel file — returns updated xlsx with AI Score + AI Feedback columns."""
-    import sys as _sys, io as _io, tempfile as _tempfile
-    if str(SCRIPTS_DIR) not in _sys.path:
-        _sys.path.insert(0, str(SCRIPTS_DIR))
-
-    from grading.grade_submission import (
-        SYSTEM_PROMPT, GRADING_PROVIDERS, DEFAULT_GRADING_MODELS, get_api_key,
-        extract_rubric_criteria_from_docx, extract_rubric_criteria,
-        ai_extract_rubric_criteria, DEFAULT_RUBRIC_CRITERIA,
-        read_text_file, _snap_to_grade_band,
-    )
-
-    # ── inputs ──────────────────────────────────────────────────────────────
-    xlsx_f = request.files.get("quiz_xlsx")
-    if not xlsx_f or not xlsx_f.filename:
-        return jsonify(success=False, error="No Excel file uploaded."), 400
-
-    provider      = request.form.get("provider", "anthropic")
-    model_req     = (request.form.get("model") or "").strip()
-    quiz_question = (request.form.get("quiz_question") or "").strip()
-    selected_rubric = (request.form.get("selected_rubric") or "").strip()
-
-    if provider not in GRADING_PROVIDERS:
-        return jsonify(success=False, error=f"Unknown provider: {provider}"), 400
-
-    key_name, call_fn = GRADING_PROVIDERS[provider]
-    api_key = get_api_key(key_name)
-    if not api_key:
-        return jsonify(success=False, error=f"{key_name.upper()}_API_KEY not set."), 400
-    model = model_req or DEFAULT_GRADING_MODELS.get(provider, "")
-
-    # ── resolve rubric ───────────────────────────────────────────────────────
-    rubric_path: Path | None = None
-    rubric_f = request.files.get("rubric")
-    if rubric_f and rubric_f.filename:
-        tmp = _tempfile.NamedTemporaryFile(delete=False, suffix=Path(rubric_f.filename).suffix)
-        rubric_f.save(tmp.name)
-        rubric_path = Path(tmp.name)
-    elif selected_rubric:
-        rubric_path = _resolve_selected_path(
-            selected_rubric,
-            allowed_roots=[LIBRARY_RUBRICS_DIR, DEFAULT_RUBRIC_DIR, LIBRARY_ASSIGNMENTS_DIR, LIBRARY_QUIZZES_DIR],
-            allowed_exts=RUBRIC_ALLOWED_EXTS,
+        assignments = (
+            _discover_files(PROJECT_ROOT / "assignments") +
+            _discover_files(LIBRARY_ASSIGNMENTS_DIR)
+        )
+        quizzes = _discover_files(LIBRARY_QUIZZES_DIR)
+        return render_template(
+            "index.html",
+            providers=PROVIDERS,
+            rubrics=rubrics,
+            assignments=assignments,
+            quizzes=quizzes,
+            lecture_chunks_exist=DEFAULT_LECTURE_CHUNKS.exists(),
+            shared_chroma_ready=_shared_chroma_ready(),
         )
 
-    rubric_text = read_text_file(rubric_path) if rubric_path else ""
-    rubric_criteria: list[dict] = []
+    @app.route("/api/providers")
+    def api_providers():
+        return jsonify(PROVIDERS)
 
-    if rubric_path and rubric_path.suffix.lower() == ".json":
-        try:
-            data = json.loads(rubric_path.read_text(encoding="utf-8"))
-            raw = data.get("criteria", [])
-            rubric_criteria = [
-                {"criterion_id": f"C{i+1}", "criterion_name": c.get("criterion_name", f"C{i+1}"),
-                 "max_points": float(c.get("max_points", 0)), "checklist_items": c.get("checklist_items", [])}
-                for i, c in enumerate(raw) if float(c.get("max_points", 0)) > 0
-            ]
-        except Exception:
-            pass
-    if not rubric_criteria and rubric_path and rubric_path.suffix.lower() == ".docx":
-        rubric_criteria = extract_rubric_criteria_from_docx(rubric_path)
-    if not rubric_criteria:
-        rubric_criteria = extract_rubric_criteria(rubric_text)
-    if not rubric_criteria and rubric_text:
-        rubric_criteria = ai_extract_rubric_criteria(rubric_text, api_key, provider)
-    if not rubric_criteria:
-        rubric_criteria = list(DEFAULT_RUBRIC_CRITERIA)
+    @app.errorhandler(413)
+    def payload_too_large(_err):
+        return jsonify(success=False, error="Uploaded file is too large (max 200 MB)."), 413
 
-    total_max    = sum(c["max_points"] for c in rubric_criteria)
-    criteria_str = json.dumps(rubric_criteria, indent=2)
+    return app
 
-    # ── read Excel ───────────────────────────────────────────────────────────
-    try:
-        import openpyxl
-        wb = openpyxl.load_workbook(xlsx_f)
-        ws = wb.active
-    except Exception as e:
-        return jsonify(success=False, error=f"Failed to read Excel: {e}"), 400
 
-    # Detect header columns (row 1)
-    headers = {}
-    for c in range(1, ws.max_column + 1):
-        h = str(ws.cell(1, c).value or "").strip().lower()
-        headers[h] = c
-
-    def _find_col(*keywords):
-        for kw in keywords:
-            for h, c in headers.items():
-                if kw in h:
-                    return c
-        return None
-
-    student_col = _find_col("student number", "student id", "student num", "student", "id") or 1
-    answer_col  = _find_col("student answer", "answer", "response", "submission") or 2
-
-    # Add output columns
-    score_col    = ws.max_column + 1
-    feedback_col = score_col + 1
-    ws.cell(1, score_col).value    = "AI Score"
-    ws.cell(1, feedback_col).value = "AI Feedback"
-
-    # Style header cells
-    from openpyxl.styles import PatternFill, Font
-    teal_fill = PatternFill("solid", fgColor="0891B2")
-    white_bold = Font(bold=True, color="FFFFFF")
-    for c in (score_col, feedback_col):
-        ws.cell(1, c).fill = teal_fill
-        ws.cell(1, c).font = white_bold
-
-    # ── grade each student ───────────────────────────────────────────────────
-    graded = 0
-    errors = []
-    for row in range(2, ws.max_row + 1):
-        answer = str(ws.cell(row, answer_col).value or "").strip()
-        if not answer:
-            continue
-
-        user_msg = (
-            f"Grade the following student quiz answer using the rubric criteria.\n\n"
-            f"RUBRIC CRITERIA (JSON):\n{criteria_str}\n\n"
-            f"RUBRIC TEXT:\n{rubric_text or '(Use criteria above)'}\n\n"
-            f"QUIZ QUESTION:\n{quiz_question or '(Grade based on rubric criteria above)'}\n\n"
-            f"STUDENT ANSWER:\n{answer[:3000]}\n\n"
-            f"Return standard JSON grading schema."
-        )
-
-        try:
-            resp   = call_fn(model=model, api_key=api_key, system=SYSTEM_PROMPT, user=user_msg)
-            result = resp.get("result", {})
-
-            # Extract score from criterion_scores (most accurate) or overall_score fallback
-            score    = 0.0
-            feedback = ""
-            if isinstance(result, dict):
-                crit_raw = (result.get("criterion_scores") or result.get("criteria_scores")
-                            or result.get("criteria") or [])
-                if isinstance(crit_raw, list) and crit_raw:
-                    for item in crit_raw:
-                        if not isinstance(item, dict):
-                            continue
-                        awarded = float(item.get("awarded_points", 0) or 0)
-                        pct     = float(item.get("checklist_pct", 0) or 0)
-                        mp      = float(item.get("max_points", 0) or 0)
-                        if not awarded and pct and mp:
-                            awarded = _snap_to_grade_band(pct, mp)
-                        score += awarded
-                else:
-                    score = float(result.get("overall_score", 0) or 0)
-                feedback = str(result.get("overall_feedback", "") or "").strip()
-
-            score = round(min(total_max, max(0.0, score)), 1)
-            ws.cell(row, score_col).value    = score
-            ws.cell(row, feedback_col).value = feedback
-            graded += 1
-        except Exception as exc:
-            ws.cell(row, score_col).value    = "ERROR"
-            ws.cell(row, feedback_col).value = str(exc)[:120]
-            errors.append(f"Row {row}: {exc}")
-
-    # ── return updated xlsx ──────────────────────────────────────────────────
-    buf = _io.BytesIO()
-    wb.save(buf)
-    buf.seek(0)
-    orig_stem  = re.sub(r"[^\w\-]", "_", Path(xlsx_f.filename).stem)[:40]
-    out_name   = f"{orig_stem}_AI_Graded.xlsx"
-    return send_file(
-        buf,
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        as_attachment=True,
-        download_name=out_name,
-    )
-
+app = create_app()
 
 if __name__ == "__main__":
     print("\n  AI Auto Grader — Web Interface")
     print("  http://localhost:5000\n")
     debug = str(os.getenv("FLASK_DEBUG", "0")).strip().lower() in {"1", "true", "yes"}
-    host = os.getenv("FLASK_HOST", "127.0.0.1")
-    port = int(os.getenv("FLASK_PORT", "5000"))
+    host  = os.getenv("FLASK_HOST", "127.0.0.1")
+    port  = int(os.getenv("FLASK_PORT", "5000"))
     app.run(debug=debug, host=host, port=port)
