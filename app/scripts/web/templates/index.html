@@ -391,6 +391,53 @@ button{font-family:var(--font);cursor:pointer}
       </div>
     </form>
 
+    <!-- ── Batch Grading ─────────────────────────────────────────────────── -->
+    <div style="margin-top:1.5rem;padding-top:1.25rem;border-top:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:1rem">
+        <span style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">Batch Grade — Folder of Submissions</span>
+        <span style="font-size:.7rem;color:var(--text3);background:var(--surface2);padding:.15rem .5rem;border-radius:20px">PDF / PPTX / XLSX</span>
+      </div>
+
+      <!-- File drop zone for multiple files -->
+      <div class="drop-zone" id="dz-batch" style="margin-bottom:1rem"
+           onclick="document.getElementById('batchFilesInput').click()">
+        <div class="dz-icon">&#x1F4C2;</div>
+        <div class="dz-label">Select a folder or multiple files</div>
+        <div class="dz-hint">Hold Shift / Cmd to pick multiple files &middot; or use the folder button below</div>
+        <div class="dz-file" id="dz-batch-name" style="display:none"></div>
+      </div>
+      <div style="display:flex;gap:.6rem;margin-bottom:1rem;flex-wrap:wrap">
+        <label style="display:inline-flex;align-items:center;gap:.4rem;font-size:.8rem;font-weight:600;
+                       padding:.4rem .9rem;border-radius:8px;border:1px solid var(--border);
+                       background:var(--surface2);cursor:pointer;color:var(--text2)">
+          &#x1F4C2; Choose Folder
+          <input type="file" id="batchFolderInput" webkitdirectory multiple accept=".pdf,.pptx,.xlsx"
+                 style="display:none" onchange="batchFilesChosen(this)">
+        </label>
+        <label style="display:inline-flex;align-items:center;gap:.4rem;font-size:.8rem;font-weight:600;
+                       padding:.4rem .9rem;border-radius:8px;border:1px solid var(--border);
+                       background:var(--surface2);cursor:pointer;color:var(--text2)">
+          &#x1F4C4; Choose Files
+          <input type="file" id="batchFilesInput" multiple accept=".pdf,.pptx,.xlsx"
+                 style="display:none" onchange="batchFilesChosen(this)">
+        </label>
+        <button type="button" id="batchGradeBtn" onclick="gradeBatch()"
+                style="font-family:var(--font);font-size:.85rem;font-weight:700;padding:.45rem 1.4rem;
+                       border-radius:8px;border:none;background:var(--primary);color:#fff;cursor:pointer;
+                       display:flex;align-items:center;gap:.5rem;opacity:.5" disabled>
+          <div class="spinner" id="batchSpinner" style="display:none;width:14px;height:14px;border-width:2px"></div>
+          <span id="batchBtnText">&#x26A1; Batch Grade</span>
+        </button>
+      </div>
+
+      <!-- Per-student results list -->
+      <div id="batchResults" style="display:none">
+        <div id="batchSummaryBar" style="font-size:.82rem;font-weight:600;color:var(--text2);
+             margin-bottom:.8rem;padding:.5rem .8rem;background:var(--surface2);border-radius:8px"></div>
+        <div id="batchStudentList" style="display:flex;flex-direction:column;gap:.6rem"></div>
+      </div>
+    </div>
+
     <!-- Lecture index status bar -->
     <div style="display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;padding:.8rem 0 0;border-top:1px solid var(--border);margin-top:.5rem">
       {% if shared_chroma_ready %}
@@ -1206,6 +1253,122 @@ function fileSelected(input, zoneId, nameId){
     delete droppedFiles[input.name];
     zone.classList.remove('has-file');
     nameEl.style.display = 'none';
+  }
+}
+
+/* ── Batch grading ───────────────────────────────────────────────────────── */
+let batchFiles = [];
+
+function batchFilesChosen(input) {
+  const files = Array.from(input.files).filter(f =>
+    /\.(pdf|pptx|xlsx)$/i.test(f.name)
+  );
+  if (!files.length) return;
+  batchFiles = files;
+
+  const zone   = document.getElementById('dz-batch');
+  const nameEl = document.getElementById('dz-batch-name');
+  zone.classList.add('has-file');
+  nameEl.textContent = `${files.length} file${files.length > 1 ? 's' : ''} selected: ` +
+    files.slice(0, 3).map(f => f.name).join(', ') + (files.length > 3 ? ` …+${files.length - 3} more` : '');
+  nameEl.style.display = 'block';
+
+  const btn = document.getElementById('batchGradeBtn');
+  btn.disabled = false;
+  btn.style.opacity = '1';
+}
+
+async function gradeBatch() {
+  if (!batchFiles.length) return;
+
+  const btn     = document.getElementById('batchGradeBtn');
+  const spinner = document.getElementById('batchSpinner');
+  const btnText = document.getElementById('batchBtnText');
+  btn.disabled  = true;
+  spinner.style.display = 'block';
+  btnText.textContent   = 'Grading…';
+
+  document.getElementById('batchResults').style.display = 'none';
+  document.getElementById('batchStudentList').innerHTML  = '';
+
+  const fd = new FormData();
+  batchFiles.forEach(f => fd.append('student_files', f));
+
+  // Carry over provider/model settings from the main form
+  fd.append('describe_provider', document.getElementById('describeProviderSelect')?.value || 'openai');
+  fd.append('describe_model',    document.getElementById('describeModelInput')?.value    || '');
+  fd.append('grade_provider',    document.getElementById('gradeProviderSelect')?.value   || 'openai');
+  fd.append('grade_model',       document.getElementById('gradeModelInput')?.value       || '');
+
+  // Carry over rubric / assignment selections from the main form
+  const genRubric = document.getElementById('generatedRubricJson')?.value;
+  if (genRubric) fd.append('generated_rubric_json', genRubric);
+  const selRubric = document.querySelector('select[name=selected_rubric]')?.value;
+  if (selRubric) fd.append('selected_rubric', selRubric);
+  const selAssign = document.querySelector('select[name=selected_assignment]')?.value;
+  if (selAssign) fd.append('selected_assignment', selAssign);
+
+  try {
+    const res  = await fetch('/api/grade-batch', { method: 'POST', body: fd });
+    const data = await res.json();
+
+    if (!data.success) {
+      alert('Batch grading error: ' + (data.error || 'Unknown error'));
+      return;
+    }
+
+    const sumBar = document.getElementById('batchSummaryBar');
+    const s = data.summary;
+    sumBar.innerHTML =
+      `Batch complete &mdash; <strong>${s.graded}</strong> graded, ` +
+      `<strong style="color:var(--red)">${s.failed}</strong> failed &nbsp;|&nbsp; ` +
+      `Run ID: <code style="font-size:.78rem">${data.run_id}</code>`;
+
+    const list = document.getElementById('batchStudentList');
+    (data.results || []).forEach(r => {
+      const card = document.createElement('div');
+      card.style.cssText = 'padding:.75rem 1rem;border-radius:10px;border:1px solid var(--border);background:var(--surface2);display:flex;align-items:center;gap:1rem;flex-wrap:wrap';
+
+      if (r.success) {
+        const score   = r.grades?.overall_score ?? '—';
+        const maxPts  = r.grades?.total_max_points ?? 100;
+        const pct     = maxPts ? Math.round(score / maxPts * 100) : 0;
+        const color   = pct >= 90 ? '#22c55e' : pct >= 80 ? '#14b8a6' : pct >= 70 ? '#f59e0b' : '#ef4444';
+        card.innerHTML =
+          `<span style="font-size:1.4rem;font-weight:800;color:${color};min-width:3rem;text-align:center">${score}</span>` +
+          `<div style="flex:1;min-width:0">` +
+            `<div style="font-weight:600;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.student_file}</div>` +
+            `<div style="font-size:.75rem;color:var(--text3);margin-top:.15rem">${r.grades?.overall_feedback?.slice(0,120) || ''}…</div>` +
+          `</div>` +
+          `<span style="font-size:.75rem;font-weight:600;padding:.2rem .6rem;border-radius:20px;background:${color}22;color:${color}">${pct}%</span>`;
+        if (r.pdf_report) {
+          const dl = document.createElement('a');
+          dl.href  = `/api/reports/${r.pdf_report}`;
+          dl.target = '_blank';
+          dl.style.cssText = 'font-size:.75rem;font-weight:600;color:var(--primary);text-decoration:none;white-space:nowrap';
+          dl.textContent = '⬇ PDF';
+          card.appendChild(dl);
+        }
+      } else {
+        card.style.borderColor = '#ef444444';
+        card.innerHTML =
+          `<span style="font-size:1.2rem;color:#ef4444">&#x2718;</span>` +
+          `<div style="flex:1">` +
+            `<div style="font-weight:600;font-size:.88rem">${r.student_file}</div>` +
+            `<div style="font-size:.75rem;color:var(--red)">${r.error || 'Grading failed'}</div>` +
+          `</div>`;
+      }
+      list.appendChild(card);
+    });
+
+    document.getElementById('batchResults').style.display = 'block';
+  } catch(err) {
+    alert('Network error: ' + err.message);
+  } finally {
+    btn.disabled          = false;
+    btn.style.opacity     = '1';
+    spinner.style.display = 'none';
+    btnText.textContent   = '⚡ Batch Grade';
   }
 }
 

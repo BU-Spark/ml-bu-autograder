@@ -17,25 +17,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from core.config import get_api_key, load_environment
-
-
-# ---------------------------------------------------------------------------
-# I/O helpers
-# ---------------------------------------------------------------------------
-
-def read_jsonl(path: Path) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    with path.open("r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                rows.append(json.loads(line))
-    return rows
-
-
-def write_json(path: Path, obj: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(obj, indent=2, ensure_ascii=False), encoding="utf-8")
+from core.io import read_jsonl, write_json
 
 
 def anonymize_label(text: str) -> str:
@@ -1706,7 +1688,7 @@ def run_grading(
             print(f"WARNING: Failed to parse JSON rubric: {exc}")
     if not rubric_criteria and rubric_file and rubric_file.suffix.lower() == ".docx":
         rubric_criteria = extract_rubric_criteria_from_docx(rubric_file)
-    elif rubric_file and rubric_file.suffix.lower() == ".json":
+    elif not rubric_criteria and rubric_file and rubric_file.suffix.lower() == ".json":
         try:
             parsed = json.loads(rubric_text)
             raw_criteria = parsed.get("criteria", [])
