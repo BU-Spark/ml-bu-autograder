@@ -862,51 +862,32 @@ def flatten_system_blocks(blocks: list[dict[str, Any]]) -> str:
     return "\n\n".join(parts)
 
 
-def build_system_blocks(
-    *,
-    rubric_text: str,
-    rubric_criteria: list[dict[str, Any]],
-    assignment_text: str,
-    expected_sections: list[str],
-    enable_cache: bool = False,
-) -> list[dict[str, Any]]:
-    """Build structured system content blocks with optional Anthropic prompt caching.
+def build_system_blocks(enable_cache: bool = False) -> list[dict[str, Any]]:
+    """Return system content blocks containing ONLY the grading instructions.
 
-    When ``enable_cache=True`` (Anthropic only), a single ``cache_control`` breakpoint is
-    placed on block2 — the outermost stable boundary. This caches block1+block2 as one
-    prefix. Block1 has no breakpoint to avoid a redundant intermediate cache write.
+    Rubric, assignment, and section context belong in the user message so the
+    model treats them as reference context rather than strict enforceable rules.
+    This produces grading closer to professor-style leniency (benefit of the doubt,
+    partial credit) rather than rigid checklist enforcement.
+
+    When ``enable_cache=True`` (Anthropic only), a ``cache_control`` breakpoint is
+    placed on block1 so the stable system prompt is cached across all students
+    in the same run.
     """
     block1: dict[str, Any] = {"type": "text", "text": SYSTEM_PROMPT}
-
-    if expected_sections:
-        sections_line = f"Expected sections: {', '.join(expected_sections)}."
-    elif assignment_text:
-        sections_line = "Infer expected sections from assignment instructions."
-    else:
-        sections_line = "No assignment instructions provided; infer expected sections from submission."
-
-    context_text = (
-        "=== ASSIGNMENT INSTRUCTIONS (grade these questions) ===\n"
-        f"{assignment_text or '(No assignment instructions provided)'}\n\n"
-        "=== EXPECTED SECTIONS ===\n"
-        f"{sections_line}\n\n"
-        "=== RUBRIC CRITERIA (authoritative scoring dimensions) ===\n"
-        f"{json.dumps(rubric_criteria, ensure_ascii=True, indent=2)}\n\n"
-        "=== RUBRIC ===\n"
-        f"{rubric_text or '(No rubric provided)'}"
-    )
-
-    block2: dict[str, Any] = {"type": "text", "text": context_text}
     if enable_cache:
-        block2["cache_control"] = {"type": "ephemeral"}
-
-    return [block1, block2]
+        block1["cache_control"] = {"type": "ephemeral"}
+    return [block1]
 
 
 def build_user_message(
     student_text: str,
     lecture_context: str,
     student_file: str,
+    rubric_text: str,
+    rubric_criteria: list[dict[str, Any]],
+    assignment_text: str,
+    expected_sections: list[str],
     max_student_chars: int,
 ) -> str:
     # If submission exceeds limit, keep the first 70% and last 30% so both
@@ -922,8 +903,23 @@ def build_user_message(
     else:
         student_excerpt = student_text
 
+    if expected_sections:
+        sections_line = f"Expected sections: {', '.join(expected_sections)}."
+    elif assignment_text:
+        sections_line = "Infer expected sections from assignment instructions."
+    else:
+        sections_line = "No assignment instructions provided; infer expected sections from submission."
+
     return (
         f"STUDENT FILE: {student_file}\n\n"
+        "=== ASSIGNMENT INSTRUCTIONS (grade these questions) ===\n"
+        f"{assignment_text or '(No assignment instructions provided — infer questions from student submission)'}\n\n"
+        "=== EXPECTED SECTIONS ===\n"
+        f"{sections_line}\n\n"
+        "=== RUBRIC CRITERIA (authoritative scoring dimensions) ===\n"
+        f"{json.dumps(rubric_criteria, ensure_ascii=True, indent=2)}\n\n"
+        "=== RUBRIC ===\n"
+        f"{rubric_text or '(No rubric provided)'}\n\n"
         "=== LECTURE CONTEXT ===\n"
         f"{lecture_context}\n\n"
         "=== STUDENT SUBMISSION ===\n"
@@ -1924,11 +1920,6 @@ def run_grading(
             print(f"Expected sections (from student text — not cached): {expected_sections}")
 
     enable_cache = grading_provider == "anthropic"
-    # When caching is off (OpenAI/Gemini), include the student-derived fallback in
-    # the system prompt for richer grading guidance.  When caching is on, restrict
-    # block2 to assignment-derived sections so it stays byte-identical across
-    # students in the same run (otherwise the cache misses every call).
-    sections_for_system = expected_sections if not enable_cache else assignment_sections
 
     # Few-shot exemplars: append to block1 text so they are cached alongside the base prompt.
     few_shot_path = _resolve_few_shot_file(few_shot_file)
@@ -1936,24 +1927,24 @@ def run_grading(
     if few_shot_path:
         print(f"Few-shot exemplars loaded: {len(few_shot_text):,} chars from {few_shot_path}")
 
-    system_blocks = build_system_blocks(
-        rubric_text=rubric_text,
-        rubric_criteria=rubric_criteria,
-        assignment_text=assignment_text,
-        expected_sections=sections_for_system,
-        enable_cache=enable_cache,
-    )
+    system_blocks = build_system_blocks(enable_cache=enable_cache)
     # Append few-shot exemplars into block1 when present.
     if few_shot_text:
         system_blocks[0] = {
             "type": "text",
             "text": build_system_prompt_with_few_shot(SYSTEM_PROMPT, few_shot_text),
         }
+        if enable_cache:
+            system_blocks[0]["cache_control"] = {"type": "ephemeral"}
 
     user_msg = build_user_message(
         student_text=student_text,
         lecture_context=lecture_context,
         student_file=student_file_for_model,
+        rubric_text=rubric_text,
+        rubric_criteria=rubric_criteria,
+        assignment_text=assignment_text,
+        expected_sections=expected_sections,
         max_student_chars=max_student_chars,
     )
 
