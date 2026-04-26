@@ -77,16 +77,20 @@ Then add Tesseract to your PATH.
 git clone https://github.com/BU-Spark/ml-bu-autograder.git
 cd ml-bu-autograder
 
-# 2. Create a virtual environment
+# 2. Switch to the GradeAI Pro branch  ← important, don't skip this!
+git checkout sai/final-phase
+
+# 3. Create a virtual environment
 python3 -m venv .venv
 
-# 3. Activate it
+# 4. Activate it
 #    macOS / Linux:
 source .venv/bin/activate
 #    Windows:
 .venv\Scripts\activate
 
-# 4. Install all dependencies
+# 5. Install all dependencies
+pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
