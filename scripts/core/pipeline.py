@@ -431,6 +431,7 @@ def run_describe(
     chroma_batch_size: int,
     vision_input_cost_per_1m: float,
     vision_output_cost_per_1m: float,
+    source_type_override: str | None = None,
 ) -> dict[str, Any]:
     manifest_path = extract_dir / "manifest.json"
     if not manifest_path.exists():
@@ -488,7 +489,7 @@ def run_describe(
         try:
             payload = json.loads(per_file_json_path.read_text(encoding="utf-8"))
             file_name = Path(rel_path).name
-            source_type = infer_source_type(rel_path)
+            source_type = source_type_override if source_type_override else infer_source_type(rel_path)
 
             chunks: list[dict[str, Any]] = []
             fstats: dict[str, Any] = {

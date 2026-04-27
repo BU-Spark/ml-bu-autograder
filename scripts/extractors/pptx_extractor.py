@@ -203,6 +203,11 @@ def _build_layout_summary(
         auto_name = str(record.get("auto_shape_type") or "")
         category = _auto_shape_category(auto_name)
 
+        # Tables have their own dedicated text blocks — skip them here to avoid
+        # duplicating potentially hundreds of characters inside the summary.
+        if shape_type == "TABLE":
+            continue
+
         # Slide title placeholder
         if shape_type == "PLACEHOLDER":
             if not slide_title:
@@ -232,11 +237,12 @@ def _build_layout_summary(
 
     total_labeled = (
         len(process_labels) + len(decision_labels) + len(terminal_labels)
-        + len(section_headers) + len(other_labels)
+        + len(section_headers) + len(other_labels) + len(step_numbers)
     )
     is_diagram = connector_count > 0 or (total_labeled >= 3 and (decision_labels or process_labels))
 
-    if total_labeled < 2 and connector_count == 0 and picture_count == 0:
+    # Generate a summary whenever the slide has any labeled content, connectors, or images.
+    if total_labeled == 0 and connector_count == 0 and picture_count == 0:
         return ""
 
     # Determine document type label.
