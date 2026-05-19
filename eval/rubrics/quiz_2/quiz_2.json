@@ -1,0 +1,34 @@
+{
+  "semester": "spring2025",
+  "course_id": "quiz_2",
+  "assignment_id": "quiz_2",
+  "grading_flags": [
+    "IGNORE_SPELLINGS",
+    "IGNORE_GRAMMAR"
+  ],
+  "overall_instructor_guidelines": "Scoring principles: prioritize clear conceptual understanding as the primary scoring factor; provide partial credit for partial understanding; do NOT use sentence count/length as a scoring factor. Citations: students must cite external sources (including GenAI) if they consulted them; citations do NOT affect point totals. If a student used external sources but failed to cite them, graders should mark the submission for academic-integrity review per institutional policy and should NOT change the score for this rubric. Ignore minor formatting/style issues that do not affect conceptual meaning (e.g., common abbreviations, non-native phrasing). Graders should apply the per-criterion anchors below for consistent partial-credit allocation. Exemplar answers (for grader calibration):\n- Exemplary (13\u201315 pts): Names 'Automated Eligibility Verification' and explains: 'confirms coverage before service, reducing denials and enabling successful reimbursements more quickly; reduces staff time on appeals, increasing net collected revenue' and adds a measurable outcome or short concrete example (e.g., 'reduces denials by ~10% in published studies').\n- Good (9\u201312 pts): Names an appropriate function and gives a mostly correct causal chain but omits a measurable detail or minor link (e.g., explains reduced denials but does not state how that converts to revenue). \n- Poor (0\u20133 pts): Fails to name a relevant RCM function or provides an incorrect/misleading mechanism with no plausible link to revenue.",
+  "sub_rubrics": [
+    {
+      "question_index": 0,
+      "max_points": 15.0,
+      "instructor_guideline": "Accept any reasonable revenue cycle management (RCM) system function. Do NOT use answer length (e.g., 'two to four sentences') to award or deduct points \u2014 that is an editorial guideline only. Students should answer in their own words and cite any external sources used (citations do not change scoring). Example functions (not exhaustive): Automated Eligibility Verification; Claims Scrubbing; Denial Management; Charge Capture Automation; Contract Management; Prior Authorization Tools; Patient Payment Estimation; Automated Coding Assistance; Automated Coding Audits; Self-Pay and Payment Plan Management; Real-Time Analytics and Reporting; Claim Status Tracking; Patient Portals; Predictive Analytics for Payer Behavior. Allocation rule for overlapping content: award the 9-point explanation score based solely on the clarity and correctness of the causal mechanism; award the 2-point specificity score only for additional, concrete/measurable detail beyond the core mechanism (numeric impacts, named metrics, or a distinct short real-world scenario). If an example is embedded within the causal explanation, allocate points to the explanation first; give the 2-point specificity only when the answer supplies extra measurable or clearly distinct example/metric.",
+      "grading_criteria": [
+        {
+          "criteria_id": "identify_function",
+          "criteria": "Identification of RCM function (4 points). Full credit (4/4) = student clearly names one specific, relevant RCM function (from examples or a correct alternative). 3 = function named but slightly imprecise/overbroad. 2 = attempted function but tangential or only loosely related to RCM. 1 = function named is mostly incorrect or irrelevant. 0 = no function identified. This criterion only checks that a correct, relevant function is named, not the explanation quality.",
+          "points": 4.0
+        },
+        {
+          "criteria_id": "explain_mechanism_and_linkage",
+          "criteria": "Explanation of mechanism and linkage to revenue (9 points). Full credit (9/9) = clear, accurate description of the causal pathway by which the named function increases provider revenue (for example: reduces denials, accelerates reimbursement, improves patient collections, captures missed charges, recovers underpayments, or prevents authorization delays) and an explicit, plausible linkage to revenue impact. Anchor bands: 9 = comprehensive, correct causal chain with explicit linkage to revenue; 6\u20138 = mostly correct mechanism with minor omissions or slightly weak linkage; 3\u20135 = partial or imprecise mechanism missing key causal links or containing small inaccuracies; 1\u20132 = minimal, unclear, or largely incorrect linkage; 0 = no relevant explanation. Prioritize high-level conceptual accuracy: if the core causal idea is correct, award strong credit even if some supporting detail is missing.",
+          "points": 9.0
+        },
+        {
+          "criteria_id": "specificity_or_example",
+          "criteria": "Specificity / concrete example or measurable impact (2 points). Full credit (2/2) = answer includes an additional concrete example, numeric or measurable impact (even approximate), or a distinct short real-world outcome (e.g., 'reduces denials by X%', 'cuts average days to payment from Y to Z', 'recovers $X per month') that goes beyond the core mechanism. Partial credit (1) = offers a vague or illustrative example that somewhat clarifies the explanation but lacks measurable specificity. No credit (0) = explanation remains wholly abstract with no clarifying measurable example. NOTE: Do not double-count the same sentence used to demonstrate the causal mechanism; award these 2 points only for extra measurable or distinct illustrative information beyond the core mechanism used to earn the 9-point score.",
+          "points": 2.0
+        }
+      ]
+    }
+  ]
+}

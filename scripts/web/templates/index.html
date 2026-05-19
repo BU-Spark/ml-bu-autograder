@@ -1,0 +1,3004 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GradeAI Pro — CS581 Health Informatics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+/* ── RESET & BASE ──────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f0f2f5; --surface:#fff; --surface2:#f8f9fb;
+  --primary:#6366f1; --primary-d:#4f46e5; --primary-l:#a5b4fc; --primary-bg:rgba(99,102,241,.08);
+  --teal:#14b8a6; --teal-d:#0d9488; --amber:#f59e0b; --red:#ef4444; --green:#22c55e;
+  --text:#1e293b; --text2:#475569; --text3:#94a3b8;
+  --border:#e2e8f0; --shadow:0 4px 24px rgba(15,23,42,.07);
+  --r:16px; --rs:10px; --rx:24px;
+  --font:'Inter',system-ui,-apple-system,sans-serif;
+}
+html{font-size:15px;scroll-behavior:smooth}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;
+  background-image:
+    radial-gradient(ellipse 900px 500px at 80% -10%,rgba(99,102,241,.08),transparent),
+    radial-gradient(ellipse 900px 500px at 0% 20%,rgba(20,184,166,.06),transparent);
+}
+a{color:var(--primary);text-decoration:none}
+button{font-family:var(--font);cursor:pointer}
+
+/* ── HEADER ────────────────────────────────────────────────── */
+.header{
+  background:linear-gradient(135deg,#1e1b4b,#312e81 40%,#3730a3);
+  box-shadow:0 2px 20px rgba(30,27,75,.25);position:sticky;top:0;z-index:100;
+  display:flex;flex-direction:column;
+}
+.header-top{padding:1.1rem 2rem;display:flex;align-items:center;gap:1rem}
+/* ── 3-column full-width tab bar ── */
+.header-tabs{
+  display:flex;
+  background:rgba(0,0,0,.28);
+  border-top:1px solid rgba(255,255,255,.07);
+}
+.tab-btn{
+  flex:1;
+  display:flex;align-items:center;justify-content:center;gap:.85rem;
+  padding:1rem 1rem .85rem;
+  border:none;border-bottom:3px solid transparent;border-radius:0;
+  font-family:var(--font);cursor:pointer;
+  color:rgba(255,255,255,.38);background:transparent;
+  transition:all .25s;
+}
+.tab-btn+.tab-btn{border-left:1px solid rgba(255,255,255,.07)}
+.tab-btn:hover:not(.active){color:rgba(255,255,255,.72);background:rgba(255,255,255,.06)}
+/* Grading — indigo identity */
+#tabBtnGrading.active{color:#fff;background:linear-gradient(180deg,rgba(99,102,241,.2) 0%,rgba(79,70,229,.07) 100%);border-bottom-color:#a5b4fc}
+#tabBtnGrading.active .tb-icon{background:rgba(99,102,241,.35);box-shadow:0 0 20px rgba(99,102,241,.45)}
+/* Rubric — teal identity */
+#tabBtnRubric.active{color:#fff;background:linear-gradient(180deg,rgba(20,184,166,.2) 0%,rgba(13,148,136,.07) 100%);border-bottom-color:#14b8a6}
+#tabBtnRubric.active .tb-icon{background:rgba(20,184,166,.32);box-shadow:0 0 20px rgba(20,184,166,.42)}
+/* Lectures — amber identity */
+#tabBtnLecture.active{color:#fff;background:linear-gradient(180deg,rgba(245,158,11,.2) 0%,rgba(217,119,6,.07) 100%);border-bottom-color:#fbbf24}
+#tabBtnLecture.active .tb-icon{background:rgba(245,158,11,.32);box-shadow:0 0 20px rgba(245,158,11,.38)}
+.tab-btn .tb-icon{
+  width:40px;height:40px;border-radius:11px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:1.3rem;
+  background:rgba(255,255,255,.07);transition:all .25s;
+}
+.tab-btn .tb-text{display:flex;flex-direction:column;align-items:flex-start;gap:.1rem}
+.tab-btn .tb-label{font-size:.97rem;font-weight:800;line-height:1.2;letter-spacing:-.02em}
+.tab-btn .tb-desc{font-size:.67rem;font-weight:500;opacity:.52;line-height:1}
+.tab-btn.active .tb-desc{opacity:.72}
+.header .logo{
+  width:42px;height:42px;border-radius:12px;
+  background:linear-gradient(135deg,var(--primary),var(--teal));
+  display:flex;align-items:center;justify-content:center;
+  font-weight:900;font-size:1.1rem;color:#fff;flex-shrink:0;
+}
+.header h1{font-size:1.25rem;font-weight:700;color:#fff;letter-spacing:-.02em}
+.header .sub{font-size:.8rem;color:rgba(255,255,255,.55);margin-left:auto}
+.header .badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.15);
+  border-radius:20px;padding:.25rem .7rem;font-size:.7rem;color:rgba(255,255,255,.7);
+  font-weight:500;margin-left:.5rem}
+
+/* ── MAIN LAYOUT ───────────────────────────────────────────── */
+.main{max-width:1200px;margin:0 auto;padding:2rem 1.5rem 4rem}
+
+/* ── CARDS ─────────────────────────────────────────────────── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+  padding:1.5rem;box-shadow:var(--shadow);transition:box-shadow .2s}
+.card:hover{box-shadow:0 8px 32px rgba(15,23,42,.1)}
+.card-title{font-size:1rem;font-weight:700;margin-bottom:1rem;display:flex;align-items:center;gap:.5rem}
+.card-title .icon{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;
+  justify-content:center;font-size:1.1rem;flex-shrink:0}
+
+/* ── UPLOAD SECTION ────────────────────────────────────────── */
+.upload-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:1.5rem}
+@media(max-width:800px){.upload-grid{grid-template-columns:1fr}}
+
+.drop-zone{
+  border:2px dashed var(--border);border-radius:var(--r);padding:2rem 1rem;text-align:center;
+  transition:all .25s;cursor:pointer;background:var(--surface2);position:relative;min-height:160px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.5rem;
+}
+.drop-zone:hover,.drop-zone.drag-over{border-color:var(--primary);background:var(--primary-bg)}
+.drop-zone .dz-icon{font-size:2rem;opacity:.5}
+.drop-zone .dz-label{font-weight:600;font-size:.85rem;color:var(--text2)}
+.drop-zone .dz-hint{font-size:.72rem;color:var(--text3)}
+.drop-zone .dz-file{font-size:.78rem;color:var(--primary);font-weight:600;
+  background:var(--primary-bg);padding:.3rem .7rem;border-radius:8px;margin-top:.3rem;
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.drop-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
+.drop-zone.has-file{border-color:var(--teal);border-style:solid;background:rgba(20,184,166,.06)}
+.drop-zone.has-file .dz-icon{color:var(--teal)}
+
+/* ── CONFIG ROW ────────────────────────────────────────────── */
+.config-row{display:flex;gap:1rem;align-items:end;flex-wrap:wrap;margin-bottom:2rem}
+.config-group{display:flex;flex-direction:column;gap:.35rem}
+.config-group label{font-size:.75rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.04em}
+.config-group select,.config-group input[type=text]{
+  font-family:var(--font);font-size:.85rem;padding:.55rem .8rem;border:1px solid var(--border);
+  border-radius:var(--rs);background:var(--surface);color:var(--text);outline:none;min-width:180px;
+  transition:border-color .2s}
+.config-group select:focus,.config-group input[type=text]:focus{border-color:var(--primary)}
+
+/* ── GRADE BUTTON ──────────────────────────────────────────── */
+.btn-grade{
+  background:linear-gradient(135deg,var(--primary),var(--primary-d));
+  color:#fff;border:none;padding:.7rem 2.2rem;border-radius:var(--rs);font-size:.9rem;
+  font-weight:700;letter-spacing:.01em;transition:all .2s;box-shadow:0 4px 14px rgba(99,102,241,.3);
+  display:flex;align-items:center;gap:.5rem;margin-left:auto}
+.btn-grade:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(99,102,241,.4)}
+.btn-grade:active{transform:translateY(0)}
+.btn-grade:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
+.btn-grade .spinner{width:18px;height:18px;border:2.5px solid rgba(255,255,255,.3);
+  border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none}
+.btn-grade.loading .spinner{display:block}
+.btn-grade.loading .btn-text{display:none}
+.btn-secondary{
+  background:var(--surface);color:var(--text);border:1px solid var(--border);padding:.7rem 1.2rem;
+  border-radius:var(--rs);font-size:.84rem;font-weight:700;transition:all .2s;
+  display:flex;align-items:center;gap:.5rem
+}
+.btn-secondary:hover{border-color:var(--primary);color:var(--primary)}
+.btn-row{display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;margin-left:auto}
+.mono-input{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace !important;
+  font-size:.75rem !important
+}
+
+/* ── PROGRESS ──────────────────────────────────────────────── */
+.progress-panel{display:none;margin-bottom:2rem}
+.progress-panel.active{display:block}
+.progress-steps{display:flex;flex-direction:column;gap:.6rem}
+.p-step{display:flex;align-items:center;gap:.7rem;padding:.6rem .9rem;border-radius:var(--rs);
+  background:var(--surface);border:1px solid var(--border);font-size:.82rem;transition:all .3s}
+.p-step .p-dot{width:24px;height:24px;border-radius:50%;flex-shrink:0;display:flex;
+  align-items:center;justify-content:center;font-size:.7rem;font-weight:700;
+  background:var(--surface2);border:2px solid var(--border);color:var(--text3);transition:all .3s}
+.p-step.running{border-color:var(--primary);background:var(--primary-bg)}
+.p-step.running .p-dot{border-color:var(--primary);background:var(--primary);color:#fff;
+  animation:pulse 1.2s ease infinite}
+.p-step.done{border-color:var(--teal);background:rgba(20,184,166,.05)}
+.p-step.done .p-dot{border-color:var(--teal);background:var(--teal);color:#fff}
+.p-step.error{border-color:var(--red);background:rgba(239,68,68,.05)}
+.p-step.error .p-dot{border-color:var(--red);background:var(--red);color:#fff}
+.p-step .p-label{font-weight:600;color:var(--text)}
+.p-step .p-status{margin-left:auto;font-size:.72rem;color:var(--text3);font-weight:500}
+
+/* ── RESULTS ───────────────────────────────────────────────── */
+.results{display:none;animation:fadeUp .5s ease}
+.results.active{display:block}
+
+.score-hero{display:flex;gap:2rem;align-items:center;margin-bottom:2rem;flex-wrap:wrap}
+.score-ring-wrap{flex-shrink:0}
+.score-ring-wrap svg{width:180px;height:180px}
+.score-ring-bg{fill:none;stroke:var(--border);stroke-width:10}
+.score-ring-fill{fill:none;stroke-width:10;stroke-linecap:round;
+  transition:stroke-dashoffset 1.5s cubic-bezier(.4,0,.2,1),stroke 1s ease}
+.score-center{font-size:2.8rem;font-weight:900;fill:var(--text)}
+.score-label{font-size:.85rem;fill:var(--text3);font-weight:500}
+.score-meta{flex:1;min-width:240px}
+.score-meta h2{font-size:1.4rem;font-weight:800;margin-bottom:.3rem;letter-spacing:-.02em}
+.score-meta .meta-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.6rem}
+.meta-chip{font-size:.72rem;font-weight:600;padding:.25rem .6rem;border-radius:20px;
+  background:var(--surface2);border:1px solid var(--border);color:var(--text2)}
+.feedback-text{font-size:.88rem;color:var(--text2);line-height:1.6;margin-top:.5rem}
+
+/* ── BREAKDOWN BARS ────────────────────────────────────────── */
+.breakdown-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:2rem}
+@media(max-width:700px){.breakdown-grid{grid-template-columns:1fr}}
+.bar-item{display:flex;flex-direction:column;gap:.3rem}
+.bar-head{display:flex;justify-content:space-between;font-size:.78rem;font-weight:600}
+.bar-name{color:var(--text2);max-width:70%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar-score{color:var(--primary);font-weight:700}
+.bar-track{height:10px;background:var(--surface2);border-radius:6px;overflow:hidden;border:1px solid var(--border)}
+.bar-fill{height:100%;border-radius:6px;transition:width 1.2s cubic-bezier(.4,0,.2,1);width:0}
+
+/* ── FEEDBACK CARDS ────────────────────────────────────────── */
+.feedback-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:2rem}
+@media(max-width:800px){.feedback-grid{grid-template-columns:1fr}}
+.fb-card{border-radius:var(--r);padding:1.2rem;border:1px solid var(--border)}
+.fb-card h4{font-size:.82rem;font-weight:700;margin-bottom:.7rem;display:flex;align-items:center;gap:.4rem}
+.fb-card ul{list-style:none;display:flex;flex-direction:column;gap:.4rem}
+.fb-card li{font-size:.8rem;color:var(--text2);line-height:1.5;padding-left:1rem;position:relative}
+.fb-card li::before{content:'';position:absolute;left:0;top:.45em;width:6px;height:6px;border-radius:50%}
+.fb-strengths{background:rgba(34,197,94,.04)} .fb-strengths h4{color:var(--green)}
+.fb-strengths li::before{background:var(--green)}
+.fb-gaps{background:rgba(239,68,68,.04)} .fb-gaps h4{color:var(--red)}
+.fb-gaps li::before{background:var(--red)}
+.fb-actions{background:rgba(99,102,241,.04)} .fb-actions h4{color:var(--primary)}
+.fb-actions li::before{background:var(--primary)}
+
+/* ── CRITERION DETAILS TABLE ───────────────────────────────── */
+.criterion-table{width:100%;border-collapse:separate;border-spacing:0;font-size:.8rem;margin-bottom:2rem}
+.criterion-table th{text-align:left;padding:.6rem .8rem;background:var(--surface2);
+  border-bottom:2px solid var(--border);color:var(--text3);font-weight:600;
+  text-transform:uppercase;letter-spacing:.03em;font-size:.7rem}
+.criterion-table td{padding:.6rem .8rem;border-bottom:1px solid var(--border);vertical-align:top}
+.criterion-table tr:last-child td{border-bottom:none}
+.criterion-table tr:hover td{background:rgba(99,102,241,.03)}
+.evidence-tag{display:inline-block;font-size:.7rem;background:rgba(20,184,166,.08);
+  color:var(--teal-d);padding:.15rem .4rem;border-radius:4px;margin:.1rem .15rem;max-width:200px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.missing-tag{display:inline-block;font-size:.7rem;background:rgba(239,68,68,.08);
+  color:var(--red);padding:.15rem .4rem;border-radius:4px;margin:.1rem .15rem}
+
+/* ── SECTION COVERAGE ──────────────────────────────────────── */
+.section-coverage{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:2rem}
+.sec-chip{padding:.4rem .8rem;border-radius:var(--rs);font-size:.78rem;font-weight:600;
+  border:1px solid var(--border)}
+.sec-chip.addressed{background:rgba(34,197,94,.08);color:var(--green);border-color:rgba(34,197,94,.2)}
+.sec-chip.partial{background:rgba(245,158,11,.08);color:var(--amber);border-color:rgba(245,158,11,.2)}
+.sec-chip.missing{background:rgba(239,68,68,.08);color:var(--red);border-color:rgba(239,68,68,.2)}
+
+/* ── RAW JSON TOGGLE ───────────────────────────────────────── */
+.json-toggle{font-size:.8rem;color:var(--primary);cursor:pointer;font-weight:600;
+  display:flex;align-items:center;gap:.3rem;margin-bottom:.5rem}
+.json-panel{display:none;background:var(--surface2);border:1px solid var(--border);
+  border-radius:var(--rs);padding:1rem;font-family:'Courier New',monospace;font-size:.72rem;
+  max-height:400px;overflow:auto;white-space:pre-wrap;word-break:break-all;color:var(--text2)}
+.json-panel.open{display:block}
+
+/* ── HISTORY ───────────────────────────────────────────────── */
+.history-list{margin-top:2rem}
+.history-item{display:flex;align-items:center;gap:1rem;padding:.7rem 1rem;
+  border-radius:var(--rs);border:1px solid var(--border);background:var(--surface);
+  margin-bottom:.5rem;font-size:.82rem}
+.history-score{font-weight:800;font-size:1.1rem;color:var(--primary);min-width:50px}
+.history-file{font-weight:600;flex:1}
+.history-model{color:var(--text3);font-size:.72rem}
+
+/* ── ANIMATIONS ────────────────────────────────────────────── */
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@keyframes slideIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:none}}
+.anim-in{animation:fadeUp .4s ease both}
+.anim-d1{animation-delay:.1s} .anim-d2{animation-delay:.2s} .anim-d3{animation-delay:.3s}
+</style>
+</head>
+<body>
+
+<!-- ═══ HEADER ═══ -->
+<div class="header">
+  <div class="header-top">
+    <div class="logo">AG</div>
+    <div><h1>GradeAI Pro</h1></div>
+    <span class="sub">CS581 Health Informatics &middot; ETI / Spark Collaboration</span>
+    <span class="badge">Spring 2026</span>
+  </div>
+  <!-- ── 3-Tab Navigation ── -->
+  <div class="header-tabs">
+    <button class="tab-btn active" id="tabBtnGrading" onclick="switchTab('grading')">
+      <span class="tb-icon">&#x26A1;</span>
+      <span class="tb-text">
+        <span class="tb-label">Grading</span>
+        <span class="tb-desc">Grade &amp; review submissions</span>
+      </span>
+    </button>
+    <button class="tab-btn" id="tabBtnRubric" onclick="switchTab('rubric')">
+      <span class="tb-icon">&#x1F4CB;</span>
+      <span class="tb-text">
+        <span class="tb-label">Rubric &amp; Setup</span>
+        <span class="tb-desc">Library, tools &amp; batch quiz</span>
+      </span>
+    </button>
+    <button class="tab-btn" id="tabBtnLecture" onclick="switchTab('lecture')">
+      <span class="tb-icon">&#x1F4DA;</span>
+      <span class="tb-text">
+        <span class="tb-label">Lectures</span>
+        <span class="tb-desc">Upload, describe &amp; push to RAG</span>
+      </span>
+    </button>
+  </div>
+</div>
+
+<!-- ═══ MAIN ═══ -->
+<div class="main">
+
+  <!-- ══════════════════════════════════════════════════════
+       GRADE SUBMISSIONS — TOP (always first)
+  ══════════════════════════════════════════════════════ -->
+  <div class="card anim-in" style="margin-bottom:1.5rem" id="gradeCard">
+    <div class="card-title">
+      <div class="icon" style="background:var(--primary-bg);color:var(--primary)">&#x26A1;</div>
+      Grade Submissions
+    </div>
+    <form id="gradeForm" enctype="multipart/form-data">
+      <input type="hidden" name="generated_rubric_json" id="generatedRubricJson" value="">
+
+      <!-- Step 1: Assignment & Rubric (mutually exclusive: dropdown OR upload) -->
+      <div style="margin-bottom:1.25rem">
+        <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:.6rem">
+          Step 1 — Select Assignment &amp; Rubric
+          <span id="step1SetupLink" style="display:none;margin-left:.75rem;font-size:.72rem;font-weight:600;
+            text-transform:none;letter-spacing:0;color:var(--primary);cursor:pointer"
+            onclick="switchTab('rubric')">
+            &#x2192; Go to Rubric &amp; Setup tab
+          </span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+
+          <!-- ── Assignment Description ── -->
+          <div>
+            <label style="font-size:.8rem;font-weight:600;color:var(--text2);display:flex;align-items:center;gap:.4rem;margin-bottom:.35rem">
+              &#x1F4DD; Assignment Description <span style="color:var(--red)">*</span>
+              <span id="assignCheck" style="display:none;color:var(--teal);font-size:.85rem">&#x2714;</span>
+            </label>
+            <!-- Library dropdown -->
+            <select name="selected_assignment" id="selAssign"
+              onchange="onAssignDropdownChange()"
+              style="width:100%;padding:.45rem .65rem;border:1px solid var(--border);border-radius:8px;font-size:.85rem;background:var(--surface);color:var(--text1);font-family:inherit">
+              <option value="">— Select from library —</option>
+              {% if assignments %}
+              <optgroup label="Assignments">
+                {% for a in assignments %}
+                <option value="{{ a.path }}">{{ a.display_name }}</option>
+                {% endfor %}
+              </optgroup>
+              {% endif %}
+              {% if quizzes %}
+              <optgroup label="Quizzes">
+                {% for q in quizzes %}
+                <option value="{{ q.path }}">{{ q.display_name }}</option>
+                {% endfor %}
+              </optgroup>
+              {% endif %}
+            </select>
+            <!-- Upload alternative (hidden file, shown name + clear) -->
+            <div style="margin-top:.4rem;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap">
+              <label for="assignUploadInline" style="color:var(--primary);cursor:pointer;font-size:.75rem;font-weight:500;white-space:nowrap">
+                or upload custom
+              </label>
+              <input type="file" id="assignUploadInline" name="assignment" accept=".txt,.pdf,.docx,.md"
+                style="display:none" onchange="onAssignUploadChange()">
+              <span id="assignUploadLbl" style="font-size:.75rem;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+              <button type="button" id="assignClearBtn" onclick="clearAssignUpload()"
+                style="display:none;font-size:.7rem;padding:.1rem .4rem;border:1px solid var(--red);border-radius:4px;
+                       background:transparent;color:var(--red);cursor:pointer">&#x2715;</button>
+            </div>
+          </div>
+
+          <!-- ── Rubric ── -->
+          <div>
+            <label style="font-size:.8rem;font-weight:600;color:var(--text2);display:flex;align-items:center;gap:.4rem;margin-bottom:.35rem">
+              &#x1F4CB; Rubric <span style="color:var(--red)">*</span>
+              <span id="rubricCheck" style="display:none;color:var(--teal);font-size:.85rem">&#x2714;</span>
+              <span style="font-weight:400;color:var(--text3);font-size:.75rem"> — or generate below</span>
+            </label>
+            <!-- Library dropdown -->
+            <select name="selected_rubric" id="selRubric"
+              onchange="onRubricDropdownChange()"
+              style="width:100%;padding:.45rem .65rem;border:1px solid var(--border);border-radius:8px;font-size:.85rem;background:var(--surface);color:var(--text1);font-family:inherit">
+              <option value="">— Select from library —</option>
+              {% for r in rubrics %}
+              <option value="{{ r.path }}">{{ r.display_name }}</option>
+              {% endfor %}
+            </select>
+            <!-- Upload alternative -->
+            <div style="margin-top:.4rem;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap">
+              <label for="rubricUploadInline" style="color:var(--primary);cursor:pointer;font-size:.75rem;font-weight:500;white-space:nowrap">
+                or upload custom
+              </label>
+              <input type="file" id="rubricUploadInline" name="rubric" accept=".docx,.pdf,.txt,.md"
+                style="display:none" onchange="onRubricUploadChange()">
+              <span id="rubricUploadLbl" style="font-size:.75rem;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+              <button type="button" id="rubricClearBtn" onclick="clearRubricUpload()"
+                style="display:none;font-size:.7rem;padding:.1rem .4rem;border:1px solid var(--red);border-radius:4px;
+                       background:transparent;color:var(--red);cursor:pointer">&#x2715;</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Student Submission -->
+      <div style="margin-bottom:1.25rem">
+        <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:.6rem">
+          Step 2 — Upload Student Submission <span style="color:var(--red)">*</span>
+        </div>
+        <div class="drop-zone" id="dz-student">
+          <div class="dz-icon">&#x1F4C4;</div>
+          <div class="dz-label">Drop student file here or click to browse</div>
+          <div class="dz-hint">PDF, PPTX or XLSX &middot; Required</div>
+          <div class="dz-file" id="dz-student-name" style="display:none"></div>
+          <input type="file" name="student_pdf" accept=".pdf,.pptx,.xlsx" onchange="fileSelected(this,'dz-student','dz-student-name')">
+        </div>
+      </div>
+
+      <!-- Step 3: Model Settings (collapsed by default) -->
+      <div style="margin-bottom:1.25rem">
+        <button type="button" onclick="toggleModelSettings()"
+          style="display:flex;align-items:center;gap:.4rem;background:none;border:none;padding:0;
+                 cursor:pointer;font-family:inherit;font-size:.72rem;font-weight:700;
+                 text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">
+          <span id="modelSettingsChevron" style="font-size:.8rem;transition:transform .2s">▶</span>
+          Advanced Settings
+        </button>
+        <div id="modelSettingsPanel" style="display:none;margin-top:.6rem">
+          <div class="config-row">
+            <div class="config-group">
+              <label>Describe Provider</label>
+              <select name="describe_provider" id="describeProviderSelect" onchange="updateModel('describeProviderSelect','describeModelInput')">
+                {% for key, p in providers.items() %}
+                <option value="{{ key }}" {% if key == 'openai' %}selected{% endif %}>{{ p.label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="config-group">
+              <label>Describe Model</label>
+              <input type="text" name="describe_model" id="describeModelInput" value="{{ providers['openai']['model'] }}">
+            </div>
+            <div class="config-group">
+              <label>Grade Provider</label>
+              <select name="grade_provider" id="gradeProviderSelect" onchange="updateModel('gradeProviderSelect','gradeModelInput')">
+                {% for key, p in providers.items() %}
+                <option value="{{ key }}" {% if key == 'anthropic' %}selected{% endif %}>{{ p.label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="config-group">
+              <label>Grade Model</label>
+              <input type="text" name="grade_model" id="gradeModelInput" value="{{ providers['anthropic']['model'] }}">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="btn-row">
+        <button type="button" class="btn-secondary" id="describeBtn">
+          <span class="btn-text">&#x1F5BC; Describe Only</span>
+        </button>
+        <button type="submit" class="btn-grade" id="gradeBtn">
+          <span class="btn-text">&#x26A1; Grade Now</span>
+          <div class="spinner"></div>
+        </button>
+      </div>
+    </form>
+
+    <!-- ── Batch Grading ─────────────────────────────────────────────────── -->
+    <div style="margin-top:1.5rem;padding-top:1.25rem;border-top:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:1rem">
+        <span style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">Batch Grade — Folder of Submissions</span>
+        <span style="font-size:.7rem;color:var(--text3);background:var(--surface2);padding:.15rem .5rem;border-radius:20px">PDF / PPTX / XLSX</span>
+      </div>
+
+      <!-- File drop zone for multiple files -->
+      <div class="drop-zone" id="dz-batch" style="margin-bottom:1rem"
+           onclick="document.getElementById('batchFilesInput').click()">
+        <div class="dz-icon">&#x1F4C2;</div>
+        <div class="dz-label">Select a folder or multiple files</div>
+        <div class="dz-hint">Hold Shift / Cmd to pick multiple files &middot; or use the folder button below</div>
+        <div class="dz-file" id="dz-batch-name" style="display:none"></div>
+      </div>
+      <div style="display:flex;gap:.6rem;margin-bottom:1rem;flex-wrap:wrap">
+        <label style="display:inline-flex;align-items:center;gap:.4rem;font-size:.8rem;font-weight:600;
+                       padding:.4rem .9rem;border-radius:8px;border:1px solid var(--border);
+                       background:var(--surface2);cursor:pointer;color:var(--text2)">
+          &#x1F4C2; Choose Folder
+          <input type="file" id="batchFolderInput" webkitdirectory multiple accept=".pdf,.pptx,.xlsx"
+                 style="display:none" onchange="batchFilesChosen(this)">
+        </label>
+        <label style="display:inline-flex;align-items:center;gap:.4rem;font-size:.8rem;font-weight:600;
+                       padding:.4rem .9rem;border-radius:8px;border:1px solid var(--border);
+                       background:var(--surface2);cursor:pointer;color:var(--text2)">
+          &#x1F4C4; Choose Files
+          <input type="file" id="batchFilesInput" multiple accept=".pdf,.pptx,.xlsx"
+                 style="display:none" onchange="batchFilesChosen(this)">
+        </label>
+        <button type="button" id="batchGradeBtn" onclick="gradeBatch()"
+                style="font-family:var(--font);font-size:.85rem;font-weight:700;padding:.45rem 1.4rem;
+                       border-radius:8px;border:none;background:var(--primary);color:#fff;cursor:pointer;
+                       display:flex;align-items:center;gap:.5rem;opacity:.5" disabled>
+          <div class="spinner" id="batchSpinner" style="display:none;width:14px;height:14px;border-width:2px"></div>
+          <span id="batchBtnText">&#x26A1; Batch Grade</span>
+        </button>
+      </div>
+
+      <!-- Per-student results list -->
+      <div id="batchResults" style="display:none">
+        <div id="batchSummaryBar" style="font-size:.82rem;font-weight:600;color:var(--text2);
+             margin-bottom:.8rem;padding:.5rem .8rem;background:var(--surface2);border-radius:8px"></div>
+        <div id="batchStudentList" style="display:flex;flex-direction:column;gap:.6rem"></div>
+      </div>
+    </div>
+
+    <!-- Lecture index status bar -->
+    <div style="display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;padding:.8rem 0 0;border-top:1px solid var(--border);margin-top:.5rem">
+      {% if shared_chroma_ready %}
+      <span style="font-size:.78rem;color:var(--teal);font-weight:600">&#x2714; Lecture index ready — RAG context will be used</span>
+      {% elif lecture_chunks_exist %}
+      <span style="font-size:.78rem;color:var(--amber);font-weight:600">&#x26A0; Lecture chunks found but not indexed yet</span>
+      <button type="button" id="indexLecturesBtn" onclick="indexLectures()"
+        style="font-family:var(--font);font-size:.78rem;font-weight:600;padding:.35rem .9rem;border-radius:8px;
+               border:1px solid var(--teal);background:rgba(20,184,166,.08);color:var(--teal-d);cursor:pointer">
+        Build Lecture Index
+      </button>
+      {% else %}
+      <span style="font-size:.78rem;color:var(--text3)">&#x2139; No lecture chunks found — grading without RAG context</span>
+      {% endif %}
+      <span id="indexStatus" style="font-size:.75rem;color:var(--text2)"></span>
+    </div>
+  </div>
+
+  <!-- Error banner -->
+  <div id="errorBanner" style="display:none;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);
+    border-radius:var(--r);padding:1rem 1.2rem;margin-bottom:1.5rem;color:var(--red);font-size:.85rem">
+    <strong>Error:</strong> <span id="errorMsg"></span>
+    <div id="errorLog" style="margin-top:.5rem;font-family:monospace;font-size:.72rem;color:var(--text2);
+      white-space:pre-wrap;max-height:200px;overflow:auto;display:none"></div>
+    <button onclick="document.getElementById('errorBanner').style.display='none'"
+      style="font-family:var(--font);font-size:.72rem;margin-top:.5rem;padding:.2rem .5rem;border:1px solid var(--red);
+             border-radius:6px;background:transparent;color:var(--red);cursor:pointer">Dismiss</button>
+  </div>
+
+  <!-- ── Progress Panel ── -->
+  <div class="card progress-panel" id="progressPanel">
+    <div class="card-title">
+      <div class="icon" style="background:rgba(99,102,241,.1);color:var(--primary)">&#x2699;</div>
+      Pipeline Progress
+    </div>
+    <div class="progress-steps" id="progressSteps">
+      <div class="p-step" data-step="extract"><div class="p-dot">1</div><span class="p-label">Extract PDF Content</span><span class="p-status"></span></div>
+      <div class="p-step" data-step="describe"><div class="p-dot">2</div><span class="p-label">Analyze Images &amp; Text</span><span class="p-status"></span></div>
+      <div class="p-step" data-step="index"><div class="p-dot">3</div><span class="p-label">Index Lecture Context</span><span class="p-status"></span></div>
+      <div class="p-step" data-step="retrieve"><div class="p-dot">4</div><span class="p-label">Retrieve RAG Context</span><span class="p-status"></span></div>
+      <div class="p-step" data-step="grade"><div class="p-dot">5</div><span class="p-label">Grade Submission</span><span class="p-status"></span></div>
+    </div>
+  </div>
+
+  <!-- ── Describe Results ── -->
+  <div class="card" id="describePanel" style="display:none;margin-bottom:1.5rem">
+    <div class="card-title">
+      <div class="icon" style="background:rgba(20,184,166,.1);color:var(--teal)">&#x1F50E;</div>
+      Describe Output
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;align-items:start">
+      <div>
+        <div style="font-size:.78rem;color:var(--text3);margin-bottom:.35rem">Run ID</div>
+        <div id="describeRunId" style="font-weight:700;margin-bottom:.8rem">—</div>
+        <div style="font-size:.78rem;color:var(--text3);margin-bottom:.35rem">Chunks JSONL</div>
+        <div id="describeChunksPath" class="mono-input" style="word-break:break-all;margin-bottom:.8rem">—</div>
+        <div style="font-size:.78rem;color:var(--text3);margin-bottom:.35rem">Summary JSON</div>
+        <div id="describeSummaryPath" class="mono-input" style="word-break:break-all">—</div>
+      </div>
+      <div>
+        <div id="describeStats" style="font-size:.84rem;color:var(--text2);line-height:1.7"></div>
+      </div>
+    </div>
+    <div class="json-toggle" onclick="document.getElementById('describeJsonPanel').classList.toggle('open')" style="margin-top:1rem">
+      &#x25B6; Describe Summary JSON
+    </div>
+    <div class="json-panel" id="describeJsonPanel"></div>
+  </div>
+
+  <!-- ── Results ── -->
+  <div class="results" id="resultsPanel">
+
+    <!-- Rubric warning (shown when generic defaults were used) -->
+    <div id="rubricWarning" style="display:none;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);
+      border-radius:var(--r);padding:.8rem 1.2rem;margin-bottom:1rem;color:#92400e;font-size:.82rem">
+      &#x26A0; <strong>Generic rubric used</strong> — no rubric file was uploaded or parsed. Scores are approximate.
+      Upload the professor's rubric DOCX for accurate assignment-specific grading.
+    </div>
+
+    <!-- Score Hero -->
+    <div class="card anim-in" style="margin-bottom:1.5rem">
+      <div class="score-hero">
+        <div class="score-ring-wrap">
+          <svg viewBox="0 0 200 200">
+            <circle class="score-ring-bg" cx="100" cy="100" r="85"/>
+            <circle class="score-ring-fill" id="scoreRing" cx="100" cy="100" r="85"
+              stroke-dasharray="534.07" stroke-dashoffset="534.07" transform="rotate(-90 100 100)"/>
+            <text class="score-center" id="scoreText" x="100" y="96" text-anchor="middle">0</text>
+            <text class="score-label" id="scoreLabel" x="100" y="120" text-anchor="middle">/ 100</text>
+          </svg>
+        </div>
+        <div class="score-meta">
+          <h2 id="studentFileName">—</h2>
+          <div class="meta-row">
+            <span class="meta-chip" id="metaModel">—</span>
+            <span class="meta-chip" id="metaTokens">—</span>
+            <span class="meta-chip" id="metaConfidence">—</span>
+          </div>
+          <div class="feedback-text" id="overallFeedback"></div>
+        </div>
+      </div>
+      <!-- Grading context + PDF download -->
+      <div id="gradingContextBar" style="display:none;margin-top:.75rem;padding:.55rem .85rem;
+        background:var(--surface2);border-radius:8px;border:1px solid var(--border);
+        font-size:.75rem;color:var(--text2);gap:1rem;flex-wrap:wrap;align-items:center">
+        <span>&#x1F4DD; <strong>Assignment:</strong> <span id="ctxAssign">—</span></span>
+        <span>&#x1F4CB; <strong>Rubric:</strong> <span id="ctxRubric">—</span></span>
+        <span>&#x1F916; <strong>Describe:</strong> <span id="ctxDescribe">—</span></span>
+        <span>&#x2696; <strong>Grade:</strong> <span id="ctxGrade">—</span></span>
+        <a id="pdfDownloadBtn" href="#" download style="display:none;margin-left:auto;
+          padding:.28rem .75rem;background:linear-gradient(135deg,#ef4444,#dc2626);
+          color:#fff;border-radius:6px;font-size:.74rem;font-weight:700;
+          text-decoration:none;flex-shrink:0;white-space:nowrap">
+          &#x1F4F0; Download PDF Report
+        </a>
+      </div>
+    </div>
+
+    <!-- Section Coverage -->
+    <div id="sectionCoverageWrap" style="display:none">
+      <div class="card anim-in anim-d1" style="margin-bottom:1.5rem">
+        <div class="card-title">
+          <div class="icon" style="background:rgba(20,184,166,.1);color:var(--teal)">&#x2713;</div>
+          Section Coverage
+        </div>
+        <div class="section-coverage" id="sectionCoverage"></div>
+      </div>
+    </div>
+
+    <!-- Score Breakdown -->
+    <div class="card anim-in anim-d1" style="margin-bottom:1.5rem">
+      <div class="card-title">
+        <div class="icon" style="background:rgba(245,158,11,.1);color:var(--amber)">&#x2261;</div>
+        Score Breakdown
+      </div>
+      <div class="breakdown-grid" id="breakdownGrid"></div>
+    </div>
+
+    <!-- Feedback Cards -->
+    <div class="feedback-grid anim-in anim-d2">
+      <div class="fb-card fb-strengths card">
+        <h4>&#x2714; Strengths</h4>
+        <ul id="strengthsList"></ul>
+      </div>
+      <div class="fb-card fb-gaps card">
+        <h4>&#x2718; Gaps</h4>
+        <ul id="gapsList"></ul>
+      </div>
+      <div class="fb-card fb-actions card">
+        <h4>&#x2192; Action Items</h4>
+        <ul id="actionsList"></ul>
+      </div>
+    </div>
+
+    <!-- Criterion Details Table -->
+    <div id="criterionWrap" style="display:none" class="anim-in anim-d3">
+      <div class="card" style="margin-bottom:1.5rem;overflow-x:auto">
+        <div class="card-title">
+          <div class="icon" style="background:var(--primary-bg);color:var(--primary)">&#x1F50D;</div>
+          Criterion Evidence Details
+        </div>
+        <table class="criterion-table" id="criterionTable">
+          <thead><tr><th>Criterion</th><th>Score</th><th>Justification</th><th>Evidence</th><th>Missing</th></tr></thead>
+          <tbody id="criterionBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Policy Caps -->
+    <div id="policyCapsWrap" style="display:none" class="anim-in">
+      <div class="card" style="margin-bottom:1.5rem">
+        <div class="card-title">
+          <div class="icon" style="background:rgba(245,158,11,.1);color:var(--amber)">&#x26A0;</div>
+          Policy Adjustments Applied
+        </div>
+        <ul id="policyCaps" style="font-size:.82rem;color:var(--text2);padding-left:1.2rem"></ul>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       ASSIGNMENT & RUBRIC SETUP (always open, combined)
+  ══════════════════════════════════════════════════════ -->
+  <!-- ═══════════════════════════════════════════════════════
+       ASSIGNMENT & RUBRIC SETUP CARD
+       ═══════════════════════════════════════════════════════ -->
+  <div class="card anim-in" id="setupCard" style="margin-bottom:1.5rem;overflow:hidden;padding:0">
+
+    <!-- ── Gradient header ── -->
+    <div style="background:linear-gradient(135deg,#1e1b4b 0%,#312e81 50%,#3730a3 100%);padding:1.25rem 1.5rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem">
+        <div style="display:flex;align-items:center;gap:.85rem">
+          <div style="width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.15);
+                      backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0">
+            &#x1F4DA;
+          </div>
+          <div>
+            <div style="font-size:1.05rem;font-weight:800;color:#fff;letter-spacing:-.02em">Assignment &amp; Rubric Setup</div>
+            <div style="font-size:.75rem;color:rgba(255,255,255,.55);margin-top:.1rem">Save once — reuse across all students</div>
+          </div>
+        </div>
+        <!-- 3-step workflow pill -->
+        <div style="display:flex;align-items:center;gap:.35rem;background:rgba(255,255,255,.1);
+                    border:1px solid rgba(255,255,255,.18);border-radius:20px;padding:.35rem .9rem">
+          <span style="font-size:.72rem;color:#a5b4fc;font-weight:700">① Upload Assignment</span>
+          <span style="color:rgba(255,255,255,.3);font-size:.7rem">→</span>
+          <span style="font-size:.72rem;color:#a5b4fc;font-weight:700">② Add Rubric</span>
+          <span style="color:rgba(255,255,255,.3);font-size:.7rem">→</span>
+          <span style="font-size:.72rem;color:#a5b4fc;font-weight:700">③ Grade</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="padding:1.5rem">
+
+      <!-- Removed the format warning banner — hint is now inline in the upload zone -->
+
+      <!-- ── Two-column grid ── -->
+      <div style="display:grid;grid-template-columns:1fr 1px 1fr;gap:0;align-items:start">
+
+        <!-- ════ LEFT COLUMN : Assignment Description ════ -->
+        <div style="padding-right:2rem">
+
+          <!-- Step header -->
+          <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:1rem">
+            <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#f59e0b,#d97706);
+                        color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8rem;
+                        font-weight:900;flex-shrink:0;box-shadow:0 2px 8px rgba(217,119,6,.35)">1</div>
+            <div>
+              <div style="font-size:.9rem;font-weight:700;color:var(--text)">Upload Assignment Description</div>
+              <div style="font-size:.72rem;color:var(--text3)">PDF, DOCX, TXT, MD</div>
+            </div>
+          </div>
+
+          <!-- Upload area -->
+          <div style="border:2px dashed rgba(245,158,11,.35);border-radius:10px;padding:1rem;
+                      background:rgba(245,158,11,.03);margin-bottom:.75rem;text-align:center;position:relative">
+            <input type="file" id="libAssignFile" accept=".pdf,.docx,.txt,.md"
+                   style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%"
+                   onchange="onLibAssignFileChosen()">
+            <div style="font-size:1.6rem;margin-bottom:.3rem;opacity:.5">&#x1F4C4;</div>
+            <div id="libAssignFileLabel"
+                 style="font-size:.8rem;font-weight:600;color:#d97706;
+                        min-height:1.2em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+              Click or drag file here
+            </div>
+            <!-- Naming convention hint — styled as a guide, not an error -->
+            <div style="display:inline-flex;align-items:center;gap:.3rem;margin-top:.45rem;
+                        background:linear-gradient(135deg,rgba(245,158,11,.12),rgba(251,191,36,.08));
+                        border:1px solid rgba(245,158,11,.25);border-radius:20px;
+                        padding:.2rem .65rem;font-size:.68rem;color:#b45309;font-weight:600">
+              <span>&#x1F4CC;</span>
+              <span>Name as: <code style="font-family:monospace;background:transparent">assignment_1.pdf</code> &nbsp;·&nbsp; <code style="font-family:monospace;background:transparent">assignment_2.docx</code></span>
+            </div>
+          </div>
+          <div id="libAssignFormatHint"
+               style="display:none;font-size:.73rem;color:var(--red);font-weight:600;
+                      background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);
+                      border-radius:6px;padding:.4rem .7rem;margin-bottom:.5rem"></div>
+
+          <button onclick="saveAssignToLibrary()" id="libAssignSaveBtn"
+            style="width:100%;padding:.5rem;background:linear-gradient(135deg,#f59e0b,#d97706);
+                   color:#fff;border:none;border-radius:8px;font-size:.82rem;font-weight:700;
+                   cursor:pointer;box-shadow:0 2px 8px rgba(217,119,6,.3);letter-spacing:.01em">
+            &#x2B06; Save to Library
+          </button>
+          <div id="libAssignStatus" style="font-size:.75rem;min-height:1.2em;margin-top:.4rem;text-align:center"></div>
+
+          <!-- Saved assignments -->
+          <div style="margin-top:1rem">
+            <div style="font-size:.7rem;font-weight:700;color:var(--text3);text-transform:uppercase;
+                        letter-spacing:.07em;margin-bottom:.5rem;display:flex;align-items:center;gap:.4rem">
+              <div style="flex:1;height:1px;background:var(--border)"></div>
+              <span>Saved Descriptions</span>
+              <div style="flex:1;height:1px;background:var(--border)"></div>
+            </div>
+            <div id="libAssignList" style="display:flex;flex-direction:column;gap:.35rem;max-height:180px;overflow-y:auto"></div>
+          </div>
+
+          <!-- ── Quiz Upload ── -->
+          <div style="margin-top:1.25rem;border-top:1px solid var(--border);padding-top:1.1rem">
+            <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.75rem">
+              <div style="width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#06b6d4,#0891b2);
+                          color:#fff;display:flex;align-items:center;justify-content:center;font-size:.7rem;
+                          font-weight:900;flex-shrink:0;box-shadow:0 2px 6px rgba(8,145,178,.3)">Q</div>
+              <div>
+                <div style="font-size:.85rem;font-weight:700;color:var(--text)">Upload Quiz Description</div>
+                <div style="font-size:.7rem;color:var(--text3)">PDF, DOCX, TXT, MD</div>
+              </div>
+            </div>
+
+            <div style="border:2px dashed rgba(6,182,212,.35);border-radius:10px;padding:.85rem;
+                        background:rgba(6,182,212,.03);margin-bottom:.6rem;text-align:center;position:relative">
+              <input type="file" id="libQuizFile" accept=".pdf,.docx,.txt,.md"
+                     style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%"
+                     onchange="onLibQuizFileChosen()">
+              <div style="font-size:1.3rem;margin-bottom:.2rem;opacity:.5">&#x1F4DD;</div>
+              <div id="libQuizFileLabel"
+                   style="font-size:.78rem;font-weight:600;color:#0891b2;
+                          min-height:1.2em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                Click or drag file here
+              </div>
+              <div style="display:inline-flex;align-items:center;gap:.3rem;margin-top:.4rem;
+                          background:linear-gradient(135deg,rgba(6,182,212,.12),rgba(8,145,178,.08));
+                          border:1px solid rgba(6,182,212,.25);border-radius:20px;
+                          padding:.2rem .65rem;font-size:.68rem;color:#0e7490;font-weight:600">
+                <span>&#x1F4CC;</span>
+                <span>Name as: <code style="font-family:monospace;background:transparent">quiz_1.pdf</code> &nbsp;·&nbsp; <code style="font-family:monospace;background:transparent">quiz_2.docx</code></span>
+              </div>
+            </div>
+            <div id="libQuizFormatHint"
+                 style="display:none;font-size:.73rem;color:var(--red);font-weight:600;
+                        background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);
+                        border-radius:6px;padding:.4rem .7rem;margin-bottom:.5rem"></div>
+
+            <button onclick="saveQuizToLibrary()" id="libQuizSaveBtn"
+              style="width:100%;padding:.45rem;background:linear-gradient(135deg,#06b6d4,#0891b2);
+                     color:#fff;border:none;border-radius:8px;font-size:.8rem;font-weight:700;
+                     cursor:pointer;box-shadow:0 2px 8px rgba(8,145,178,.3);letter-spacing:.01em">
+              &#x2B06; Save Quiz to Library
+            </button>
+            <div id="libQuizStatus" style="font-size:.75rem;min-height:1.2em;margin-top:.4rem;text-align:center"></div>
+
+            <!-- Saved quizzes -->
+            <div style="margin-top:.85rem">
+              <div style="font-size:.7rem;font-weight:700;color:var(--text3);text-transform:uppercase;
+                          letter-spacing:.07em;margin-bottom:.5rem;display:flex;align-items:center;gap:.4rem">
+                <div style="flex:1;height:1px;background:var(--border)"></div>
+                <span>Saved Quizzes</span>
+                <div style="flex:1;height:1px;background:var(--border)"></div>
+              </div>
+              <div id="libQuizList" style="display:flex;flex-direction:column;gap:.35rem;max-height:160px;overflow-y:auto"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Divider -->
+        <div style="background:var(--border);align-self:stretch;margin:0 0"></div>
+
+        <!-- ════ RIGHT COLUMN : Rubric ════ -->
+        <div style="padding-left:2rem">
+
+          <!-- Step header -->
+          <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:1rem">
+            <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#818cf8,#6366f1);
+                        color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8rem;
+                        font-weight:900;flex-shrink:0;box-shadow:0 2px 8px rgba(99,102,241,.35)">2</div>
+            <div>
+              <div style="font-size:.9rem;font-weight:700;color:var(--text)">Add Rubric</div>
+              <div style="font-size:.72rem;color:var(--text3)">Generate with AI or upload existing</div>
+            </div>
+          </div>
+
+          <!-- Option A: Generate -->
+          <div style="background:linear-gradient(135deg,rgba(16,185,129,.06),rgba(20,184,166,.04));
+                      border:1px solid rgba(16,185,129,.25);border-radius:10px;padding:1rem;margin-bottom:.85rem">
+            <div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.65rem">
+              <span style="font-size:.85rem">&#x2728;</span>
+              <span style="font-size:.82rem;font-weight:700;color:#065f46">Generate from Saved Assignment</span>
+            </div>
+            <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-bottom:.5rem">
+              <select id="rubricGenAssignSelect"
+                style="flex:1;min-width:140px;padding:.42rem .7rem;border:1px solid rgba(16,185,129,.3);
+                       border-radius:7px;font-size:.8rem;background:var(--surface);color:var(--text);
+                       font-family:inherit;outline:none">
+                <option value="">— select saved assignment —</option>
+              </select>
+              <button type="button" id="rubricGenBtn" onclick="generateRubric()"
+                style="padding:.42rem 1.1rem;background:linear-gradient(135deg,#10b981,#059669);
+                       color:#fff;border:none;border-radius:7px;font-size:.8rem;font-weight:700;
+                       cursor:pointer;white-space:nowrap;box-shadow:0 2px 8px rgba(16,185,129,.3)">
+                <span id="rubricGenBtnIcon">&#x2728;</span><span id="rubricGenBtnText"> Generate</span>
+              </button>
+            </div>
+            <input type="text" id="rubricInstructions"
+              placeholder='Optional: "Emphasise HL7 standards" or "focus on workflow diagram"'
+              style="width:100%;font-size:.78rem;padding:.38rem .7rem;border:1px solid rgba(16,185,129,.25);
+                     border-radius:7px;background:var(--surface);color:var(--text);font-family:inherit;outline:none">
+            <div id="rubricGenStatus" style="font-size:.75rem;color:var(--text2);min-height:1.2em;margin-top:.45rem"></div>
+          </div>
+
+          <!-- Option B: Upload -->
+          <div style="border:1px solid var(--border);border-radius:10px;padding:1rem;background:var(--surface2)">
+            <div style="font-size:.82rem;font-weight:700;color:var(--text2);margin-bottom:.65rem;display:flex;align-items:center;gap:.4rem">
+              <span>&#x1F4CE;</span> Upload Existing Rubric
+            </div>
+            <div style="border:2px dashed rgba(99,102,241,.25);border-radius:8px;padding:.75rem;
+                        background:rgba(99,102,241,.03);text-align:center;position:relative;margin-bottom:.6rem">
+              <input type="file" id="libRubricFile" accept=".pdf,.docx,.txt,.md,.json"
+                     style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%"
+                     onchange="document.getElementById('libRubricFileLabel').textContent=this.files[0]?.name||'Click or drag rubric file'">
+              <div style="font-size:1.2rem;opacity:.4">&#x1F4CB;</div>
+              <div id="libRubricFileLabel"
+                   style="font-size:.78rem;font-weight:600;color:var(--primary);min-height:1.1em">
+                Click or drag rubric file
+              </div>
+              <div style="font-size:.68rem;color:var(--text3);margin-top:.15rem">PDF, DOCX, TXT, MD, JSON</div>
+            </div>
+            <button onclick="saveRubricToLibrary()"
+              style="width:100%;padding:.45rem;background:linear-gradient(135deg,#6366f1,#4f46e5);
+                     color:#fff;border:none;border-radius:7px;font-size:.8rem;font-weight:700;
+                     cursor:pointer;box-shadow:0 2px 8px rgba(99,102,241,.3)">
+              &#x2B06; Save to Library
+            </button>
+            <div id="libRubricStatus" style="font-size:.75rem;min-height:1.2em;margin-top:.4rem;text-align:center"></div>
+          </div>
+
+          <!-- Saved rubrics -->
+          <div style="margin-top:1rem">
+            <div style="font-size:.7rem;font-weight:700;color:var(--text3);text-transform:uppercase;
+                        letter-spacing:.07em;margin-bottom:.5rem;display:flex;align-items:center;gap:.4rem">
+              <div style="flex:1;height:1px;background:var(--border)"></div>
+              <span>Saved Rubrics</span>
+              <div style="flex:1;height:1px;background:var(--border)"></div>
+            </div>
+            <div id="libRubricList" style="display:flex;flex-direction:column;gap:.35rem;max-height:240px;overflow-y:auto"></div>
+          </div>
+        </div>
+      </div><!-- end grid -->
+
+      <!-- ═══ Inline Rubric Preview Panel ═══ -->
+      <div id="rubricPreviewPanel" style="display:none;margin-top:1.5rem;border-top:2px solid var(--border);padding-top:1.25rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem">
+          <div style="display:flex;align-items:center;gap:.65rem">
+            <div style="width:32px;height:32px;border-radius:9px;background:rgba(99,102,241,.1);
+                        color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:1rem">&#x1F4CB;</div>
+            <div>
+              <div id="rubricPreviewTitle" style="font-size:.92rem;font-weight:700;color:var(--text)"></div>
+              <div id="rubricPreviewMeta" style="font-size:.72rem;color:var(--text3);margin-top:.1rem"></div>
+            </div>
+          </div>
+          <div style="display:flex;gap:.5rem;align-items:center">
+            <button onclick="rubricPreviewUseForGrading()"
+              style="padding:.3rem .8rem;background:var(--primary);color:#fff;border:none;
+                     border-radius:6px;font-size:.75rem;font-weight:600;cursor:pointer">
+              &#x2714; Use for Grading
+            </button>
+            <button onclick="closeRubricPreview()"
+              style="padding:.3rem .7rem;background:var(--surface2);color:var(--text2);
+                     border:1px solid var(--border);border-radius:6px;font-size:.75rem;cursor:pointer">
+              ✕ Close
+            </button>
+          </div>
+        </div>
+        <div id="rubricPreviewContent"></div>
+      </div>
+
+      <!-- ═══ Generated Rubric Output ═══ -->
+      <div id="rubricGenOutput" style="display:none;margin-top:1.5rem;border-top:2px solid var(--border);padding-top:1.25rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.85rem;flex-wrap:wrap;gap:.5rem">
+          <div style="display:flex;align-items:center;gap:.5rem">
+            <div style="width:28px;height:28px;border-radius:8px;background:rgba(16,185,129,.12);
+                        color:#059669;display:flex;align-items:center;justify-content:center;font-size:.9rem">&#x2705;</div>
+            <div style="font-size:.92rem;font-weight:700;color:var(--text)">Generated Rubric</div>
+          </div>
+          <div style="display:flex;gap:.5rem">
+            <button onclick="rubricUseForGrading()"
+              style="padding:.32rem .8rem;background:var(--primary);color:#fff;border:none;
+                     border-radius:6px;font-size:.78rem;font-weight:600;cursor:pointer">
+              &#x2714; Use for Grading
+            </button>
+            <button onclick="rubricCopyJSON()"
+              style="padding:.32rem .8rem;background:var(--surface2);color:var(--text);
+                     border:1px solid var(--border);border-radius:6px;font-size:.75rem;cursor:pointer">
+              &#x1F4CB; Copy
+            </button>
+            <button onclick="rubricDownload()"
+              style="padding:.32rem .8rem;background:var(--surface2);color:var(--text);
+                     border:1px solid var(--border);border-radius:6px;font-size:.75rem;cursor:pointer">
+              &#x2B07; Download
+            </button>
+          </div>
+        </div>
+        <div id="rubricCriteriaList" style="display:flex;flex-direction:column;gap:.6rem"></div>
+      </div>
+
+    </div><!-- /padding wrapper -->
+
+    <!-- Hidden compat inputs -->
+    <textarea id="rubricAssignText" style="display:none"></textarea>
+    <input type="file" id="rubricAssignFile" style="display:none">
+    <span id="rubricAssignFileLabel" style="display:none"></span>
+    <textarea id="rubricExistingText" style="display:none"></textarea>
+    <input type="file" id="rubricExistingFile" style="display:none">
+    <span id="rubricExistingFileLabel" style="display:none"></span>
+    <input type="text" id="rubricSaveName" style="display:none">
+  </div>
+
+  <!-- ── Lecture Index Inspector ── -->
+  <div class="card anim-in" id="lectureInspectorCard" style="margin-bottom:1.5rem">
+    <div class="card-title" style="justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:.5rem">
+        <div class="icon" style="background:rgba(99,102,241,.1);color:var(--primary)">&#x1F4DA;</div>
+        Lecture Index Inspector
+      </div>
+      <button onclick="loadLectureStats()" id="inspectorRefreshBtn"
+        style="font-family:var(--font);font-size:.75rem;font-weight:600;padding:.3rem .8rem;border-radius:8px;
+               border:1px solid var(--primary);background:var(--primary-bg);color:var(--primary);cursor:pointer">
+        &#x21BB; Refresh
+      </button>
+    </div>
+    <p style="font-size:.82rem;color:var(--text2);margin-bottom:1.2rem;line-height:1.5">
+      See exactly what content has been extracted and indexed as lecture context.
+      Test retrieval to verify the AI finds the right lecture material for any topic.
+    </p>
+
+    <!-- Overview stat tiles -->
+    <div id="inspectorStats" style="display:none">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.75rem;margin-bottom:1.5rem">
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:.9rem 1rem;text-align:center">
+          <div id="iStatChunks" style="font-size:1.6rem;font-weight:800;color:var(--primary)">—</div>
+          <div style="font-size:.72rem;color:var(--text3);font-weight:600;margin-top:.2rem">TOTAL CHUNKS</div>
+        </div>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:.9rem 1rem;text-align:center">
+          <div id="iStatFiles" style="font-size:1.6rem;font-weight:800;color:var(--teal)">—</div>
+          <div style="font-size:.72rem;color:var(--text3);font-weight:600;margin-top:.2rem">LECTURE FILES</div>
+        </div>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:.9rem 1rem;text-align:center">
+          <div id="iStatAvg" style="font-size:1.6rem;font-weight:800;color:var(--amber)">—</div>
+          <div style="font-size:.72rem;color:var(--text3);font-weight:600;margin-top:.2rem">AVG CHARS/CHUNK</div>
+        </div>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:.9rem 1rem;text-align:center">
+          <div id="iStatProvider" style="font-size:.9rem;font-weight:800;color:var(--green)">—</div>
+          <div style="font-size:.72rem;color:var(--text3);font-weight:600;margin-top:.2rem">EMBEDDINGS</div>
+        </div>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:.9rem 1rem;text-align:center">
+          <div id="iStatStatus" style="font-size:.9rem;font-weight:800">—</div>
+          <div style="font-size:.72rem;color:var(--text3);font-weight:600;margin-top:.2rem">INDEX STATUS</div>
+        </div>
+      </div>
+
+      <!-- Content type breakdown pills -->
+      <div style="margin-bottom:1.5rem">
+        <div style="font-size:.78rem;font-weight:700;color:var(--text2);margin-bottom:.6rem;text-transform:uppercase;letter-spacing:.04em">Content Types in Index</div>
+        <div id="iTagBreakdown" style="display:flex;flex-wrap:wrap;gap:.4rem"></div>
+      </div>
+
+      <!-- RAG Search Test -->
+      <div style="background:rgba(99,102,241,.04);border:1px solid rgba(99,102,241,.15);border-radius:var(--rs);padding:1rem 1.1rem;margin-bottom:1.5rem">
+        <div style="font-size:.82rem;font-weight:700;color:var(--primary);margin-bottom:.7rem">&#x1F50D; Test Retrieval — see what lecture chunks the AI would actually use for a topic</div>
+        <div style="display:flex;gap:.5rem">
+          <input type="text" id="ragSearchInput"
+            placeholder="e.g. workflow diagram, EHR interoperability, HIPAA security rule…"
+            style="flex:1;font-family:var(--font);font-size:.83rem;padding:.55rem .8rem;
+                   border:1px solid var(--border);border-radius:var(--rs);outline:none;background:var(--surface)"
+            onkeydown="if(event.key==='Enter') testRAG()"
+            onfocus="this.style.borderColor='var(--primary)'"
+            onblur="this.style.borderColor='var(--border)'">
+          <button type="button" onclick="testRAG()"
+            style="font-family:var(--font);font-size:.83rem;font-weight:600;padding:.55rem 1.2rem;
+                   border-radius:var(--rs);border:none;background:var(--primary);color:#fff;cursor:pointer">
+            Search
+          </button>
+        </div>
+        <div id="ragResults" style="margin-top:.8rem"></div>
+      </div>
+
+      <!-- Per-file list -->
+      <div>
+        <div style="font-size:.78rem;font-weight:700;color:var(--text2);margin-bottom:.6rem;text-transform:uppercase;letter-spacing:.04em">
+          Per-File Breakdown <span id="iFileCount" style="font-weight:400;text-transform:none;color:var(--text3)"></span>
+        </div>
+        <div id="iFileList" style="max-height:420px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rs);font-size:.8rem"></div>
+      </div>
+    </div>
+
+    <div id="inspectorLoading" style="text-align:center;padding:1.5rem;color:var(--text3);font-size:.85rem">
+      Click <strong>Refresh</strong> to load extraction stats
+    </div>
+  </div>
+
+  <!-- ── History ── -->
+  <div class="card history-list anim-in" id="historyCard" style="display:none">
+    <div class="card-title" style="justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:.5rem">
+        <div class="icon" style="background:var(--surface2);color:var(--text3)">&#x1F4C1;</div>
+        Recent Runs
+      </div>
+      <a href="/api/export-csv" download
+        style="font-family:var(--font);font-size:.78rem;font-weight:600;padding:.35rem .9rem;border-radius:8px;
+               border:1px solid var(--teal);background:rgba(20,184,166,.08);color:var(--teal-d);text-decoration:none">
+        &#x2B07; Export All Grades CSV
+      </a>
+    </div>
+    <div id="historyList"></div>
+  </div>
+
+  <!-- ── Batch Quiz Grading ── -->
+  <div class="card anim-in" id="batchQuizCard" style="margin-top:1.5rem;overflow:hidden;padding:0">
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#0e7490,#0891b2,#06b6d4);padding:1.1rem 1.5rem;
+                display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem">
+      <div style="display:flex;align-items:center;gap:.75rem">
+        <div style="width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,.15);
+                    display:flex;align-items:center;justify-content:center;font-size:1.3rem">&#x1F4CA;</div>
+        <div>
+          <div style="font-size:1.05rem;font-weight:800;color:#fff;letter-spacing:-.02em">Batch Quiz Grading</div>
+          <div style="font-size:.72rem;color:rgba(255,255,255,.6);margin-top:.1rem">Upload quiz Excel → AI grades every student → download with scores</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="padding:1.5rem">
+      <div style="display:grid;grid-template-columns:1fr 1px 1fr;gap:0;align-items:start">
+
+        <!-- LEFT: Excel + Question -->
+        <div style="padding-right:2rem">
+          <div style="font-size:.8rem;font-weight:700;color:var(--text2);margin-bottom:.6rem">
+            &#x1F4C4; Quiz Excel File <span style="color:var(--red)">*</span>
+          </div>
+          <!-- Drop zone -->
+          <div id="batchDropZone"
+               style="border:2px dashed rgba(6,182,212,.4);border-radius:10px;padding:1.2rem;
+                      background:rgba(6,182,212,.03);text-align:center;position:relative;
+                      transition:all .2s;cursor:pointer;margin-bottom:.75rem"
+               ondragover="event.preventDefault();this.style.background='rgba(6,182,212,.1)'"
+               ondragleave="this.style.background='rgba(6,182,212,.03)'"
+               ondrop="onBatchDrop(event)">
+            <input type="file" id="batchXlsxFile" accept=".xlsx,.xls"
+                   style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%"
+                   onchange="onBatchFileChosen()">
+            <div style="font-size:1.8rem;opacity:.4;margin-bottom:.3rem">&#x1F4CA;</div>
+            <div id="batchFileLabel" style="font-size:.82rem;font-weight:600;color:#0891b2">
+              Click or drag Excel file here
+            </div>
+            <div style="font-size:.68rem;color:var(--text3);margin-top:.3rem">
+              Expects columns: <code>Student Number</code> &amp; <code>Student Answer</code>
+            </div>
+          </div>
+
+          <!-- Quiz question -->
+          <div style="font-size:.78rem;font-weight:600;color:var(--text2);margin-bottom:.4rem">
+            &#x1F4AC; Quiz Question / Context <span style="font-size:.7rem;color:var(--text3);font-weight:400">(optional but improves accuracy)</span>
+          </div>
+          <textarea id="batchQuizQuestion" rows="4"
+            style="width:100%;padding:.55rem .7rem;border:1px solid var(--border);border-radius:8px;
+                   font-size:.82rem;font-family:inherit;background:var(--surface);color:var(--text);
+                   resize:vertical;box-sizing:border-box"
+            placeholder="Paste the quiz question here so the AI can grade contextually..."></textarea>
+        </div>
+
+        <!-- Divider -->
+        <div style="background:var(--border);align-self:stretch"></div>
+
+        <!-- RIGHT: Rubric + Provider + Action -->
+        <div style="padding-left:2rem">
+          <!-- Rubric -->
+          <div style="font-size:.8rem;font-weight:700;color:var(--text2);margin-bottom:.4rem">
+            &#x1F4CB; Rubric <span style="color:var(--red)">*</span>
+          </div>
+          <select id="batchRubricSelect"
+            style="width:100%;padding:.45rem .65rem;border:1px solid var(--border);border-radius:8px;
+                   font-size:.83rem;background:var(--surface);color:var(--text);font-family:inherit;margin-bottom:.6rem">
+            <option value="">— Select rubric from library —</option>
+          </select>
+          <div style="font-size:.72rem;color:var(--text3);margin-bottom:.9rem">
+            Or the AI will auto-parse it from text. Upload a new rubric in the Setup card above first.
+          </div>
+
+          <!-- Provider / Model -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:1rem">
+            <div>
+              <div style="font-size:.72rem;font-weight:600;color:var(--text3);margin-bottom:.3rem">Provider</div>
+              <select id="batchProvider"
+                style="width:100%;padding:.4rem .6rem;border:1px solid var(--border);border-radius:7px;
+                       font-size:.8rem;background:var(--surface);color:var(--text);font-family:inherit">
+                {% for key, p in providers.items() %}
+                <option value="{{ key }}">{{ p.label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div>
+              <div style="font-size:.72rem;font-weight:600;color:var(--text3);margin-bottom:.3rem">Model</div>
+              <input id="batchModel" type="text" placeholder="default"
+                style="width:100%;padding:.4rem .6rem;border:1px solid var(--border);border-radius:7px;
+                       font-size:.8rem;background:var(--surface);color:var(--text);font-family:inherit;box-sizing:border-box">
+            </div>
+          </div>
+
+          <!-- Grade button -->
+          <button id="batchQuizGradeBtn" onclick="runBatchQuizGrading()"
+            style="width:100%;padding:.65rem;background:linear-gradient(135deg,#0e7490,#0891b2);
+                   color:#fff;border:none;border-radius:10px;font-size:.9rem;font-weight:800;
+                   cursor:pointer;box-shadow:0 3px 12px rgba(8,145,178,.35);letter-spacing:.01em;
+                   display:flex;align-items:center;justify-content:center;gap:.5rem">
+            <span id="batchBtnIcon">&#x26A1;</span>
+            <span id="batchBtnText">Grade All Students</span>
+          </button>
+          <div id="batchStatus" style="font-size:.78rem;min-height:1.4em;margin-top:.55rem;text-align:center;
+                                       color:var(--text2)"></div>
+
+          <!-- Result download -->
+          <div id="batchResultWrap" style="display:none;margin-top:.75rem;
+               background:linear-gradient(135deg,rgba(16,185,129,.06),rgba(20,184,166,.04));
+               border:1px solid rgba(16,185,129,.25);border-radius:10px;padding:.9rem;text-align:center">
+            <div style="font-size:.8rem;font-weight:700;color:#065f46;margin-bottom:.45rem">&#x2705; Grading Complete!</div>
+            <a id="batchDownloadLink" href="#" download
+               style="display:inline-flex;align-items:center;gap:.4rem;padding:.45rem 1.2rem;
+                      background:linear-gradient(135deg,#10b981,#059669);color:#fff;border-radius:8px;
+                      font-size:.82rem;font-weight:700;text-decoration:none;
+                      box-shadow:0 2px 8px rgba(5,150,105,.3)">
+              &#x2B07; Download Graded Excel
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Recent PDF Reports (FIFO queue of last 10) ── -->
+  <div class="card anim-in" id="reportsCard" style="display:none;margin-top:1.5rem">
+    <div class="card-title">
+      <div class="icon" style="background:rgba(239,68,68,.1);color:#dc2626">&#x1F4F0;</div>
+      Recent PDF Reports
+      <span style="font-size:.7rem;color:var(--text3);font-weight:500;margin-left:.3rem">(last 10 · auto-generated after each grade)</span>
+    </div>
+    <div id="reportsList" style="display:flex;flex-direction:column;gap:.35rem"></div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       LECTURES TAB — Upload · Describe · Push to RAG
+  ══════════════════════════════════════════════════════ -->
+  <div class="card anim-in" id="lectureUploadCard" style="margin-bottom:1.5rem;overflow:hidden;padding:0">
+
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#78350f,#b45309,#d97706);padding:1.25rem 1.5rem">
+      <div style="display:flex;align-items:center;gap:.85rem">
+        <div style="width:42px;height:42px;border-radius:12px;background:rgba(255,255,255,.15);
+                    display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0">&#x1F4DA;</div>
+        <div>
+          <div style="font-size:1.05rem;font-weight:800;color:#fff;letter-spacing:-.02em">Upload &amp; Index Lecture Materials</div>
+          <div style="font-size:.73rem;color:rgba(255,255,255,.6);margin-top:.1rem">Upload PDF/DOCX → AI describes every page &amp; image → Push to RAG database</div>
+        </div>
+      </div>
+      <!-- 3-step flow -->
+      <div style="display:flex;align-items:center;gap:.35rem;margin-top:.9rem;flex-wrap:wrap">
+        <div style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:.3rem .85rem;font-size:.72rem;color:#fff;font-weight:700">① Upload Lecture PDF</div>
+        <span style="color:rgba(255,255,255,.4);font-size:.75rem">→</span>
+        <div style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:.3rem .85rem;font-size:.72rem;color:#fff;font-weight:700">② Describe &amp; Check Images</div>
+        <span style="color:rgba(255,255,255,.4);font-size:.75rem">→</span>
+        <div style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:.3rem .85rem;font-size:.72rem;color:#fff;font-weight:700">③ Push to RAG</div>
+      </div>
+    </div>
+
+    <div style="padding:1.5rem">
+      <div style="display:grid;grid-template-columns:1fr 1px 1.35fr;gap:0;align-items:start">
+
+        <!-- LEFT: Upload + Library List -->
+        <div style="padding-right:2rem">
+
+          <!-- Upload zone -->
+          <div style="font-size:.78rem;font-weight:700;color:var(--text2);margin-bottom:.6rem;display:flex;align-items:center;gap:.4rem">
+            <span style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:900;flex-shrink:0">1</span>
+            Upload Lecture File
+          </div>
+          <div style="border:2px dashed rgba(245,158,11,.35);border-radius:10px;padding:1rem;
+                      background:rgba(245,158,11,.03);text-align:center;position:relative;margin-bottom:.65rem">
+            <input type="file" id="lectureFileInput" accept=".pdf,.docx,.txt,.md"
+                   style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%"
+                   onchange="onLectureFileChosen()">
+            <div style="font-size:1.6rem;opacity:.45;margin-bottom:.3rem">&#x1F4C4;</div>
+            <div id="lectureFileLabel" style="font-size:.8rem;font-weight:600;color:#d97706;min-height:1.2em">
+              Click or drag lecture file here
+            </div>
+            <div style="font-size:.68rem;color:var(--text3);margin-top:.25rem">PDF, DOCX, TXT, MD</div>
+          </div>
+          <button onclick="uploadAndDescribeLecture()" id="lectureDescribeBtn"
+            style="width:100%;padding:.55rem;background:linear-gradient(135deg,#f59e0b,#d97706);
+                   color:#fff;border:none;border-radius:8px;font-size:.85rem;font-weight:700;
+                   cursor:pointer;box-shadow:0 2px 8px rgba(217,119,6,.3);display:flex;align-items:center;justify-content:center;gap:.5rem">
+            <span id="lectureDescribeIcon">&#x1F50D;</span>
+            <span id="lectureDescribeTxt">Describe Lecture</span>
+          </button>
+          <div id="lectureUploadStatus" style="font-size:.75rem;min-height:1.2em;margin-top:.45rem;text-align:center"></div>
+
+          <!-- Provider -->
+          <div style="margin-top:1rem;display:grid;grid-template-columns:1fr 1fr;gap:.6rem">
+            <div>
+              <div style="font-size:.7rem;font-weight:600;color:var(--text3);margin-bottom:.3rem">Vision Provider</div>
+              <select id="lectureDescribeProvider"
+                style="width:100%;padding:.42rem .6rem;border:1px solid var(--border);border-radius:7px;
+                       font-size:.8rem;background:var(--surface);color:var(--text);font-family:inherit">
+                {% for key, p in providers.items() %}
+                <option value="{{ key }}" {% if key == 'openai' %}selected{% endif %}>{{ p.label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div>
+              <div style="font-size:.7rem;font-weight:600;color:var(--text3);margin-bottom:.3rem">Model</div>
+              <input id="lectureDescribeModel" type="text" placeholder="auto"
+                style="width:100%;padding:.42rem .6rem;border:1px solid var(--border);border-radius:7px;
+                       font-size:.8rem;background:var(--surface);color:var(--text);font-family:inherit;box-sizing:border-box">
+            </div>
+          </div>
+
+          <!-- Divider -->
+          <div style="border-top:1px solid var(--border);margin-top:1.2rem;padding-top:1rem">
+            <div style="font-size:.72rem;font-weight:700;color:var(--text3);text-transform:uppercase;
+                        letter-spacing:.06em;margin-bottom:.55rem;display:flex;align-items:center;gap:.5rem">
+              <span>Saved Lectures</span>
+              <button onclick="loadLectureFiles()" style="margin-left:auto;font-size:.68rem;padding:.15rem .5rem;
+                border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text3);cursor:pointer">
+                &#x21BB;
+              </button>
+            </div>
+            <div id="lectureFileList" style="display:flex;flex-direction:column;gap:.35rem;max-height:220px;overflow-y:auto"></div>
+          </div>
+        </div>
+
+        <!-- Divider -->
+        <div style="background:var(--border);align-self:stretch"></div>
+
+        <!-- RIGHT: Describe results + image flags + push -->
+        <div style="padding-left:2rem" id="lectureResultsPanel">
+
+          <!-- Waiting state -->
+          <div id="lectureWaitState" style="text-align:center;padding:2.5rem 1rem;color:var(--text3)">
+            <div style="font-size:2.5rem;margin-bottom:.75rem;opacity:.3">&#x1F50D;</div>
+            <div style="font-size:.85rem;font-weight:600">Upload a lecture file and click</div>
+            <div style="font-size:.85rem;font-weight:600;color:var(--amber)">"Describe Lecture"</div>
+            <div style="font-size:.75rem;margin-top:.4rem;opacity:.6">The AI will process every page &amp; image</div>
+          </div>
+
+          <!-- Results (shown after describe) -->
+          <div id="lectureDescribeResults" style="display:none">
+
+            <!-- Summary bar -->
+            <div id="lectureSummaryBar" style="display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem;
+                 padding:.7rem 1rem;background:var(--surface2);border-radius:var(--rs);border:1px solid var(--border)">
+            </div>
+
+            <!-- Flagged images section -->
+            <div id="lectureFlagSection" style="display:none;margin-bottom:1rem">
+              <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.6rem">
+                <div style="width:28px;height:28px;border-radius:8px;background:rgba(245,158,11,.15);
+                            color:var(--amber);display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0">&#x26A0;</div>
+                <div>
+                  <div style="font-size:.88rem;font-weight:700;color:var(--text)">Image Quality Issues Found</div>
+                  <div style="font-size:.72rem;color:var(--text3);margin-top:.05rem">Review before pushing to RAG</div>
+                </div>
+              </div>
+              <div id="lectureFlagList" style="display:flex;flex-direction:column;gap:.45rem;max-height:260px;overflow-y:auto"></div>
+            </div>
+
+            <!-- No flags -->
+            <div id="lectureNoFlagMsg" style="display:none;padding:.65rem 1rem;background:rgba(34,197,94,.06);
+                 border:1px solid rgba(34,197,94,.2);border-radius:var(--rs);font-size:.82rem;
+                 color:#166534;font-weight:600;margin-bottom:1rem">
+              &#x2705; All images described successfully — no quality issues found.
+            </div>
+
+            <!-- Push options -->
+            <div id="lecturePushSection" style="border-top:1px solid var(--border);padding-top:1rem">
+              <div style="font-size:.8rem;font-weight:700;color:var(--text2);margin-bottom:.65rem;display:flex;align-items:center;gap:.4rem">
+                <span style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#10b981,#059669);color:#fff;
+                             display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:900;flex-shrink:0">3</span>
+                Push to RAG Database
+              </div>
+              <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.75rem">
+                <label style="display:flex;align-items:center;gap:.4rem;font-size:.8rem;color:var(--text2);cursor:pointer">
+                  <input type="checkbox" id="lectureSkipFlagged" checked
+                    style="width:15px;height:15px;accent-color:var(--amber)">
+                  Skip flagged / unclear images
+                </label>
+              </div>
+              <div style="display:flex;gap:.6rem;flex-wrap:wrap">
+                <button onclick="pushLectureToRAG()" id="lecturePushBtn"
+                  style="flex:1;padding:.6rem 1rem;background:linear-gradient(135deg,#10b981,#059669);
+                         color:#fff;border:none;border-radius:8px;font-size:.85rem;font-weight:700;
+                         cursor:pointer;box-shadow:0 2px 10px rgba(5,150,105,.3);display:flex;align-items:center;justify-content:center;gap:.5rem">
+                  <span id="lecturePushIcon">&#x1F680;</span>
+                  <span id="lecturePushTxt">Push to RAG</span>
+                </button>
+              </div>
+              <div id="lecturePushStatus" style="font-size:.78rem;min-height:1.4em;margin-top:.5rem;text-align:center;color:var(--text2)"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /lectureUploadCard -->
+
+  <!-- Lecture Index Inspector (also shown in Lectures tab) -->
+
+</div><!-- .main -->
+
+<script>
+/* ── PROVIDER CONFIG ─────────────────────────────────────── */
+const MODELS = {{ providers | tojson }};
+const droppedFiles = {};
+
+function updateModel(selectId, inputId){
+  const p = document.getElementById(selectId).value;
+  document.getElementById(inputId).value = MODELS[p]?.model || '';
+}
+
+function toggleModelSettings(){
+  const panel   = document.getElementById('modelSettingsPanel');
+  const chevron = document.getElementById('modelSettingsChevron');
+  const open    = panel.style.display === 'none';
+  panel.style.display   = open ? 'block' : 'none';
+  chevron.style.transform = open ? 'rotate(90deg)' : 'rotate(0deg)';
+}
+
+/* ── FILE UPLOAD ─────────────────────────────────────────── */
+function fileSelected(input, zoneId, nameId){
+  const zone = document.getElementById(zoneId);
+  const nameEl = document.getElementById(nameId);
+  if(input.files.length){
+    droppedFiles[input.name] = input.files[0];
+    zone.classList.add('has-file');
+    nameEl.textContent = input.files[0].name;
+    nameEl.style.display = 'block';
+  } else {
+    delete droppedFiles[input.name];
+    zone.classList.remove('has-file');
+    nameEl.style.display = 'none';
+  }
+}
+
+/* ── Batch grading ───────────────────────────────────────────────────────── */
+let batchFiles = [];
+
+function batchFilesChosen(input) {
+  const files = Array.from(input.files).filter(f =>
+    /\.(pdf|pptx|xlsx)$/i.test(f.name)
+  );
+  if (!files.length) return;
+  batchFiles = files;
+
+  const zone   = document.getElementById('dz-batch');
+  const nameEl = document.getElementById('dz-batch-name');
+  zone.classList.add('has-file');
+  nameEl.textContent = `${files.length} file${files.length > 1 ? 's' : ''} selected: ` +
+    files.slice(0, 3).map(f => f.name).join(', ') + (files.length > 3 ? ` …+${files.length - 3} more` : '');
+  nameEl.style.display = 'block';
+
+  const btn = document.getElementById('batchGradeBtn');
+  btn.disabled = false;
+  btn.style.opacity = '1';
+}
+
+async function gradeBatch() {
+  if (!batchFiles.length) return;
+
+  const btn     = document.getElementById('batchGradeBtn');
+  const spinner = document.getElementById('batchSpinner');
+  const btnText = document.getElementById('batchBtnText');
+  btn.disabled  = true;
+  spinner.style.display = 'block';
+  btnText.textContent   = 'Grading…';
+
+  document.getElementById('batchResults').style.display = 'none';
+  document.getElementById('batchStudentList').innerHTML  = '';
+
+  const fd = new FormData();
+  batchFiles.forEach(f => fd.append('student_files', f));
+
+  // Carry over provider/model settings from the main form
+  fd.append('describe_provider', document.getElementById('describeProviderSelect')?.value || 'openai');
+  fd.append('describe_model',    document.getElementById('describeModelInput')?.value    || '');
+  fd.append('grade_provider',    document.getElementById('gradeProviderSelect')?.value   || 'openai');
+  fd.append('grade_model',       document.getElementById('gradeModelInput')?.value       || '');
+
+  // Carry over rubric / assignment selections from the main form
+  const genRubric = document.getElementById('generatedRubricJson')?.value;
+  if (genRubric) fd.append('generated_rubric_json', genRubric);
+  const selRubric = document.querySelector('select[name=selected_rubric]')?.value;
+  if (selRubric) fd.append('selected_rubric', selRubric);
+  const selAssign = document.querySelector('select[name=selected_assignment]')?.value;
+  if (selAssign) fd.append('selected_assignment', selAssign);
+
+  try {
+    const res  = await fetch('/api/grade-batch', { method: 'POST', body: fd });
+    const data = await res.json();
+
+    if (!data.success) {
+      alert('Batch grading error: ' + (data.error || 'Unknown error'));
+      return;
+    }
+
+    const sumBar = document.getElementById('batchSummaryBar');
+    const s = data.summary;
+    sumBar.innerHTML =
+      `Batch complete &mdash; <strong>${s.graded}</strong> graded, ` +
+      `<strong style="color:var(--red)">${s.failed}</strong> failed &nbsp;|&nbsp; ` +
+      `Run ID: <code style="font-size:.78rem">${data.run_id}</code>`;
+
+    const list = document.getElementById('batchStudentList');
+    (data.results || []).forEach(r => {
+      const card = document.createElement('div');
+      card.style.cssText = 'padding:.75rem 1rem;border-radius:10px;border:1px solid var(--border);background:var(--surface2);display:flex;align-items:center;gap:1rem;flex-wrap:wrap';
+
+      if (r.success) {
+        const score   = r.grades?.overall_score ?? '—';
+        const maxPts  = r.grades?.total_max_points ?? 100;
+        const pct     = maxPts ? Math.round(score / maxPts * 100) : 0;
+        const color   = pct >= 90 ? '#22c55e' : pct >= 80 ? '#14b8a6' : pct >= 70 ? '#f59e0b' : '#ef4444';
+        card.innerHTML =
+          `<span style="font-size:1.4rem;font-weight:800;color:${color};min-width:3rem;text-align:center">${score}</span>` +
+          `<div style="flex:1;min-width:0">` +
+            `<div style="font-weight:600;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.student_file}</div>` +
+            `<div style="font-size:.75rem;color:var(--text3);margin-top:.15rem">${r.grades?.overall_feedback?.slice(0,120) || ''}…</div>` +
+          `</div>` +
+          `<span style="font-size:.75rem;font-weight:600;padding:.2rem .6rem;border-radius:20px;background:${color}22;color:${color}">${pct}%</span>`;
+        if (r.pdf_report) {
+          const dl = document.createElement('a');
+          dl.href  = `/api/reports/${r.pdf_report}`;
+          dl.target = '_blank';
+          dl.style.cssText = 'font-size:.75rem;font-weight:600;color:var(--primary);text-decoration:none;white-space:nowrap';
+          dl.textContent = '⬇ PDF';
+          card.appendChild(dl);
+        }
+      } else {
+        card.style.borderColor = '#ef444444';
+        card.innerHTML =
+          `<span style="font-size:1.2rem;color:#ef4444">&#x2718;</span>` +
+          `<div style="flex:1">` +
+            `<div style="font-weight:600;font-size:.88rem">${r.student_file}</div>` +
+            `<div style="font-size:.75rem;color:var(--red)">${r.error || 'Grading failed'}</div>` +
+          `</div>`;
+      }
+      list.appendChild(card);
+    });
+
+    document.getElementById('batchResults').style.display = 'block';
+  } catch(err) {
+    alert('Network error: ' + err.message);
+  } finally {
+    btn.disabled          = false;
+    btn.style.opacity     = '1';
+    spinner.style.display = 'none';
+    btnText.textContent   = '⚡ Batch Grade';
+  }
+}
+
+// Drag & drop
+document.querySelectorAll('.drop-zone').forEach(zone => {
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('drag-over');
+    const input = zone.querySelector('input[type=file]');
+    if(e.dataTransfer.files.length){
+      const file = e.dataTransfer.files[0];
+      droppedFiles[input.name] = file;
+      try{
+        input.files = e.dataTransfer.files;
+      } catch(_err){
+        try{
+          // Safari/strict browsers may block direct FileList assignment.
+          const dt = new DataTransfer();
+          Array.from(e.dataTransfer.files).forEach(f => dt.items.add(f));
+          input.files = dt.files;
+        } catch(_err2){
+          // If still blocked, keep file in droppedFiles and submit via FormData fallback.
+        }
+      }
+      const nameId = input.name === 'student_pdf'
+        ? 'dz-student-name'
+        : (input.name === 'rubric' ? 'dz-rubric-name' : 'dz-assign-name');
+      const zoneId = input.name === 'student_pdf'
+        ? 'dz-student'
+        : (input.name === 'rubric' ? 'dz-rubric' : 'dz-assign');
+      const zoneEl = document.getElementById(zoneId);
+      const nameEl = document.getElementById(nameId);
+      zoneEl.classList.add('has-file');
+      nameEl.textContent = file.name;
+      nameEl.style.display = 'block';
+      try{
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      } catch(_err3){
+        // no-op
+      }
+    }
+  });
+});
+
+/* ── SCORE ANIMATION ─────────────────────────────────────── */
+function animateScore(score, maxPts){
+  maxPts = maxPts || 100;
+  const ring = document.getElementById('scoreRing');
+  const text = document.getElementById('scoreText');
+  const lbl  = document.getElementById('scoreLabel');
+  if(lbl) lbl.textContent = '/ ' + Math.round(maxPts);
+  const circ = 2 * Math.PI * 85; // ~534.07
+  const offset = circ - (score / maxPts) * circ;
+
+  // Color based on percentage
+  const pct = score / maxPts * 100;
+  let color = '#ef4444'; // red
+  if(pct >= 90) color = '#22c55e';
+  else if(pct >= 80) color = '#14b8a6';
+  else if(pct >= 70) color = '#f59e0b';
+  else if(pct >= 60) color = '#f97316';
+
+  ring.style.stroke = color;
+  ring.style.strokeDashoffset = offset;
+
+  // Count up animation
+  let current = 0;
+  const step = Math.max(1, Math.ceil(score / 40));
+  const timer = setInterval(() => {
+    current = Math.min(current + step, score);
+    text.textContent = Math.round(current);
+    if(current >= score) clearInterval(timer);
+  }, 30);
+}
+
+/* ── PROGRESS STEPS ──────────────────────────────────────── */
+const PROGRESS_MODES = {
+  full: ['Extract Submission','Describe Submission','Index Lectures','Retrieve Context','Grade Submission'],
+  describe: ['Extract Submission','Describe Submission']
+};
+let currentStepIdx = 0;
+
+function showProgress(mode){
+  document.getElementById('progressPanel').classList.add('active');
+  document.getElementById('describePanel').style.display = 'none';
+  document.getElementById('resultsPanel').classList.remove('active');
+  currentStepIdx = 0;
+  const labels = PROGRESS_MODES[mode] || PROGRESS_MODES.full;
+  document.querySelectorAll('.p-step').forEach((s, idx) => {
+    s.className = 'p-step';
+    s.querySelector('.p-status').textContent = '';
+    s.querySelector('.p-dot').textContent = String(idx + 1);
+    s.querySelector('.p-label').textContent = labels[idx] || 'Unused';
+    s.style.display = idx < labels.length ? 'flex' : 'none';
+  });
+  advanceStep();
+}
+
+function advanceStep(){
+  const visibleSteps = Array.from(document.querySelectorAll('.p-step')).filter(el => el.style.display !== 'none');
+  if(currentStepIdx >= visibleSteps.length) return;
+  const steps = document.querySelectorAll('.p-step');
+  steps[currentStepIdx].classList.add('running');
+  steps[currentStepIdx].querySelector('.p-status').textContent = 'Running...';
+}
+
+function completeCurrentStep(ok){
+  const steps = document.querySelectorAll('.p-step');
+  if(currentStepIdx >= steps.length) return;
+  steps[currentStepIdx].classList.remove('running');
+  steps[currentStepIdx].classList.add(ok ? 'done' : 'error');
+  steps[currentStepIdx].querySelector('.p-status').textContent = ok ? 'Done' : 'Failed';
+  steps[currentStepIdx].querySelector('.p-dot').textContent = ok ? '✓' : '✗';
+  currentStepIdx++;
+  if(ok && currentStepIdx < steps.length){
+    setTimeout(advanceStep, 200);
+  }
+}
+
+/* ── FAKE PROGRESS (since API is synchronous) ────────────── */
+let fakeTimer = null;
+function startFakeProgress(mode){
+  let idx = 0;
+  const labels = PROGRESS_MODES[mode] || PROGRESS_MODES.full;
+  showProgress(mode);
+  const delays = [10000, 90000, 15000, 10000, 35000]; // realistic: extract, vision-describe, index, retrieve, grade
+  function tick(){
+    if(idx > 0) completeCurrentStep(true);
+    if(idx < labels.length){
+      advanceStep();
+      fakeTimer = setTimeout(tick, delays[idx] || 5000);
+      idx++;
+    }
+  }
+  fakeTimer = setTimeout(tick, delays[0]);
+}
+
+function stopFakeProgress(steps){
+  if(fakeTimer) clearTimeout(fakeTimer);
+  // Set all steps from API response
+  const stepEls = document.querySelectorAll('.p-step');
+  if(steps && steps.length){
+    stepEls.forEach(el => {
+      el.className = 'p-step';
+      el.querySelector('.p-status').textContent = '';
+      el.querySelector('.p-dot').textContent = el.querySelector('.p-dot').textContent.replace(/[✓✗]/,'');
+    });
+    steps.forEach((s, i) => {
+      if(i < stepEls.length){
+        stepEls[i].classList.add(s.ok ? 'done' : 'error');
+        stepEls[i].querySelector('.p-status').textContent = s.ok ? 'Done' : 'Failed';
+        stepEls[i].querySelector('.p-dot').textContent = s.ok ? '✓' : '✗';
+      }
+    });
+  }
+}
+
+/* ── RENDER RESULTS ──────────────────────────────────────── */
+function renderResults(grades, extraData){
+  extraData = extraData || {};
+  const panel = document.getElementById('resultsPanel');
+  panel.classList.add('active');
+  document.getElementById('describePanel').style.display = 'none';
+
+  // Rubric warning
+  document.getElementById('rubricWarning').style.display =
+    grades.rubric_used_generic_defaults ? 'block' : 'none';
+
+  // Score
+  const score    = grades.overall_score || 0;
+  const maxPts   = grades.total_max_points || 100;
+  animateScore(score, maxPts);
+
+  // Meta
+  document.getElementById('studentFileName').textContent = grades.student_file || 'Unknown';
+  document.getElementById('metaModel').textContent = '🤖 ' + (grades.grading_model || '—');
+  const tu = grades.token_usage || {};
+  document.getElementById('metaTokens').textContent =
+    '📊 ' + ((tu.input_tokens||0)+(tu.output_tokens||0)).toLocaleString() + ' tokens';
+  const conf = grades.confidence;
+  document.getElementById('metaConfidence').textContent =
+    '🎯 ' + (conf != null ? (conf*100).toFixed(0)+'% confidence' : '—');
+  document.getElementById('overallFeedback').textContent = grades.overall_feedback || '';
+
+  // Grading context bar + PDF download button
+  const ctx = grades._grading_context;
+  const ctxBar = document.getElementById('gradingContextBar');
+  if(ctx){
+    document.getElementById('ctxAssign').textContent   = ctx.assignment_file   || '—';
+    document.getElementById('ctxRubric').textContent   = ctx.rubric_file       || '—';
+    document.getElementById('ctxDescribe').textContent = (ctx.describe_provider||'') + ' / ' + (ctx.describe_model||'');
+    document.getElementById('ctxGrade').textContent    = (ctx.grade_provider  ||'') + ' / ' + (ctx.grade_model  ||'');
+    ctxBar.style.display = 'flex';
+  } else {
+    ctxBar.style.display = 'none';
+  }
+  // Wire PDF download button if report was generated
+  const pdfBtn = document.getElementById('pdfDownloadBtn');
+  if(extraData && extraData.pdf_report){
+    pdfBtn.href = '/api/reports/' + encodeURIComponent(extraData.pdf_report);
+    pdfBtn.download = extraData.pdf_report;
+    pdfBtn.style.display = 'inline-flex';
+    // Refresh the recent-reports section
+    loadRecentReports();
+  } else {
+    pdfBtn.style.display = 'none';
+  }
+
+  // Section Coverage
+  const secCov = grades.section_coverage || [];
+  const secWrap = document.getElementById('sectionCoverageWrap');
+  const secEl = document.getElementById('sectionCoverage');
+  if(secCov.length){
+    secWrap.style.display = 'block';
+    secEl.innerHTML = secCov.map(s =>
+      `<div class="sec-chip ${s.status}">${s.section_id}: ${s.status}</div>`
+    ).join('');
+  } else { secWrap.style.display = 'none'; }
+
+  // Score Breakdown
+  const bd = grades.score_breakdown || {};
+  const grid = document.getElementById('breakdownGrid');
+  grid.innerHTML = '';
+  const entries = Object.entries(bd);
+  if(entries.length){
+    // Determine max for each bar from criterion details
+    const details = grades.criterion_details || [];
+    entries.forEach(([name, val], i) => {
+      const detail = details.find(d => d.criterion_name === name || d.criterion_id === name);
+      const max = detail ? detail.max_points : 100;
+      const pct = Math.min(100, (val / max) * 100);
+      let color = pct >= 85 ? 'var(--green)' : pct >= 70 ? 'var(--teal)' : pct >= 55 ? 'var(--amber)' : 'var(--red)';
+      const label = name.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+      grid.innerHTML += `
+        <div class="bar-item">
+          <div class="bar-head"><span class="bar-name" title="${name}">${label}</span>
+            <span class="bar-score">${val} / ${max}</span></div>
+          <div class="bar-track"><div class="bar-fill" style="background:${color}" data-width="${pct}%"></div></div>
+        </div>`;
+    });
+    // Animate bars
+    setTimeout(()=>{
+      grid.querySelectorAll('.bar-fill').forEach(b => b.style.width = b.dataset.width);
+    }, 100);
+  }
+
+  // Feedback lists
+  renderList('strengthsList', grades.strengths || []);
+  renderList('gapsList', grades.gaps || []);
+  renderList('actionsList', grades.action_items || []);
+
+  // Criterion Details
+  const crit = grades.criterion_details || [];
+  const critWrap = document.getElementById('criterionWrap');
+  const critBody = document.getElementById('criterionBody');
+  if(crit.length){
+    critWrap.style.display = 'block';
+    critBody.innerHTML = crit.map(c => {
+      const evTags = (c.evidence_refs||[]).map(e=>`<span class="evidence-tag" title="${esc(e)}">"${esc(e.substring(0,40))}"</span>`).join('');
+      const missTags = (c.missing_items||[]).map(m=>`<span class="missing-tag">${esc(m)}</span>`).join('');
+      const capNote = c.no_evidence_cap_applied ? ' <span style="color:var(--amber);font-size:.65rem">(capped: no evidence)</span>' : '';
+      return `<tr>
+        <td><strong>${esc(c.criterion_name||c.criterion_id)}</strong></td>
+        <td><strong>${c.awarded_points}</strong> / ${c.max_points}${capNote}</td>
+        <td style="font-size:.75rem;color:var(--text2)">${esc(c.justification||'')}</td>
+        <td>${evTags||'<span style="color:var(--text3);font-size:.72rem">—</span>'}</td>
+        <td>${missTags||'<span style="color:var(--text3);font-size:.72rem">—</span>'}</td>
+      </tr>`;
+    }).join('');
+  } else { critWrap.style.display = 'none'; }
+
+  // Policy Caps
+  const caps = grades.policy_caps_applied || [];
+  const capsWrap = document.getElementById('policyCapsWrap');
+  if(caps.length){
+    capsWrap.style.display = 'block';
+    document.getElementById('policyCaps').innerHTML = caps.map(c=>`<li>${esc(c)}</li>`).join('');
+  } else { capsWrap.style.display = 'none'; }
+
+  // Scroll to results
+  setTimeout(()=> panel.scrollIntoView({behavior:'smooth', block:'start'}), 300);
+}
+
+function renderDescribe(data){
+  document.getElementById('resultsPanel').classList.remove('active');
+  const panel = document.getElementById('describePanel');
+  panel.style.display = 'block';
+  document.getElementById('describeRunId').textContent = data.run_id || '—';
+  document.getElementById('describeChunksPath').textContent = data.describe?.chunks_jsonl || '—';
+  document.getElementById('describeSummaryPath').textContent = data.describe?.summary_path || '—';
+
+  const summary = data.describe?.summary || {};
+  const counts = summary.counts_by_content_type || {};
+  document.getElementById('describeStats').innerHTML = `
+    <div><strong>Files processed:</strong> ${summary.processed_file_count ?? '—'} / ${summary.file_count ?? '—'}</div>
+    <div><strong>Chunks generated:</strong> ${summary.chunk_count ?? '—'}</div>
+    <div><strong>Text chunks:</strong> ${counts.text ?? 0}</div>
+    <div><strong>Image descriptions:</strong> ${counts.image_description ?? 0}</div>
+    <div><strong>Table chunks:</strong> ${counts.table ?? 0}</div>
+    <div><strong>Vision provider:</strong> ${summary.vision_provider || '—'}</div>
+    <div><strong>Vision model:</strong> ${summary.vision_model || '—'}</div>
+  `;
+  document.getElementById('describeJsonPanel').textContent = JSON.stringify(summary, null, 2);
+  setTimeout(()=> panel.scrollIntoView({behavior:'smooth', block:'start'}), 300);
+}
+
+function renderList(id, items){
+  const el = document.getElementById(id);
+  el.innerHTML = items.length
+    ? items.map(i => `<li>${esc(i)}</li>`).join('')
+    : '<li style="color:var(--text3)">None</li>';
+}
+
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+/* ── ERROR BANNER ─────────────────────────────────────────── */
+function showError(msg, log){
+  document.getElementById('errorMsg').textContent = msg;
+  const logEl = document.getElementById('errorLog');
+  if(log){ logEl.textContent = log; logEl.style.display = 'block'; }
+  else { logEl.style.display = 'none'; }
+  document.getElementById('errorBanner').style.display = 'block';
+  document.getElementById('errorBanner').scrollIntoView({behavior:'smooth'});
+}
+
+
+/* ── LECTURE INDEX INSPECTOR ─────────────────────────────── */
+const TAG_COLORS = {
+  p:'#6366f1', h1:'#8b5cf6', h2:'#8b5cf6', h3:'#8b5cf6',
+  h4:'#a78bfa', h5:'#a78bfa', h6:'#a78bfa',
+  table:'#14b8a6', img_alt:'#f59e0b',
+  li:'#6366f1', blockquote:'#ec4899', code:'#f97316', pre:'#f97316',
+  web_summary:'#22c55e', html:'#6366f1',
+};
+
+/* ── STEP 1 MUTUAL EXCLUSION HANDLERS ───────────────────── */
+function updateStep1Checkmarks(){
+  const assignSet = document.getElementById('selAssign').value ||
+                    (document.getElementById('assignUploadInline').files.length > 0);
+  const rubricSet = document.getElementById('selRubric').value ||
+                    (document.getElementById('rubricUploadInline').files.length > 0);
+  document.getElementById('assignCheck').style.display = assignSet ? 'inline' : 'none';
+  document.getElementById('rubricCheck').style.display  = rubricSet ? 'inline' : 'none';
+  document.getElementById('step1SetupLink').style.display = (!assignSet && !rubricSet) ? 'inline' : 'none';
+}
+
+function onAssignDropdownChange(){
+  if(document.getElementById('selAssign').value) clearAssignUpload(false);
+  updateStep1Checkmarks();
+}
+
+function onAssignUploadChange(){
+  const f = document.getElementById('assignUploadInline').files[0];
+  if(f){
+    document.getElementById('selAssign').value = '';
+    document.getElementById('assignUploadLbl').textContent = f.name;
+    document.getElementById('assignClearBtn').style.display = 'inline-block';
+  }
+  updateStep1Checkmarks();
+}
+
+function clearAssignUpload(updateChecks){
+  if(updateChecks === undefined) updateChecks = true;
+  const inp = document.getElementById('assignUploadInline');
+  inp.value = '';
+  document.getElementById('assignUploadLbl').textContent = '';
+  document.getElementById('assignClearBtn').style.display = 'none';
+  if(updateChecks) updateStep1Checkmarks();
+}
+
+function onRubricDropdownChange(){
+  if(document.getElementById('selRubric').value) clearRubricUpload(false);
+  updateStep1Checkmarks();
+}
+
+function onRubricUploadChange(){
+  const f = document.getElementById('rubricUploadInline').files[0];
+  if(f){
+    document.getElementById('selRubric').value = '';
+    document.getElementById('rubricUploadLbl').textContent = f.name;
+    document.getElementById('rubricClearBtn').style.display = 'inline-block';
+  }
+  updateStep1Checkmarks();
+}
+
+function clearRubricUpload(updateChecks){
+  if(updateChecks === undefined) updateChecks = true;
+  const inp = document.getElementById('rubricUploadInline');
+  inp.value = '';
+  document.getElementById('rubricUploadLbl').textContent = '';
+  document.getElementById('rubricClearBtn').style.display = 'none';
+  if(updateChecks) updateStep1Checkmarks();
+}
+
+/* ── LIBRARY MANAGEMENT ─────────────────────────────────── */
+function onLibAssignFileChosen(){
+  const f    = document.getElementById('libAssignFile').files[0];
+  const lbl  = document.getElementById('libAssignFileLabel');
+  const hint = document.getElementById('libAssignFormatHint');
+  if(!f){
+    lbl.textContent = 'Click or drag file here';
+    lbl.style.color = '#d97706';
+    hint.style.display = 'none';
+    return;
+  }
+  lbl.textContent = f.name;
+  lbl.style.color = '#059669';
+  const ok = /^assignment[_\-]?\d+\./i.test(f.name);
+  if(!ok){
+    hint.textContent = '⚠ Rename file to assignment_1.pdf, assignment_2.docx, etc. before saving.';
+    hint.style.display = 'block';
+    lbl.style.color = 'var(--red)';
+  } else {
+    hint.style.display = 'none';
+  }
+}
+
+async function saveAssignToLibrary(){
+  const fileEl   = document.getElementById('libAssignFile');
+  const statusEl = document.getElementById('libAssignStatus');
+  const hint     = document.getElementById('libAssignFormatHint');
+  if(!fileEl.files[0]){ statusEl.textContent = '⚠ Choose a file first.'; statusEl.style.color = 'var(--amber)'; return; }
+  if(!/^assignment[_\-]?\d+\./i.test(fileEl.files[0].name)){
+    statusEl.textContent = '✗ Filename must be assignment_1.pdf, assignment_2.docx, etc.';
+    statusEl.style.color = 'var(--red)'; return;
+  }
+  statusEl.textContent = 'Saving…'; statusEl.style.color = 'var(--text2)';
+  const fd = new FormData();
+  fd.append('file', fileEl.files[0]);
+  try {
+    const res  = await fetch('/api/library/save-assignment', { method:'POST', body:fd });
+    const data = await res.json();
+    if(data.success){
+      statusEl.textContent = `✓ Saved as "${data.display_name}"`;
+      statusEl.style.color = 'var(--teal)';
+      fileEl.value = '';
+      const lbl = document.getElementById('libAssignFileLabel');
+      lbl.textContent = 'Click or drag file here';
+      lbl.style.color = '#d97706';
+      hint.style.display = 'none';
+      await loadLibraryList();
+      await refreshDropdowns();
+    } else {
+      statusEl.textContent = '✗ ' + data.error;
+      statusEl.style.color = 'var(--red)';
+    }
+  } catch(e){ statusEl.textContent = '✗ ' + e.message; statusEl.style.color = 'var(--red)'; }
+}
+
+function onLibQuizFileChosen(){
+  const f   = document.getElementById('libQuizFile').files[0];
+  const lbl = document.getElementById('libQuizFileLabel');
+  const hint = document.getElementById('libQuizFormatHint');
+  if(!f){ lbl.textContent = 'Click or drag file here'; lbl.style.color = '#0891b2'; hint.style.display = 'none'; return; }
+  lbl.textContent = f.name;
+  lbl.style.color = '#059669';
+  const ok = /^quiz[_\-]?\d+\./i.test(f.name);
+  if(!ok){
+    hint.textContent = '⚠ Rename file to quiz_1.pdf, quiz_2.docx, etc. before saving.';
+    hint.style.display = 'block';
+    lbl.style.color = 'var(--red)';
+  } else {
+    hint.style.display = 'none';
+  }
+}
+
+async function saveQuizToLibrary(){
+  const fileEl   = document.getElementById('libQuizFile');
+  const statusEl = document.getElementById('libQuizStatus');
+  const hint     = document.getElementById('libQuizFormatHint');
+  if(!fileEl.files[0]){ statusEl.textContent = '⚠ Choose a file first.'; statusEl.style.color = 'var(--amber)'; return; }
+  if(!/^quiz[_\-]?\d+\./i.test(fileEl.files[0].name)){
+    statusEl.textContent = '✗ Filename must be quiz_1.pdf, quiz_2.docx, etc.';
+    statusEl.style.color = 'var(--red)'; return;
+  }
+  statusEl.textContent = 'Saving…'; statusEl.style.color = 'var(--text2)';
+  const fd = new FormData();
+  fd.append('file', fileEl.files[0]);
+  try {
+    const res  = await fetch('/api/library/save-quiz', { method:'POST', body:fd });
+    const data = await res.json();
+    if(data.success){
+      statusEl.textContent = `✓ Saved as "${data.display_name}"`;
+      statusEl.style.color = 'var(--teal)';
+      fileEl.value = '';
+      document.getElementById('libQuizFileLabel').textContent = 'Click or drag file here';
+      document.getElementById('libQuizFileLabel').style.color = '#0891b2';
+      hint.style.display = 'none';
+      await loadLibraryList();
+      await refreshDropdowns();
+    } else {
+      statusEl.textContent = '✗ ' + data.error;
+      statusEl.style.color = 'var(--red)';
+    }
+  } catch(e){ statusEl.textContent = '✗ ' + e.message; statusEl.style.color = 'var(--red)'; }
+}
+
+async function saveRubricToLibrary(){
+  const fileEl   = document.getElementById('libRubricFile');
+  const statusEl = document.getElementById('libRubricStatus');
+  if(!fileEl.files[0]){ statusEl.textContent = '⚠ Choose a file first.'; statusEl.style.color = 'var(--amber)'; return; }
+  statusEl.textContent = 'Saving…'; statusEl.style.color = 'var(--text2)';
+  const fd = new FormData();
+  fd.append('file', fileEl.files[0]);
+  try {
+    const res  = await fetch('/api/library/save-rubric', { method:'POST', body:fd });
+    const data = await res.json();
+    if(data.success){
+      statusEl.textContent = `✓ Saved as "${data.display_name}"`;
+      statusEl.style.color = 'var(--teal)';
+      fileEl.value = '';
+      const rlbl = document.getElementById('libRubricFileLabel');
+      rlbl.textContent = 'Click or drag rubric file';
+      await loadLibraryList();
+      await refreshDropdowns();
+    } else {
+      statusEl.textContent = '✗ ' + data.error;
+      statusEl.style.color = 'var(--red)';
+    }
+  } catch(e){ statusEl.textContent = '✗ ' + e.message; statusEl.style.color = 'var(--red)'; }
+}
+
+async function loadLibraryList(){
+  try {
+    const res  = await fetch('/api/library/list');
+    const data = await res.json();
+    _renderLibList('libAssignList', data.assignments, 'assignment');
+    _renderLibList('libQuizList',   data.quizzes,     'quiz');
+    _renderLibList('libRubricList', data.rubrics,     'rubric');
+    _syncBatchRubricSelect(data.rubrics);
+    // Populate the rubric-gen picker (assignments + quizzes, grouped)
+    const sel = document.getElementById('rubricGenAssignSelect');
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">— select saved assignment or quiz —</option>';
+    if((data.assignments||[]).length){
+      const grp = document.createElement('optgroup'); grp.label = 'Assignments';
+      (data.assignments||[]).forEach(f => grp.appendChild(new Option(f.display_name||f.name, f.path)));
+      sel.appendChild(grp);
+    }
+    if((data.quizzes||[]).length){
+      const grp = document.createElement('optgroup'); grp.label = 'Quizzes';
+      (data.quizzes||[]).forEach(f => grp.appendChild(new Option(f.display_name||f.name, f.path)));
+      sel.appendChild(grp);
+    }
+    if(cur && Array.from(sel.options).some(o => o.value === cur)) sel.value = cur;
+  } catch(e){}
+}
+
+function _renderLibList(listId, items, type){
+  const el = document.getElementById(listId);
+  if(!items || !items.length){
+    el.innerHTML = `<div style="text-align:center;padding:.9rem;border:1px dashed var(--border);border-radius:8px;">
+      <div style="font-size:1.3rem;opacity:.3">${type==='rubric'?'📋':'📄'}</div>
+      <div style="font-size:.75rem;color:var(--text3);margin-top:.3rem">No files saved yet</div>
+    </div>`;
+    return;
+  }
+  const isRubric = type === 'rubric';
+  const isQuiz   = type === 'quiz';
+  const badgeColor  = isRubric ? 'rgba(99,102,241,.12)' : isQuiz ? 'rgba(6,182,212,.12)' : 'rgba(245,158,11,.12)';
+  const badgeText   = isRubric ? '#4f46e5'               : isQuiz ? '#0e7490'              : '#b45309';
+  const borderHover = isRubric ? 'var(--primary)'        : isQuiz ? '#0891b2'              : '#d97706';
+
+  el.innerHTML = items.map(f => {
+    const num   = f.assignment_number;
+    const qnum  = f.quiz_number;
+    const badge = num
+      ? `<span style="background:${badgeColor};color:${badgeText};font-size:.68rem;font-weight:800;
+                      padding:.15rem .5rem;border-radius:20px;white-space:nowrap;flex-shrink:0">A${num}</span>`
+      : qnum
+      ? `<span style="background:${badgeColor};color:${badgeText};font-size:.68rem;font-weight:800;
+                      padding:.15rem .5rem;border-radius:20px;white-space:nowrap;flex-shrink:0">Q${qnum}</span>`
+      : '';
+    const eyeBtn = isRubric
+      ? `<button onclick="previewRubric('${esc(f.name)}','${esc(f.display_name||f.name)}')"
+           title="Preview rubric criteria"
+           style="flex-shrink:0;font-size:.72rem;padding:.18rem .42rem;border:1px solid rgba(99,102,241,.35);
+                  border-radius:5px;background:rgba(99,102,241,.07);color:var(--primary);cursor:pointer;
+                  transition:all .15s" onmouseover="this.style.background='rgba(99,102,241,.15)'"
+           onmouseout="this.style.background='rgba(99,102,241,.07)'">&#x1F441; View</button>`
+      : '';
+    return `
+    <div style="display:flex;align-items:center;gap:.45rem;padding:.45rem .65rem;
+                background:var(--surface);border:1px solid var(--border);border-radius:8px;
+                transition:all .2s;cursor:default"
+         onmouseover="this.style.borderColor='${borderHover}';this.style.background='var(--surface2)'"
+         onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--surface)'">
+      ${badge}
+      <span style="font-size:.8rem;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;
+                   white-space:nowrap;color:var(--text)" title="${esc(f.path)}">
+        ${esc(f.display_name || f.name)}
+      </span>
+      ${eyeBtn}
+      <button onclick="deleteFromLibrary('${type}','${esc(f.name)}')" title="Delete"
+        style="flex-shrink:0;font-size:.7rem;padding:.18rem .42rem;border:1px solid rgba(239,68,68,.3);
+               border-radius:5px;background:transparent;color:var(--red);cursor:pointer;transition:all .15s"
+        onmouseover="this.style.background='rgba(239,68,68,.08)'"
+        onmouseout="this.style.background='transparent'">&#x1F5D1;</button>
+    </div>`;
+  }).join('');
+}
+
+async function deleteFromLibrary(type, filename){
+  if(!confirm(`Delete "${filename}"?`)) return;
+  try {
+    const res  = await fetch('/api/library/delete', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({type, filename})
+    });
+    const data = await res.json();
+    if(data.success){
+      await loadLibraryList();
+      await refreshDropdowns();
+    } else {
+      alert('Delete failed: ' + (data.error || 'Unknown error'));
+    }
+  } catch(e){ alert('Delete failed: ' + e.message); }
+}
+
+/* ── RUBRIC PREVIEW ──────────────────────────────────────── */
+let _previewRubricPath = null;
+
+async function previewRubric(filename, displayName){
+  const panel   = document.getElementById('rubricPreviewPanel');
+  const title   = document.getElementById('rubricPreviewTitle');
+  const meta    = document.getElementById('rubricPreviewMeta');
+  const content = document.getElementById('rubricPreviewContent');
+
+  // If same rubric clicked again → toggle off
+  if(_previewRubricPath === filename && panel.style.display !== 'none'){
+    closeRubricPreview(); return;
+  }
+  _previewRubricPath = filename;
+  title.textContent   = displayName;
+  meta.textContent    = 'Loading…';
+  content.innerHTML   = '<div style="text-align:center;padding:1.5rem;color:var(--text3);font-size:.82rem">⏳ Fetching rubric…</div>';
+  panel.style.display = 'block';
+  panel.scrollIntoView({ behavior:'smooth', block:'nearest' });
+
+  try {
+    const res  = await fetch(`/api/library/preview?type=rubric&filename=${encodeURIComponent(filename)}`);
+    const data = await res.json();
+    if(!data.success){ content.innerHTML = `<p style="color:var(--red);font-size:.82rem">✗ ${esc(data.error||'Failed')}</p>`; return; }
+
+    if(data.content_type === 'json' && data.data && data.data.criteria){
+      const r = data.data;
+      meta.textContent = `${r.criteria.length} criteria · ${r.total_points} total points`;
+      const CRIT_COLORS = ['#6366f1','#10b981','#f59e0b','#ef4444','#14b8a6','#8b5cf6','#ec4899','#0ea5e9'];
+      content.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:.65rem">
+          ${r.criteria.map((c,i) => `
+            <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;
+                        box-shadow:0 1px 4px rgba(15,23,42,.05)">
+              <div style="background:${CRIT_COLORS[i%CRIT_COLORS.length]};padding:.55rem 1rem;
+                          display:flex;align-items:center;justify-content:space-between">
+                <div style="display:flex;align-items:center;gap:.5rem">
+                  <span style="background:rgba(255,255,255,.2);color:#fff;font-size:.68rem;font-weight:800;
+                               padding:.1rem .45rem;border-radius:20px;flex-shrink:0">C${i+1}</span>
+                  <span style="font-size:.85rem;font-weight:700;color:#fff">${esc(c.criterion_name)}</span>
+                </div>
+                <span style="background:rgba(255,255,255,.2);color:#fff;font-size:.82rem;font-weight:800;
+                             padding:.1rem .55rem;border-radius:20px;white-space:nowrap">${c.max_points} pts</span>
+              </div>
+              ${(c.checklist_items||[]).length ? `
+              <div style="padding:.6rem 1rem;background:var(--surface)">
+                <ul style="margin:0;padding-left:1.3rem;display:flex;flex-direction:column;gap:.25rem">
+                  ${(c.checklist_items||[]).map(item =>
+                    `<li style="font-size:.78rem;color:var(--text2);line-height:1.5">${esc(item)}</li>`
+                  ).join('')}
+                </ul>
+              </div>` : ''}
+            </div>`
+          ).join('')}
+        </div>
+        <div style="margin-top:1rem;padding:.65rem 1rem;background:var(--surface2);border-radius:8px;
+                    border:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+          <span style="font-size:.78rem;font-weight:600;color:var(--text2)">Total Points</span>
+          <span style="font-size:1rem;font-weight:800;color:var(--primary)">${r.total_points}</span>
+        </div>`;
+    } else if(data.content_type === 'text'){
+      meta.textContent = 'Text preview';
+      content.innerHTML = `
+        <pre style="font-size:.78rem;background:var(--surface2);border:1px solid var(--border);
+                    border-radius:8px;padding:.9rem;overflow:auto;max-height:320px;
+                    white-space:pre-wrap;color:var(--text2);line-height:1.6">${esc(data.preview||'')}</pre>`;
+    } else {
+      meta.textContent = '';
+      content.innerHTML = `<p style="font-size:.8rem;color:var(--text3);text-align:center;padding:1rem">
+        ${esc(data.preview||'Preview not available for this file format.')}
+      </p>`;
+    }
+  } catch(e){
+    content.innerHTML = `<p style="color:var(--red);font-size:.82rem">✗ ${esc(e.message)}</p>`;
+  }
+}
+
+function closeRubricPreview(){
+  document.getElementById('rubricPreviewPanel').style.display = 'none';
+  _previewRubricPath = null;
+}
+
+function rubricPreviewUseForGrading(){
+  // The preview is from library → set the selRubric dropdown to this file's path
+  if(!_previewRubricPath) return;
+  // Find the full path from the rubric dropdown
+  const sel = document.getElementById('selRubric');
+  let matched = false;
+  Array.from(sel.options).forEach(opt => {
+    if(opt.value.endsWith(_previewRubricPath)){
+      sel.value = opt.value;
+      matched = true;
+    }
+  });
+  if(matched){
+    updateStep1Checkmarks();
+    document.getElementById('rubricGenStatus').textContent = '✓ Rubric selected — switching to Grading tab.';
+    switchTab('grading');
+  } else {
+    alert('Rubric selected — please switch to the Grading tab and pick it from the dropdown.');
+  }
+}
+
+async function refreshDropdowns(){
+  try {
+    const res  = await fetch('/api/library/list');
+    const data = await res.json();
+    // selAssign: assignments + quizzes grouped
+    const selAssign = document.getElementById('selAssign');
+    if(selAssign){
+      const cur = selAssign.value;
+      selAssign.innerHTML = '<option value="">— Select from library —</option>';
+      if((data.assignments||[]).length){
+        const grp = document.createElement('optgroup'); grp.label = 'Assignments';
+        (data.assignments||[]).forEach(f => grp.appendChild(new Option(f.display_name||f.name, f.path)));
+        selAssign.appendChild(grp);
+      }
+      if((data.quizzes||[]).length){
+        const grp = document.createElement('optgroup'); grp.label = 'Quizzes';
+        (data.quizzes||[]).forEach(f => grp.appendChild(new Option(f.display_name||f.name, f.path)));
+        selAssign.appendChild(grp);
+      }
+      if(cur && Array.from(selAssign.options).some(o => o.value === cur)) selAssign.value = cur;
+      updateStep1Checkmarks();
+    }
+    updateDropdown('selRubric', data.rubrics, '— Select from library —');
+    _syncBatchRubricSelect(data.rubrics);
+  } catch(e){}
+}
+
+function updateDropdown(selectId, items, placeholder){
+  const sel = document.getElementById(selectId);
+  if(!sel) return;
+  const current = sel.value;
+  sel.innerHTML = `<option value="">${placeholder}</option>`;
+  (items || []).forEach(f => sel.appendChild(new Option(f.display_name || f.name, f.path)));
+  if(current && Array.from(sel.options).some(o => o.value === current)) sel.value = current;
+  updateStep1Checkmarks();
+}
+
+/* ── RUBRIC GENERATOR ────────────────────────────────────── */
+let _rubricJSON = null;
+
+async function generateRubric(){
+  const btn    = document.getElementById('rubricGenBtn');
+  const status = document.getElementById('rubricGenStatus');
+  const output = document.getElementById('rubricGenOutput');
+
+  const assignPath   = document.getElementById('rubricGenAssignSelect').value;
+  const instructions = document.getElementById('rubricInstructions').value.trim();
+
+  if(!assignPath){
+    status.textContent = '⚠ Select a saved assignment first.';
+    status.style.color = 'var(--red)'; return;
+  }
+
+  btn.disabled = true;
+  document.getElementById('rubricGenBtnIcon').textContent = '⏳';
+  document.getElementById('rubricGenBtnText').textContent = ' Generating…';
+  status.textContent = 'Calling Claude Sonnet 4.6…';
+  status.style.color = 'var(--text2)';
+  output.style.display = 'none';
+  _rubricJSON = null;
+
+  // Auto-derive save name from assignment or quiz number
+  const baseName  = assignPath.split('/').pop();
+  const aMatch    = baseName.match(/assignment[_\-]?(\d+)/i);
+  const qMatch    = baseName.match(/quiz[_\-]?(\d+)/i);
+  const autoSave  = aMatch ? `assignment_${aMatch[1]}` : qMatch ? `quiz_${qMatch[1]}` : '';
+
+  const fd = new FormData();
+  fd.append('assignment_library_path', assignPath);
+  if(instructions) fd.append('instructions', instructions);
+  fd.append('model', 'claude-sonnet-4-6');
+  if(autoSave) fd.append('save_name', autoSave);
+
+  try {
+    const res  = await fetch('/api/generate-rubric', { method:'POST', body:fd });
+    const data = await res.json();
+    if(!data.success){
+      status.textContent = '✗ ' + data.error;
+      status.style.color = 'var(--red)'; return;
+    }
+
+    _rubricJSON = data.rubric;
+    const mode = data.mode === 'enhanced' ? 'Enhanced' : 'Generated';
+    let msg = `✓ ${mode} — ${data.rubric.criteria.length} criteria, ${data.rubric.total_points} pts`;
+    if(data.saved_path) msg += ` · Saved as "${data.saved_display || autoSave}"`;
+    status.textContent = msg;
+    status.style.color = 'var(--teal)';
+
+    // Render criteria cards
+    const list = document.getElementById('rubricCriteriaList');
+    list.innerHTML = '';
+    data.rubric.criteria.forEach((c, i) => {
+      const card = document.createElement('div');
+      card.style.cssText = 'border:1px solid var(--border);border-radius:8px;padding:.75rem 1rem;background:var(--surface2)';
+      card.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem">
+          <div style="font-weight:700;font-size:.85rem">${i+1}. ${esc(c.criterion_name)}</div>
+          <div style="font-size:.8rem;font-weight:600;color:#6366f1">${c.max_points} pts</div>
+        </div>
+        <ul style="margin:0;padding-left:1.2rem;font-size:.78rem;color:var(--text2)">
+          ${(c.checklist_items||[]).map(item => `<li style="margin-bottom:.15rem">${esc(item)}</li>`).join('')}
+        </ul>`;
+      list.appendChild(card);
+    });
+
+    output.style.display = 'block';
+
+    if(data.saved_path){
+      await loadLibraryList();
+      await refreshDropdowns();
+    }
+  } catch(err){
+    status.textContent = '✗ Error: ' + err.message;
+    status.style.color = 'var(--red)';
+  } finally {
+    btn.disabled = false;
+    document.getElementById('rubricGenBtnIcon').textContent = '✨';
+    document.getElementById('rubricGenBtnText').textContent = ' Generate';
+  }
+}
+
+function rubricUseForGrading(){
+  if(!_rubricJSON) return;
+  document.getElementById('generatedRubricJson').value = JSON.stringify(_rubricJSON);
+  document.getElementById('rubricGenStatus').textContent = '✓ Rubric loaded — switching to Grading tab.';
+  document.getElementById('rubricGenStatus').style.color = 'var(--teal)';
+  switchTab('grading');
+}
+
+function rubricCopyJSON(){
+  if(!_rubricJSON) return;
+  navigator.clipboard.writeText(JSON.stringify(_rubricJSON, null, 2))
+    .then(()=>{ document.getElementById('rubricGenStatus').textContent = '✓ Copied to clipboard'; })
+    .catch(()=>{});
+}
+
+function rubricDownload(){
+  if(!_rubricJSON) return;
+  const blob = new Blob([JSON.stringify(_rubricJSON, null, 2)], { type:'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'generated_rubric.json'; a.click();
+}
+
+async function loadLectureStats(){
+  const btn = document.getElementById('inspectorRefreshBtn');
+  const loading = document.getElementById('inspectorLoading');
+  const stats = document.getElementById('inspectorStats');
+  btn.textContent = '⏳ Loading…';
+  btn.disabled = true;
+  loading.textContent = 'Loading extraction stats…';
+  loading.style.display = 'block';
+  stats.style.display = 'none';
+
+  try {
+    const resp = await fetch('/api/lecture-index-stats');
+    const d = await resp.json();
+    if(!d.success){ loading.textContent = '✗ ' + (d.error||'Error'); return; }
+
+    // Fill stat tiles
+    document.getElementById('iStatChunks').textContent = d.total_chunks.toLocaleString();
+    document.getElementById('iStatFiles').textContent  = d.total_files.toLocaleString();
+    document.getElementById('iStatAvg').textContent    = d.avg_chunk_chars.toLocaleString();
+    document.getElementById('iStatProvider').textContent = d.embedding_provider.toUpperCase();
+    const statusEl = document.getElementById('iStatStatus');
+    if(d.chroma_ready){
+      statusEl.textContent = '✓ Ready';
+      statusEl.style.color = 'var(--green)';
+    } else {
+      statusEl.textContent = '✗ Not indexed';
+      statusEl.style.color = 'var(--red)';
+    }
+
+    // Tag breakdown pills
+    const tagEl = document.getElementById('iTagBreakdown');
+    tagEl.innerHTML = Object.entries(d.tag_breakdown)
+      .sort((a,b)=>b[1]-a[1])
+      .map(([tag, cnt]) => {
+        const color = TAG_COLORS[tag] || '#94a3b8';
+        return `<span style="display:inline-flex;align-items:center;gap:.3rem;padding:.25rem .65rem;
+          border-radius:20px;font-size:.73rem;font-weight:600;background:${color}18;color:${color};
+          border:1px solid ${color}30">
+          ${esc(tag)} <span style="background:${color};color:#fff;border-radius:10px;padding:0 .4rem;font-size:.65rem">${cnt}</span>
+        </span>`;
+      }).join('');
+
+    // File count label
+    document.getElementById('iFileCount').textContent = `(${d.total_files} files)`;
+
+    // Per-file list
+    const fileEl = document.getElementById('iFileList');
+    fileEl.innerHTML = d.files.map((f, idx) => {
+      const isWeb = f.is_web;
+      const icon = isWeb ? '🌐' : (f.format === 'html' ? '📄' : '📋');
+      const name = isWeb ? (f.web_title || f.web_url) : f.filename;
+      const badge = isWeb
+        ? `<span style="font-size:.65rem;background:#22c55e18;color:#22c55e;border:1px solid #22c55e30;
+            border-radius:8px;padding:.1rem .4rem;font-weight:600">WEB</span>`
+        : `<span style="font-size:.65rem;background:var(--primary-bg);color:var(--primary);border:1px solid rgba(99,102,241,.2);
+            border-radius:8px;padding:.1rem .4rem;font-weight:600">${esc(f.format.toUpperCase())}</span>`;
+      const tagPills = Object.entries(f.tag_counts||{}).map(([t,c])=>
+        `<span style="font-size:.65rem;color:${TAG_COLORS[t]||'#94a3b8'}">${t}(${c})</span>`
+      ).join(' ');
+      return `<div style="padding:.65rem .9rem;border-bottom:1px solid var(--border);
+          display:flex;flex-direction:column;gap:.3rem;background:${idx%2===0?'var(--surface)':'var(--surface2)'}">
+        <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+          <span>${icon}</span>
+          ${badge}
+          <span style="font-weight:600;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+            title="${esc(isWeb ? f.web_url : f.filename)}">${esc(name)}</span>
+          <span style="flex-shrink:0;font-size:.72rem;font-weight:700;color:var(--primary);
+            background:var(--primary-bg);padding:.1rem .5rem;border-radius:8px">${f.chunks} chunks</span>
+        </div>
+        <div style="color:var(--text3);font-size:.7rem;display:flex;gap:.6rem;flex-wrap:wrap">${tagPills}</div>
+        <div style="color:var(--text2);font-size:.73rem;font-style:italic;
+          overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%"
+          title="${esc(f.sample)}">"${esc(f.sample)}"</div>
+      </div>`;
+    }).join('');
+
+    loading.style.display = 'none';
+    stats.style.display = 'block';
+  } catch(err){
+    loading.textContent = '✗ Request error: ' + err.message;
+  } finally {
+    btn.textContent = '↻ Refresh';
+    btn.disabled = false;
+  }
+}
+
+async function testRAG(){
+  const q = document.getElementById('ragSearchInput').value.trim();
+  if(!q) return;
+  const resEl = document.getElementById('ragResults');
+  resEl.innerHTML = '<div style="color:var(--text3);font-size:.78rem">Searching…</div>';
+  try {
+    const resp = await fetch(`/api/lecture-search?q=${encodeURIComponent(q)}&k=5`);
+    const d = await resp.json();
+    if(!d.success){ resEl.innerHTML = `<div style="color:var(--red);font-size:.78rem">✗ ${esc(d.error)}</div>`; return; }
+    if(!d.hits.length){ resEl.innerHTML = '<div style="color:var(--text3);font-size:.78rem">No results found.</div>'; return; }
+
+    resEl.innerHTML = d.hits.map((h, i) => {
+      const relevColor = h.relevance_pct >= 70 ? 'var(--green)' : h.relevance_pct >= 45 ? 'var(--amber)' : 'var(--red)';
+      return `<div style="border:1px solid var(--border);border-radius:var(--rs);padding:.65rem .85rem;
+          margin-bottom:.5rem;background:var(--surface)">
+        <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.35rem;flex-wrap:wrap">
+          <span style="font-size:.7rem;font-weight:800;color:#fff;background:var(--primary);
+            border-radius:6px;padding:.1rem .4rem">#${i+1}</span>
+          <span style="font-size:.72rem;font-weight:600;color:var(--text2)">${esc(h.filename)}</span>
+          ${h.element_tag ? `<span style="font-size:.65rem;color:${TAG_COLORS[h.element_tag]||'#94a3b8'}">&lt;${esc(h.element_tag)}&gt;</span>` : ''}
+          <span style="margin-left:auto;font-size:.72rem;font-weight:700;color:${relevColor}">
+            ${h.relevance_pct}% relevant
+          </span>
+        </div>
+        <div style="font-size:.78rem;color:var(--text);line-height:1.5">${esc(h.content)}</div>
+      </div>`;
+    }).join('');
+    resEl.scrollIntoView({behavior:'smooth', block:'nearest'});
+  } catch(err){
+    resEl.innerHTML = `<div style="color:var(--red);font-size:.78rem">✗ ${err.message}</div>`;
+  }
+}
+
+/* ── INDEX LECTURES ──────────────────────────────────────── */
+async function indexLectures(){
+  const btn = document.getElementById('indexLecturesBtn');
+  const status = document.getElementById('indexStatus');
+  if(btn){ btn.disabled = true; btn.textContent = 'Building index...'; }
+  status.textContent = 'Indexing lecture chunks, this may take a minute...';
+  try {
+    const resp = await fetch('/api/index-lectures', { method:'POST' });
+    const data = await resp.json();
+    if(data.success){
+      status.textContent = '✓ Lecture index built! Refresh the page to confirm.';
+      if(btn){ btn.textContent = '✓ Done'; btn.style.color = 'var(--teal)'; }
+    } else {
+      status.textContent = 'Failed: ' + (data.error || 'Unknown error');
+      if(btn){ btn.disabled = false; btn.textContent = 'Retry'; }
+    }
+  } catch(err){
+    status.textContent = 'Request error: ' + err.message;
+    if(btn){ btn.disabled = false; btn.textContent = 'Retry'; }
+  }
+}
+
+/* ── FORM SUBMIT ─────────────────────────────────────────── */
+async function submitPipeline(mode){
+  document.getElementById('errorBanner').style.display = 'none';
+  const btn = document.getElementById('gradeBtn');
+  const describeBtn = document.getElementById('describeBtn');
+  const form = document.getElementById('gradeForm');
+  const studentInput = form.querySelector('input[name="student_pdf"]');
+  const rubricInput = form.querySelector('input[name="rubric"]');
+  const assignmentInput = form.querySelector('input[name="assignment"]');
+  const studentFileReady = (studentInput && studentInput.files && studentInput.files.length)
+    || droppedFiles.student_pdf;
+  if(mode === 'full' || mode === 'describe'){
+    if(!studentFileReady){
+      showError('Please upload a student submission file.');
+      return;
+    }
+  }
+
+  btn.classList.remove('loading');
+  describeBtn.classList.remove('loading');
+  [btn, describeBtn].forEach(b => b.disabled = true);
+  const activeBtn = mode === 'describe' ? describeBtn : btn;
+  activeBtn.classList.add('loading');
+  startFakeProgress(mode);
+
+  const fd = new FormData(form);
+  if(studentInput && (!studentInput.files || !studentInput.files.length) && droppedFiles.student_pdf){
+    fd.append('student_pdf', droppedFiles.student_pdf, droppedFiles.student_pdf.name);
+  }
+  if(rubricInput && (!rubricInput.files || !rubricInput.files.length) && droppedFiles.rubric){
+    fd.append('rubric', droppedFiles.rubric, droppedFiles.rubric.name);
+  }
+  if(assignmentInput && (!assignmentInput.files || !assignmentInput.files.length) && droppedFiles.assignment){
+    fd.append('assignment', droppedFiles.assignment, droppedFiles.assignment.name);
+  }
+  fd.set('action_mode', mode);
+
+  try {
+    const endpoint = mode === 'describe' ? '/api/describe' : '/api/grade';
+    const resp = await fetch(endpoint, { method:'POST', body: fd });
+    let data = null;
+    const ct = (resp.headers.get('content-type') || '').toLowerCase();
+    if(ct.includes('application/json')){
+      data = await resp.json();
+    } else {
+      const text = await resp.text();
+      data = { success:false, error: text || `HTTP ${resp.status}` };
+    }
+    stopFakeProgress(data.steps || []);
+
+    if(resp.ok && data.success){
+      if(mode === 'describe'){
+        setTimeout(()=> renderDescribe(data), 600);
+      } else {
+        setTimeout(()=> renderResults(data.grades, data), 600);
+      }
+      loadHistory();
+    } else {
+      // Find the first failed step log
+      const failedStep = (data.steps || []).find(s => !s.ok);
+      showError(data.error || 'Grading failed.', failedStep ? failedStep.log : (data.log || null));
+    }
+  } catch(err){
+    stopFakeProgress([]);
+    showError('Request failed: ' + err.message);
+  } finally {
+    [btn, describeBtn].forEach(b => {
+      b.classList.remove('loading');
+      b.disabled = false;
+    });
+  }
+}
+
+document.getElementById('gradeForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  await submitPipeline('full');
+});
+
+document.getElementById('describeBtn').addEventListener('click', async () => {
+  await submitPipeline('describe');
+});
+
+/* ── LOAD HISTORY ────────────────────────────────────────── */
+async function loadHistory(){
+  try {
+    const resp = await fetch('/api/history');
+    const runs = await resp.json();
+    if(runs.length){
+      if(typeof _currentTab === 'undefined' || _currentTab === 'grading')
+        document.getElementById('historyCard').style.display = 'block';
+      document.getElementById('historyList').innerHTML = runs.map(r => `
+        <div class="history-item">
+          <span class="history-score" style="color:${r.score>=90?'var(--green)':r.score>=80?'var(--teal)':r.score>=70?'var(--amber)':'var(--red)'}">${Math.round(r.score)}</span>
+          <span class="history-file">${esc(r.student_file)}</span>
+          <span class="history-model">${esc(r.model)}</span>
+          <span class="history-model">${esc(r.timestamp||'')}</span>
+        </div>
+      `).join('');
+    }
+  } catch(e){ /* ignore */ }
+}
+loadHistory();
+loadRecentReports();
+loadLibraryList();
+updateStep1Checkmarks();
+
+/* ── BATCH QUIZ GRADING ──────────────────────────────────── */
+function onBatchFileChosen(){
+  const f = document.getElementById('batchXlsxFile').files[0];
+  const lbl = document.getElementById('batchFileLabel');
+  if(f){ lbl.textContent = '📊 ' + f.name; lbl.style.color = '#059669'; }
+  else { lbl.textContent = 'Click or drag Excel file here'; lbl.style.color = '#0891b2'; }
+}
+
+function onBatchDrop(e){
+  e.preventDefault();
+  document.getElementById('batchDropZone').style.background = 'rgba(6,182,212,.03)';
+  const file = e.dataTransfer.files[0];
+  if(!file) return;
+  const ext = file.name.split('.').pop().toLowerCase();
+  if(!['xlsx','xls'].includes(ext)){
+    document.getElementById('batchStatus').textContent = '✗ Please drop an Excel (.xlsx) file.';
+    document.getElementById('batchStatus').style.color = 'var(--red)';
+    return;
+  }
+  // Assign to file input via DataTransfer
+  const dt = new DataTransfer();
+  dt.items.add(file);
+  document.getElementById('batchXlsxFile').files = dt.files;
+  onBatchFileChosen();
+}
+
+async function runBatchQuizGrading(){
+  const fileEl    = document.getElementById('batchXlsxFile');
+  const statusEl  = document.getElementById('batchStatus');
+  const btn       = document.getElementById('batchQuizGradeBtn');
+  const resultWrap= document.getElementById('batchResultWrap');
+  const dlLink    = document.getElementById('batchDownloadLink');
+
+  if(!fileEl.files[0]){
+    statusEl.textContent = '⚠ Upload an Excel file first.';
+    statusEl.style.color = 'var(--amber)'; return;
+  }
+  const rubric = document.getElementById('batchRubricSelect').value;
+  if(!rubric){
+    statusEl.textContent = '⚠ Select a rubric from the library first.';
+    statusEl.style.color = 'var(--amber)'; return;
+  }
+
+  btn.disabled = true;
+  document.getElementById('batchBtnIcon').textContent = '⏳';
+  document.getElementById('batchBtnText').textContent = 'Grading students…';
+  statusEl.textContent = 'Sending to AI — this may take a minute for large classes…';
+  statusEl.style.color = 'var(--text2)';
+  resultWrap.style.display = 'none';
+
+  const fd = new FormData();
+  fd.append('quiz_xlsx',       fileEl.files[0]);
+  fd.append('selected_rubric', rubric);
+  fd.append('quiz_question',   document.getElementById('batchQuizQuestion').value.trim());
+  fd.append('provider',        document.getElementById('batchProvider').value);
+  fd.append('model',           document.getElementById('batchModel').value.trim());
+
+  try {
+    const resp = await fetch('/api/grade-quiz-batch', { method:'POST', body:fd });
+    if(!resp.ok){
+      const err = await resp.json().catch(() => ({error: resp.statusText}));
+      statusEl.textContent = '✗ ' + (err.error || resp.statusText);
+      statusEl.style.color = 'var(--red)';
+      return;
+    }
+    // It's a file download — create blob URL
+    const blob = await resp.blob();
+    const url  = URL.createObjectURL(blob);
+    const cd   = resp.headers.get('Content-Disposition') || '';
+    const nameMatch = cd.match(/filename="?([^"]+)"?/);
+    const fname = nameMatch ? nameMatch[1] : 'quiz_AI_Graded.xlsx';
+
+    dlLink.href     = url;
+    dlLink.download = fname;
+    resultWrap.style.display = 'block';
+    statusEl.textContent = '';
+  } catch(e){
+    statusEl.textContent = '✗ ' + e.message;
+    statusEl.style.color = 'var(--red)';
+  } finally {
+    btn.disabled = false;
+    document.getElementById('batchBtnIcon').textContent = '⚡';
+    document.getElementById('batchBtnText').textContent = 'Grade All Students';
+  }
+}
+
+// Populate batchRubricSelect whenever library is refreshed
+function _syncBatchRubricSelect(rubrics){
+  const sel = document.getElementById('batchRubricSelect');
+  if(!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— Select rubric from library —</option>';
+  (rubrics || []).forEach(r => sel.appendChild(new Option(r.display_name || r.name, r.path)));
+  if(cur && Array.from(sel.options).some(o => o.value === cur)) sel.value = cur;
+}
+
+async function loadRecentReports(){
+  try {
+    const resp = await fetch('/api/reports');
+    const data = await resp.json();
+    const reports = data.reports || [];
+    const card = document.getElementById('reportsCard');
+    const list = document.getElementById('reportsList');
+    if(!reports.length){ card.style.display='none'; return; }
+    if(typeof _currentTab === 'undefined' || _currentTab === 'grading')
+      card.style.display = 'block';
+    list.innerHTML = reports.map((r, idx) => {
+      const score = Math.round(r.score || 0);
+      const maxPts = r.total_max || 100;
+      const pct = score / maxPts * 100;
+      const scoreColor = pct>=90?'#22c55e':pct>=80?'#14b8a6':pct>=70?'#f59e0b':pct>=60?'#f97316':'#ef4444';
+      const ts = r.timestamp ? new Date(r.timestamp).toLocaleString() : '';
+      return `
+      <div style="display:flex;align-items:center;gap:.7rem;padding:.5rem .75rem;
+                  background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+                  transition:all .2s" onmouseover="this.style.borderColor='#dc2626'"
+           onmouseout="this.style.borderColor='var(--border)'">
+        <span style="background:${scoreColor};color:#fff;font-size:.75rem;font-weight:800;
+                     padding:.15rem .55rem;border-radius:20px;flex-shrink:0;min-width:36px;text-align:center">
+          ${score}/${maxPts}
+        </span>
+        <span style="font-size:.82rem;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;
+                     white-space:nowrap;color:var(--text)" title="${esc(r.filename)}">
+          ${esc(r.student)}
+        </span>
+        <span style="font-size:.72rem;color:var(--text3);white-space:nowrap;flex-shrink:0">${esc(ts)}</span>
+        <a href="/api/reports/${encodeURIComponent(r.filename)}" download="${esc(r.filename)}"
+           style="flex-shrink:0;padding:.28rem .7rem;background:rgba(239,68,68,.1);color:#dc2626;
+                  border:1px solid rgba(239,68,68,.25);border-radius:6px;font-size:.74rem;
+                  font-weight:700;text-decoration:none;white-space:nowrap">
+          &#x2B07; PDF
+        </a>
+      </div>`;
+    }).join('');
+  } catch(e){ /* ignore */ }
+}
+
+/* ── 3-TAB SWITCHING ────────────────────────────────────────── */
+const _GRADING_IDS = ['gradeCard','errorBanner','progressPanel','describePanel','resultsPanel','historyCard','batchQuizCard','reportsCard'];
+const _RUBRIC_IDS  = ['setupCard','lectureInspectorCard'];
+const _LECTURE_IDS = ['lectureUploadCard'];
+let _currentTab = 'grading';
+let _savedDisplay = {};
+
+function switchTab(tab){
+  if(_currentTab === tab) return;
+
+  // Save & hide current tab's cards
+  const currentIds = _currentTab === 'grading' ? _GRADING_IDS
+                   : _currentTab === 'rubric'   ? _RUBRIC_IDS
+                   :                              _LECTURE_IDS;
+  currentIds.forEach(id => {
+    const el = document.getElementById(id);
+    if(el){ _savedDisplay[_currentTab + '_' + id] = el.style.display; el.style.display = 'none'; }
+  });
+
+  // Show new tab's cards (restore saved state, or default to '')
+  const nextIds = tab === 'grading' ? _GRADING_IDS
+                : tab === 'rubric'  ? _RUBRIC_IDS
+                :                    _LECTURE_IDS;
+  nextIds.forEach(id => {
+    const el = document.getElementById(id);
+    if(!el) return;
+    const saved = _savedDisplay[tab + '_' + id];
+    el.style.display = (saved !== undefined) ? saved : '';
+  });
+
+  _currentTab = tab;
+  ['Grading','Rubric','Lecture'].forEach(t =>
+    document.getElementById('tabBtn'+t)?.classList.toggle('active', tab === t.toLowerCase())
+  );
+  window.scrollTo({top:0, behavior:'smooth'});
+
+  // Load lecture files when switching to lecture tab
+  if(tab === 'lecture') loadLectureFiles();
+}
+
+// Initialise: hide rubric & lecture cards — grading tab default
+(function initTabs(){
+  [..._RUBRIC_IDS, ..._LECTURE_IDS].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.style.display = 'none';
+  });
+})();
+
+/* ── LECTURE TAB — JS ────────────────────────────────────────── */
+let _lectureChunksFile = null;
+
+function onLectureFileChosen(){
+  const f   = document.getElementById('lectureFileInput').files[0];
+  const lbl = document.getElementById('lectureFileLabel');
+  if(!f){ lbl.textContent = 'Click or drag lecture file here'; lbl.style.color='#d97706'; return; }
+  lbl.textContent = f.name; lbl.style.color = '#059669';
+}
+
+async function uploadAndDescribeLecture(){
+  const fileEl = document.getElementById('lectureFileInput');
+  const status = document.getElementById('lectureUploadStatus');
+  const btn    = document.getElementById('lectureDescribeBtn');
+  const icon   = document.getElementById('lectureDescribeIcon');
+  const txt    = document.getElementById('lectureDescribeTxt');
+
+  if(!fileEl.files[0]){ status.textContent = '⚠ Choose a lecture file first.'; status.style.color='var(--amber)'; return; }
+
+  btn.disabled = true; icon.textContent = '⏳'; txt.textContent = 'Uploading…';
+  status.textContent = ''; _lectureChunksFile = null;
+
+  // Step 1: Upload
+  const fdUp = new FormData();
+  fdUp.append('file', fileEl.files[0]);
+  let uploadData;
+  try {
+    const r = await fetch('/api/library/upload-lecture', {method:'POST', body:fdUp});
+    uploadData = await r.json();
+    if(!uploadData.success){ status.textContent='✗ '+uploadData.error; status.style.color='var(--red)'; return; }
+    status.textContent = `✓ Uploaded (${uploadData.size_kb} KB) — describing…`;
+    status.style.color = 'var(--teal)';
+  } catch(e){ status.textContent='✗ '+e.message; status.style.color='var(--red)'; return; }
+
+  // Step 2: Describe
+  txt.textContent = 'Describing…';
+  const fdDesc = new FormData();
+  fdDesc.append('lecture_path', uploadData.path);
+  fdDesc.append('describe_provider', document.getElementById('lectureDescribeProvider').value);
+  fdDesc.append('describe_model', document.getElementById('lectureDescribeModel').value.trim() || '');
+  try {
+    status.textContent = 'Running AI describe pipeline — this may take a few minutes…';
+    const r = await fetch('/api/describe-lecture', {method:'POST', body:fdDesc});
+    const d = await r.json();
+    if(!d.success){ status.textContent='✗ '+d.error; status.style.color='var(--red)'; return; }
+    _lectureChunksFile = d.chunks_file;
+    status.textContent = `✓ Done — ${d.total_chunks} chunks, ${d.flagged_count} image flag(s)`;
+    status.style.color = d.flagged_count > 0 ? 'var(--amber)' : 'var(--teal)';
+    renderLectureResults(d);
+    await loadLectureFiles();
+  } catch(e){ status.textContent='✗ '+e.message; status.style.color='var(--red)'; }
+  finally {
+    btn.disabled = false; icon.textContent = '🔍'; txt.textContent = 'Describe Lecture';
+  }
+}
+
+function renderLectureResults(d){
+  document.getElementById('lectureWaitState').style.display       = 'none';
+  document.getElementById('lectureDescribeResults').style.display = 'block';
+
+  // Summary bar
+  const bar = document.getElementById('lectureSummaryBar');
+  bar.innerHTML = `
+    <span style="font-size:.82rem;color:var(--text2)">&#x1F4D6; <strong style="color:var(--primary)">${esc(d.lecture_name)}</strong></span>
+    <span style="font-size:.78rem;color:var(--text3)">&#x1F4C4; <strong style="color:var(--text)">${d.total_chunks}</strong> chunks</span>
+    <span style="font-size:.78rem;color:${d.flagged_count>0?'var(--amber)':'var(--green)'}">&#x26A0; <strong>${d.flagged_count}</strong> image flag(s)</span>`;
+
+  // Flags
+  const flagSection  = document.getElementById('lectureFlagSection');
+  const noFlagMsg    = document.getElementById('lectureNoFlagMsg');
+  const flagList     = document.getElementById('lectureFlagList');
+
+  const FLAG_LABELS = {
+    no_description: {label:'No description returned', color:'var(--red)',    bg:'rgba(239,68,68,.08)',   icon:'🚫'},
+    poor_quality:   {label:'AI flagged as unclear/blurry', color:'var(--amber)', bg:'rgba(245,158,11,.08)', icon:'⚠️'},
+    very_short:     {label:'Description very short (<25 chars)', color:'var(--amber)', bg:'rgba(245,158,11,.06)', icon:'📏'},
+  };
+
+  if(d.flagged_count > 0){
+    flagSection.style.display = 'block';
+    noFlagMsg.style.display   = 'none';
+    flagList.innerHTML = (d.flagged||[]).map(f => {
+      const info = FLAG_LABELS[f.flag] || {label:f.flag, color:'var(--text2)', bg:'var(--surface2)', icon:'❓'};
+      return `<div style="padding:.55rem .8rem;background:${info.bg};border:1px solid ${info.color}22;
+                          border-radius:8px;display:flex;gap:.6rem;align-items:flex-start">
+        <span style="font-size:1rem;flex-shrink:0">${info.icon}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:.78rem;font-weight:700;color:${info.color}">Page ${esc(String(f.page))} — ${info.label}</div>
+          <div style="font-size:.72rem;color:var(--text3);margin-top:.2rem;overflow:hidden;text-overflow:ellipsis;
+                      white-space:nowrap;max-width:100%">"${esc(f.preview||'(empty)')}"</div>
+        </div>
+      </div>`;
+    }).join('');
+  } else {
+    flagSection.style.display = 'none';
+    noFlagMsg.style.display   = 'block';
+  }
+}
+
+async function pushLectureToRAG(){
+  if(!_lectureChunksFile){ alert('Run "Describe Lecture" first.'); return; }
+  const btn    = document.getElementById('lecturePushBtn');
+  const icon   = document.getElementById('lecturePushIcon');
+  const txt    = document.getElementById('lecturePushTxt');
+  const status = document.getElementById('lecturePushStatus');
+  const skip   = document.getElementById('lectureSkipFlagged').checked;
+
+  btn.disabled = true; icon.textContent = '⏳'; txt.textContent = 'Pushing…';
+  status.textContent = 'Appending chunks and rebuilding Chroma index…';
+  status.style.color = 'var(--text2)';
+
+  try {
+    const r = await fetch('/api/push-lecture-to-rag', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({chunks_file: _lectureChunksFile, skip_flagged: skip}),
+    });
+    const d = await r.json();
+    if(d.success){
+      status.textContent = d.message || `✓ ${d.added_chunks} chunks pushed to RAG.`;
+      status.style.color = 'var(--teal)';
+    } else {
+      status.textContent = '✗ '+(d.error||'Push failed');
+      status.style.color = 'var(--red)';
+    }
+  } catch(e){ status.textContent = '✗ '+e.message; status.style.color = 'var(--red)'; }
+  finally { btn.disabled=false; icon.textContent='🚀'; txt.textContent='Push to RAG'; }
+}
+
+async function loadLectureFiles(){
+  try {
+    const r    = await fetch('/api/library/lectures');
+    const data = await r.json();
+    const list = document.getElementById('lectureFileList');
+    if(!list) return;
+    if(!data.files || !data.files.length){
+      list.innerHTML = `<div style="text-align:center;padding:.8rem;border:1px dashed var(--border);border-radius:8px">
+        <div style="font-size:.75rem;color:var(--text3)">No lectures uploaded yet</div></div>`;
+      return;
+    }
+    list.innerHTML = data.files.map(f => `
+      <div style="display:flex;align-items:center;gap:.4rem;padding:.42rem .6rem;
+                  background:var(--surface);border:1px solid var(--border);border-radius:8px;
+                  transition:all .2s" onmouseover="this.style.borderColor='#d97706'"
+           onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:.8rem">&#x1F4C4;</span>
+        <span style="font-size:.78rem;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;
+                     white-space:nowrap;color:var(--text)" title="${esc(f.path)}">${esc(f.name)}</span>
+        <span style="font-size:.68rem;color:var(--text3);flex-shrink:0">${f.size_kb} KB</span>
+        <button onclick="deleteLectureFile('${esc(f.name)}')" title="Delete"
+          style="font-size:.68rem;padding:.14rem .38rem;border:1px solid rgba(239,68,68,.3);
+                 border-radius:4px;background:transparent;color:var(--red);cursor:pointer">&#x1F5D1;</button>
+      </div>`).join('');
+  } catch(e){ /* ignore */ }
+}
+
+async function deleteLectureFile(name){
+  if(!confirm(`Delete "${name}"?`)) return;
+  try {
+    await fetch('/api/library/delete-lecture',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({filename:name})});
+    loadLectureFiles();
+  } catch(e){}
+}
+</script>
+</body>
+</html>

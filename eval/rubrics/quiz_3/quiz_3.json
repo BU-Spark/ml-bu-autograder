@@ -1,0 +1,35 @@
+{
+  "semester": "fall2025",
+  "course_id": "quiz_3",
+  "assignment_id": "quiz_3",
+  "grading_flags": [
+    "ORIGINALITY",
+    "IGNORE_SPELLINGS",
+    "IGNORE_GRAMMAR"
+  ],
+  "overall_instructor_guidelines": "Maximum of 16 points. Question: 'What is one goal of the federal government Promoting Interoperability (PI) requirements and why is it important?' Do NOT use sentence count or answer length as a scoring factor — evaluate conceptual accuracy, completeness, and relevance only. A correct, concise answer earns full credit; length alone does not compensate for lack of depth. Prioritize awarding points for: (1) clearly naming one specific, legitimate PI goal and (2) accurately explaining why that goal matters for patient care, safety, or healthcare system efficiency. Minor spelling and grammar errors should be ignored. Exemplar answers (for calibration):\n- Exemplary (15–16 pts): Names a specific PI goal (e.g., patient engagement via portal, data sharing/interoperability, electronic prescribing of controlled substances) and explains why it is important with a concrete causal chain (e.g., 'patient portals give patients direct access to lab results and medications, improving adherence to treatment plans and reducing unnecessary follow-up visits').\n- Good (11–14 pts): Names a valid PI goal and gives a mostly correct explanation of importance but omits one specific benefit or mechanism.\n- Poor (0–5 pts): Names a goal vaguely or incorrectly (e.g., describes a general health IT benefit without connecting to PI specifically), or provides an irrelevant or incorrect explanation.",
+  "sub_rubrics": [
+    {
+      "question_index": 0,
+      "max_points": 16.0,
+      "instructor_guideline": "Scoring is split across three criteria: (A) goal_identification (4 pts) — student names one specific, legitimate PI goal; (B) importance_explanation (9 pts) — student explains why that goal is important with conceptual depth and a causal linkage; (C) specificity (3 pts) — student adds concrete detail, examples, or measurable impact beyond the core explanation.\n\nAcceptable PI goals (not exhaustive): patient access to health information (portals, Blue Button API); electronic prescribing of controlled substances (EPCS); public health reporting / immunization registries; care coordination and data exchange across providers; health information exchange (HIE); provider-to-provider exchange; medication reconciliation; clinical decision support tied to interoperability.\n\nGate rule: If (A) goal_identification is scored 0–1 (goal not named or entirely wrong), cap total score at 6/16 regardless of explanation quality.\n\nDo not penalize students who choose a valid but less-common PI goal if the explanation is correct and plausible.",
+      "grading_criteria": [
+        {
+          "criteria_id": "goal_identification",
+          "criteria": "Identification of one specific PI goal (4 points). Full credit (4/4): student clearly names one specific, legitimate Promoting Interoperability goal or requirement area (see acceptable list in instructor guidelines). 3 = goal named but slightly imprecise or overbroad. 2 = partially correct — student identifies a related concept (e.g., 'data sharing' without connecting to PI) but the connection to PI is implicit. 1 = goal described vaguely; clear relevance to PI is uncertain. 0 = goal is absent, incorrect, or unrelated to PI.",
+          "points": 4.0
+        },
+        {
+          "criteria_id": "importance_explanation",
+          "criteria": "Explanation of why the goal is important (9 points). Full credit (9/9): provides a clear, accurate, and specific explanation of why the named PI goal matters, with an explicit causal chain connecting the goal to patient care quality, safety, efficiency, or outcomes. Anchor bands: 9 = comprehensive correct explanation with explicit causal linkage and at least one concrete benefit stated; 6–8 = mostly correct explanation, correct causal direction but missing one specific benefit or link; 3–5 = partial or vague explanation, correct at a high level but missing key causal steps; 1–2 = minimal or largely incorrect explanation; 0 = no relevant explanation.",
+          "points": 9.0
+        },
+        {
+          "criteria_id": "specificity_or_example",
+          "criteria": "Specificity and concrete detail (3 points). Full credit (3/3): answer includes concrete examples, named tools/systems (e.g., 'MyChart', 'Blue Button API'), measurable impacts, or a specific real-world scenario that clearly illustrates the PI goal's importance beyond the core explanation. Partial credit (1–2): includes some clarifying detail but it is generic or only partially illustrative. No credit (0): explanation is wholly abstract with no concrete grounding.",
+          "points": 3.0
+        }
+      ]
+    }
+  ]
+}

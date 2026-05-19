@@ -1,10 +1,9 @@
 import base64
 import logging
-from builtins import bytes
 from enum import Enum
 from io import BytesIO
 from pathlib import Path
-from typing import Dict, List, Tuple, Any, Optional, Protocol, Callable, Literal
+from typing import Dict, List, Tuple, Any, Optional, Callable, Literal
 
 import fitz  # PyMuPDF
 from pydantic import BaseModel, field_validator  # Use pydantic BaseModel for DocumentChunk
@@ -139,7 +138,7 @@ class DocumentChunk(BaseModel):
     content: bytes
     # metadata associated with the data
     # (for example which document or page number it comes from)
-    metadata: Optional[Dict[Literal['page_num', 'xref'], Any]] = None
+    metadata: Optional[Dict[Literal['page_num', 'xref', 'element_type', 'caption'], Any]] = None
 
     @field_validator("data_type", mode="before")
     def validate_data_type(cls, dt: DataType) -> DataType:
@@ -232,8 +231,9 @@ class Document:
             binary_stream = BytesIO(file_bytes)
             try:
                 doc = fitz.open(stream=binary_stream, filetype="pdf")
-            except FileDataError as e:
+            except FileDataError:
                 logging.error("Failed to open pdf file. Is this even a PDF?")
+                return None
 
             for page_num_zero_based, page in enumerate(doc):
                 page_num_one_based = page_num_zero_based + 1
@@ -401,6 +401,39 @@ class Document:
                 doc.close()
 
         return cls(file_name=file_name, contents=contents)
+
+    def to_markdown(self) -> str:
+        """
+        Renders document contents as a Markdown string.
+
+        Chunks with element_type metadata are formatted semantically.
+        Legacy PyMuPDF chunks (no element_type) are rendered as plain paragraphs.
+        Image chunks are represented as placeholder references.
+        """
+        parts: List[str] = []
+        for chunk_id, chunk in sorted(self.contents.items()):
+            if chunk.data_type == DataType.TEXT:
+                text = chunk.get_as_string()
+                element_type = (chunk.metadata or {}).get("element_type")
+                if element_type == "TITLE":
+                    parts.append(f"## {text}\n\n")
+                elif element_type == "TABLE":
+                    parts.append(f"```\n{text}\n```\n\n")
+                elif element_type == "EQUATION":
+                    parts.append(f"$$ {text} $$\n\n")
+                elif element_type == "TABLE_CAPTION":
+                    parts.append(f"*{text}*\n\n")
+                elif element_type == "IMAGE_CAPTION":
+                    pass  # attached to the image chunk as metadata
+                else:
+                    # TEXT, None (legacy PyMuPDF), or anything else → plain paragraph
+                    parts.append(f"{text}\n\n")
+            elif chunk.data_type.is_image():
+                caption = (chunk.metadata or {}).get("caption", "")
+                suffix = f" — {caption}" if caption else ""
+                parts.append(f"![Image](chunk_{chunk_id}){suffix}\n\n")
+
+        return "".join(parts)
 
     # This method was generated using AI: https://aistudio.google.com/app/prompts?state=%7B%22ids%22:%5B%221LjDioKGc-5H78OUXySRbPlJh0TUB0nYv%22%5D,%22action%22:%22open%22,%22userId%22:%22112153521177605316268%22,%22resourceKeys%22:%7B%7D%7D&usp=sharing
     @classmethod
@@ -601,10 +634,8 @@ class Document:
         raise NotImplementedError("from_html is not implemented")
 
 
-class ToDocumentFunction(Protocol):
-    _call_func_: Callable[[str, bytes, bool], Document]
-
-    def __init__(self, func):
+class ToDocumentFunction:
+    def __init__(self, func: Callable[[str, bytes, bool], Document]):
         self._call_func_ = func
 
     def __call__(self, filename: str, content_bytes: bytes, do_splits: bool = True) -> Document:

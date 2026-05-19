@@ -1,0 +1,43 @@
+# ── Web framework ─────────────────────────────────────────────────────────────
+flask>=3.0.0
+
+# ── AI providers ─────────────────────────────────────────────────────────────
+openai>=1.35.0
+anthropic>=0.39.0
+google-generativeai>=0.8.0
+google-genai>=1.0.0
+
+# ── Vector database ───────────────────────────────────────────────────────────
+chromadb>=0.5.0
+
+# ── Local embeddings (fallback — no API key needed) ───────────────────────────
+sentence-transformers>=3.0.0
+
+# ── Document extraction ───────────────────────────────────────────────────────
+PyMuPDF>=1.24.0
+pypdf>=3.17,<4.0
+pypdfium2>=4.30.0
+python-pptx>=1.0.2
+python-docx>=1.1.2
+openpyxl>=3.1.0
+beautifulsoup4>=4.12.0
+camelot-py>=0.11.0
+
+# ── Image processing & OCR ────────────────────────────────────────────────────
+Pillow>=10.0.0
+pytesseract>=0.3.10
+opencv-python-headless>=4.10.0
+
+# ── Data utilities ────────────────────────────────────────────────────────────
+pandas>=2.0.0
+matplotlib>=3.8.0
+requests>=2.31.0
+
+# ── PDF report generation ─────────────────────────────────────────────────────
+fpdf2>=2.7.0
+
+# ── Configuration ─────────────────────────────────────────────────────────────
+python-dotenv>=1.0.0
+
+# ── Legacy Streamlit MVP (optional) ──────────────────────────────────────────
+# streamlit>=1.35.0

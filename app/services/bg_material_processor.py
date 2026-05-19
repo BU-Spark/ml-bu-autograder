@@ -3,6 +3,7 @@ import base64
 import logging
 import os
 import random
+from pathlib import Path
 from typing import Optional, TextIO, Callable, Dict, List
 from itertools import chain
 
@@ -29,6 +30,50 @@ The reason we do it like this is because:
 4. In production, there might be multiple processes of FastAPI that are truly parallel so this
    approach has the added advantage of true multi-threading (not usually easily possible in Python).
 """
+
+FEW_SHOT_ENV = "AUTO_GRADER_FEW_SHOT_FILE"
+_FEW_SHOT_MAX_CHARS = 16_000
+
+_BASE_SYSTEM_PROMPT = (
+    "You are a grader responsible for grading a student's response "
+    "ensuring accuracy and fairness."
+)
+
+
+def _load_few_shot_exemplars() -> str:
+    """
+    Optional few-shot / calibration text appended to the grader system message.
+    Set AUTO_GRADER_FEW_SHOT_FILE in the environment to a plain-text path (absolute recommended).
+    """
+    raw = os.getenv(FEW_SHOT_ENV, "").strip()
+    if not raw:
+        return ""
+    p = Path(raw).expanduser()
+    if not p.is_file():
+        logging.warning("%s is not a readable file: %s", FEW_SHOT_ENV, p)
+        return ""
+    try:
+        text = p.read_text(encoding="utf-8", errors="replace")
+    except OSError as e:
+        logging.warning("Could not read %s: %s", p, e)
+        return ""
+    if len(text) > _FEW_SHOT_MAX_CHARS:
+        logging.warning("Few-shot file truncated from %d to %d characters.", len(text), _FEW_SHOT_MAX_CHARS)
+        text = text[:_FEW_SHOT_MAX_CHARS]
+    return text.strip()
+
+
+def _grader_system_prompt() -> str:
+    extra = _load_few_shot_exemplars()
+    if not extra:
+        return _BASE_SYSTEM_PROMPT
+    return (
+        _BASE_SYSTEM_PROMPT
+        + "\n\n=== FEW-SHOT EXEMPLARS (calibration) ===\n"
+        "The following examples illustrate desired grading style and rubric application. "
+        "Follow this spirit; the rubric and student response content in the user messages remain authoritative.\n\n"
+        + extra
+    )
 
 
 def process_grading(json_str: str):
@@ -93,8 +138,7 @@ def process_grading(json_str: str):
     #          assignment instructions, rubric, RAG-ed course material chunks, and student
     #          response to generate a prompt for auto-grading.
     prompt = (PromptBuilder.builder()
-              .add_message(PromptRole.SYSTEM, "You are a grader responsible for grading a student's response "
-                                              "ensuring accuracy and fairness.")
+              .add_message(PromptRole.SYSTEM, _grader_system_prompt())
               .add_message(PromptRole.USER, "Here is course material that might be relevant to this assignment."
                                             "When evaluating accuracy for your grades, in your grading responses, "
                                             "cite these relevant sources including with any in the following format: "
@@ -166,11 +210,21 @@ def process_course_material(json_str: str):
     #  Step 2: Convert the binary data of the course material into document chunks using
     #          bytes_to_doc_util.py.
     to_doc_func = course_material.data.data_type.get_to_doc_func()
-    document: Document = to_doc_func(
-        f"{course_material.material_id}.{course_material.data.data_type.extension}",
-        course_material.data.content_as_bytes(),
-        True
-    )
+    try:
+        document: Optional[Document] = to_doc_func(
+            f"{course_material.material_id}.{course_material.data.data_type.extension}",
+            course_material.data.content_as_bytes(),
+            True
+        )
+    except Exception as e:
+        logging.error(
+            "Failed to convert course material to document chunks: %s", e, exc_info=True
+        )
+        return
+
+    if document is None:
+        logging.error("Failed to convert course material to document chunks.")
+        return
     #  Step 3: Upload these chunks to azure and get the blob paths
     blob_uploader = AzureBlobService.get_instance()
     uploaded_chunks: Dict[int, str] = blob_uploader.upload_material_chunks(
