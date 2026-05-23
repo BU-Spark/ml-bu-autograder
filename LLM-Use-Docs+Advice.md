@@ -420,7 +420,7 @@ def grade_response(question: str, student_response: str, rubric: str, temp=.5) -
 
     # Set the system prompt here. This is just a basic example of one, but you can adjust your system prompt in many ways, and we later provide suggestions on how to do so with techniques such as chain of thought reasoning, few shot prompting, and OpenAI recommended prompt templates.
 
-    system_prompt = f"You are provided with a short response question, and a grading rubric that lists some of the acceptable repsonses. Based on the rubric and the response," \
+    system_prompt = f"You are provided with a short response question, and a grading rubric that lists some of the acceptable responses. Based on the rubric and the response, " \
     f"You will grade the response out of the allotted points for the question, which is 14 points, as noted in the question itself. You " \
     f"should make the grade that you provide very clear so that it can easily be located in your response. When grading the response, only take into account the content of the rubric," \
     f"and not anything else such as strength of language or spelling errors. Read the question's instructions and rubric very carefully. Here is the question: {question} \n Here is the rubric:" \
